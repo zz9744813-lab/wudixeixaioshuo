@@ -196,3 +196,64 @@ async def get_chapter_content(
         "content": content,
         "word_count": len(content) if content else 0,
     }
+
+
+# ========== 独立章节路由 (用于E2E测试) ==========
+
+@router.get("/chapters/{chapter_id}")
+async def get_chapter_by_id(
+    chapter_id: int,
+    db: Session = Depends(get_db)
+):
+    """通过ID获取章节详情"""
+    chapter = db.query(Chapter).filter(Chapter.id == chapter_id).first()
+
+    if not chapter:
+        raise HTTPException(status_code=404, detail="章节不存在")
+
+    return {
+        "id": chapter.id,
+        "project_id": chapter.project_id,
+        "chapter_index": chapter.chapter_index,
+        "title": chapter.title,
+        "status": chapter.status,
+        "final_content": chapter.final_content,
+        "final_word_count": chapter.final_word_count,
+        "total_score": chapter.total_score,
+        "created_at": chapter.created_at.isoformat() if chapter.created_at else None,
+        "completed_at": chapter.completed_at.isoformat() if chapter.completed_at else None,
+    }
+
+
+@router.get("/chapters/{chapter_id}/versions")
+async def get_chapter_versions(
+    chapter_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取章节的所有版本"""
+    from app.models.chapter import ChapterVersion
+
+    chapter = db.query(Chapter).filter(Chapter.id == chapter_id).first()
+    if not chapter:
+        raise HTTPException(status_code=404, detail="章节不存在")
+
+    versions = db.query(ChapterVersion).filter(
+        ChapterVersion.chapter_id == chapter_id
+    ).order_by(ChapterVersion.version_number.desc()).all()
+
+    return [
+        {
+            "id": v.id,
+            "version_number": v.version_number,
+            "plan_content": v.plan_content,
+            "draft_content": v.draft_content,
+            "final_content": v.final_content,
+            "total_score": v.total_score,
+            "critic_report": v.critic_report,
+            "continuity_report": v.continuity_report,
+            "is_accepted": v.is_accepted,
+            "acceptance_reason": v.acceptance_reason,
+            "created_at": v.created_at.isoformat() if v.created_at else None,
+        }
+        for v in versions
+    ]

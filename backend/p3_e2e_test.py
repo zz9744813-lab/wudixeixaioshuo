@@ -11,13 +11,19 @@ P3 端到端验收测试脚本 - 修复版
 7. 绑定技巧卡到项目 (POST /api/projects/{id}/playbook)
 8. 生成 Bible
 9. 创建章节任务
-10. 启动 Worker 执行完整流水线
+10. 启动 Worker 执行完整流水线 (POST /api/worker/control)
 11. 轮询验证任务完成
 12. 验证 ChapterVersion / final_content / Darwin记录
 
 使用方法:
 1. 确保后端服务已启动: python -m uvicorn app.main:app --reload --port 8000
 2. 运行测试: python p3_e2e_test.py
+
+环境变量:
+- OPENAI_API_KEY: API密钥 (没有则启用mock模式)
+- OPENAI_BASE_URL: 自定义base URL
+- OPENAI_MODEL: 自定义模型
+- MOCK_LLM=1: 强制启用mock模式
 """
 
 import requests
@@ -27,6 +33,19 @@ import os
 import sys
 
 BASE_URL = "http://localhost:8000/api"
+
+# 从环境变量读取配置
+MOCK_MODE = os.environ.get("MOCK_LLM", "0") == "1" or not os.environ.get("OPENAI_API_KEY")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "sk-test-key")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-3.5-turbo")
+
+if MOCK_MODE:
+    print("=" * 60)
+    print("[MOCK MODE] 未检测到 OPENAI_API_KEY，启用模拟模式")
+    print("测试将运行但不会调用真实LLM")
+    print("=" * 60)
+
 TEST_TXT_CONTENT = """
 第一章 初入江湖
 
@@ -74,13 +93,19 @@ def test_1_model_config():
     print("测试1: 配置模型 (POST /api/models/quick-setup)")
     print("="*50)
 
+    # 使用环境变量或mock模式
+    if MOCK_MODE:
+        print("[MOCK MODE] 跳过模型配置，使用模拟模式")
+        test_data["provider_id"] = 1  # mock provider_id
+        return True
+
     # 使用 quick-setup 一键配置
     resp = requests.post(f"{BASE_URL}/models/quick-setup", json={
         "name": "测试配置",
         "provider_type": "openai",
-        "base_url": "https://api.openai.com/v1",
-        "api_key": "sk-test-key",
-        "default_model": "gpt-3.5-turbo"
+        "base_url": OPENAI_BASE_URL,
+        "api_key": OPENAI_API_KEY,
+        "default_model": OPENAI_MODEL
     })
 
     if resp.status_code == 200:
@@ -322,12 +347,10 @@ def test_9_create_chapter_task():
         print("[SKIP] 没有 project_id")
         return False
 
-    # 创建章节
-    resp = requests.post(f"{BASE_URL}/chapters/", json={
-        "project_id": project_id,
+    # 创建章节 - 使用正确的路径 /api/projects/{project_id}/chapters
+    resp = requests.post(f"{BASE_URL}/projects/{project_id}/chapters", json={
         "chapter_index": 1,
-        "title": "第一章 初入江湖",
-        "target_word_count": 3000
+        "title": "第一章 初入江湖"
     })
 
     if resp.status_code != 200:
@@ -365,57 +388,57 @@ def test_10_run_worker():
         print("[SKIP] 没有 task_id")
         return False
 
-    print("  启动 Worker (单次执行模式)...")
+    print(f"  任务ID: {task_id}")
 
-    # 启动 Worker 执行一次
-    try:
-        import asyncio
-        from app.database import SessionLocal
-        from app.services.worker_service import WritingWorker
-        from app.models.task import GenerationTask, TaskStatus
+    # Mock 模式下跳过实际执行
+    if MOCK_MODE:
+        print("  [MOCK MODE] 跳过 Worker 执行")
+        print("  [INFO] 在真实环境中，Worker 将执行完整流水线:")
+        print("    - Planner → Draft → Critic → Rewrite → Continuity → Learning")
+        return True
 
-        async def run_worker_once():
-            worker = WritingWorker()
-            db = SessionLocal()
-            try:
-                # 查找任务
-                gen_task = db.query(GenerationTask).filter(
-                    GenerationTask.id == task_id
-                ).first()
+    # 方式1: 通过 Worker Control API 启动
+    print("  启动 Worker...")
+    resp = requests.post(f"{BASE_URL}/worker/control", json={
+        "action": "start"
+    })
 
-                if not gen_task:
-                    print("  [FAIL] 任务不存在")
-                    return False
+    if resp.status_code == 200:
+        print(f"  [OK] Worker 启动成功")
+    else:
+        print(f"  [WARN] Worker 启动返回: {resp.status_code} - {resp.text[:100]}")
 
-                chapter = gen_task.chapter
-                project = gen_task.project
+    # 轮询等待任务完成
+    print("  轮询等待任务完成...")
+    max_wait = 300  # 最多等待5分钟
+    wait_interval = 5  # 每5秒检查一次
+    waited = 0
 
-                print(f"  执行任务: {gen_task.id}, 章节: {chapter.title}")
+    while waited < max_wait:
+        time.sleep(wait_interval)
+        waited += wait_interval
 
-                # 执行任务
-                result = await worker._execute_task(db, gen_task, chapter, project)
+        # 查询任务状态
+        resp = requests.get(f"{BASE_URL}/tasks/{task_id}")
+        if resp.status_code == 200:
+            task_data = resp.json()
+            status = task_data.get("status")
+            print(f"    [{waited}s] status={status}")
 
-                if result.get("success"):
-                    print(f"  [OK] Worker 执行完成")
-                    print(f"    - 最终评分: {result.get('final_score')}")
-                    print(f"    - 版本号: {result.get('version_number')}")
-                    print(f"    - 字数: {result.get('word_count')}")
-                    return True
-                else:
-                    print(f"  [FAIL] Worker 执行失败: {result.get('error')}")
-                    return False
-            finally:
-                db.close()
+            if status == "completed":
+                print(f"  [OK] 任务完成!")
+                print(f"    - 最终评分: {task_data.get('final_score')}")
+                print(f"    - 版本号: {task_data.get('version_number')}")
+                print(f"    - 字数: {task_data.get('word_count')}")
+                return True
+            elif status == "failed":
+                print(f"  [FAIL] 任务失败: {task_data.get('error_message')}")
+                return False
+        else:
+            print(f"    [{waited}s] 查询失败: {resp.status_code}")
 
-        # 运行
-        result = asyncio.run(run_worker_once())
-        return result
-
-    except Exception as e:
-        print(f"  [FAIL] Worker 执行异常: {e}")
-        import traceback
-        traceback.print_exc()
-        return False
+    print(f"  [FAIL] 等待超时 ({max_wait}秒)")
+    return False
 
 
 def test_11_verify_results():
@@ -426,6 +449,7 @@ def test_11_verify_results():
 
     chapter_id = test_data.get("chapter_id")
     project_id = test_data.get("project_id")
+    task_id = test_data.get("task_id")
 
     if not chapter_id or not project_id:
         print("[SKIP] 缺少 chapter_id 或 project_id")
@@ -441,12 +465,18 @@ def test_11_verify_results():
         if versions:
             print(f"    [OK] 有 {len(versions)} 个版本")
             latest = versions[0]
-            has_draft = latest.get("draft_content") and len(latest.get("draft_content")) > 100
-            has_final = latest.get("final_content") and len(latest.get("final_content")) > 100
-            print(f"    - draft_content: {'有(' + str(len(latest.get('draft_content', ''))) + '字)' if has_draft else '无'}")
-            print(f"    - final_content: {'有(' + str(len(latest.get('final_content', ''))) + '字)' if has_final else '无'}")
-            print(f"    - total_score: {latest.get('total_score')}")
-            if not has_draft or not has_final:
+            has_draft = latest.get("draft_content") and len(latest.get("draft_content", "")) > 100
+            has_final = latest.get("final_content") and len(latest.get("final_content", "")) > 100
+            has_score = latest.get("total_score") and latest.get("total_score") > 0
+
+            draft_len = len(latest.get("draft_content", "")) if latest.get("draft_content") else 0
+            final_len = len(latest.get("final_content", "")) if latest.get("final_content") else 0
+
+            print(f"    - draft_content: {draft_len} 字 {'[OK]' if has_draft else '[FAIL]'}")
+            print(f"    - final_content: {final_len} 字 {'[OK]' if has_final else '[FAIL]'}")
+            print(f"    - total_score: {latest.get('total_score')} {'[OK]' if has_score else '[FAIL]'}")
+
+            if not has_draft or not has_final or not has_score:
                 all_pass = False
         else:
             print("    [FAIL] 没有版本记录")
@@ -456,25 +486,48 @@ def test_11_verify_results():
         all_pass = False
 
     # 2. 验证 Chapter.final_content
-    print("  检查 Chapter.final_content...")
+    print("  检查 Chapter...")
     resp = requests.get(f"{BASE_URL}/chapters/{chapter_id}")
     if resp.status_code == 200:
         chapter = resp.json()
         final_content = chapter.get("final_content", "")
         total_score = chapter.get("total_score", 0)
-        print(f"    - final_content: {len(final_content)} 字")
-        print(f"    - total_score: {total_score}")
-        if len(final_content) < 100:
-            print("    [FAIL] final_content 内容不足")
-            all_pass = False
-        if total_score <= 0:
-            print("    [FAIL] total_score 无效")
+        status = chapter.get("status", "")
+
+        final_ok = len(final_content) > 1000
+        score_ok = total_score > 0
+        status_ok = status == "completed"
+
+        print(f"    - final_content: {len(final_content)} 字 {'[OK]' if final_ok else '[FAIL]'}")
+        print(f"    - total_score: {total_score} {'[OK]' if score_ok else '[FAIL]'}")
+        print(f"    - status: {status} {'[OK]' if status_ok else '[FAIL]'}")
+
+        if not final_ok or not score_ok or not status_ok:
+            print("    [FAIL] Chapter 字段验证失败")
             all_pass = False
     else:
         print(f"    [FAIL] 查询章节失败: {resp.status_code}")
         all_pass = False
 
-    # 3. 验证 FailurePattern
+    # 3. 验证 GenerationStep 中是否包含技巧卡
+    if task_id:
+        print("  检查 GenerationStep...")
+        resp = requests.get(f"{BASE_URL}/tasks/{task_id}/steps")
+        if resp.status_code == 200:
+            steps = resp.json()
+            print(f"    [OK] 有 {len(steps)} 个步骤")
+
+            # 检查 Planner 和 Draft 步骤的 prompt 是否包含技巧
+            for step in steps:
+                if step.get("agent_name") in ["Planner", "Draft"]:
+                    prompt = step.get("input_prompt", "")
+                    has_tech = "技巧" in prompt or "technique" in prompt.lower() or "使用指令" in prompt
+                    has_playbook = "写作手册" in prompt or "Playbook" in prompt or "规则" in prompt
+                    print(f"    - {step.get('agent_name')}: 技巧={has_tech}, Playbook={has_playbook}")
+        else:
+            print(f"    [INFO] 步骤查询失败: {resp.status_code}")
+
+    # 4. 验证 FailurePattern
     print("  检查 FailurePattern...")
     resp = requests.get(f"{BASE_URL}/projects/{project_id}/failures")
     if resp.status_code == 200:
@@ -485,7 +538,7 @@ def test_11_verify_results():
     else:
         print(f"    [INFO] 无失败记录或接口不存在")
 
-    # 4. 验证 Playbook 更新
+    # 5. 验证 Playbook 更新
     print("  检查 Playbook...")
     resp = requests.get(f"{BASE_URL}/projects/{project_id}/playbook")
     if resp.status_code == 200:

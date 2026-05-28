@@ -190,3 +190,38 @@ async def get_step(step_id: int, db: Session = Depends(get_db)):
         "artifact_path": step.artifact_path,
         "created_at": step.created_at.isoformat() if step.created_at else None,
     }
+
+
+@router.get("/{task_id}/steps")
+async def get_task_steps(task_id: int, db: Session = Depends(get_db)):
+    """获取任务的所有步骤列表"""
+    # 验证任务存在
+    task = db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    steps = db.query(GenerationStep).filter(
+        GenerationStep.task_id == task_id
+    ).order_by(GenerationStep.step_index).all()
+
+    return [
+        {
+            "id": step.id,
+            "task_id": step.task_id,
+            "chapter_id": step.chapter_id,
+            "step_index": step.step_index,
+            "agent_name": step.agent_name,
+            "input_prompt": step.input_prompt,
+            "raw_output": step.raw_output[:1000] if step.raw_output else None,  # 截断输出
+            "parsed_output": step.parsed_output[:1000] if step.parsed_output else None,
+            "score": step.score,
+            "score_breakdown": step.score_breakdown,
+            "model_name": step.model_name,
+            "provider_name": step.provider_name,
+            "input_tokens": step.input_tokens,
+            "output_tokens": step.output_tokens,
+            "duration_seconds": step.duration_seconds,
+            "created_at": step.created_at.isoformat() if step.created_at else None,
+        }
+        for step in steps
+    ]
