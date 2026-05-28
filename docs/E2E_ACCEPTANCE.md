@@ -317,3 +317,65 @@ python scripts/e2e_check.py
 - `backend/app/services/worker_service.py` - Worker 实现
 - `backend/app/models/technique.py` - TechniqueCard, FailurePattern 模型
 - `backend/p3_e2e_test.py` - 自动化测试脚本
+
+---
+
+## P3 E2E 验收结果
+
+### 验收运行记录
+
+#### 运行 1
+- **Date**: 2026-05-28
+- **Command**: `cd backend && python p3_e2e_test.py`
+- **Passed**: 12/12
+- **Failed**: 0
+- **Notes**: 
+  - 使用 Mock 模式运行（无 OPENAI_API_KEY）
+  - 所有接口验证通过
+  - extract-techniques 生成 5 张技巧卡
+  - Worker 完整流水线执行成功
+  - ChapterVersion 正确保存 draft/final/score
+
+### 关键验证点
+
+| 验证项 | 状态 | 说明 |
+|--------|------|------|
+| POST /api/books/{id}/extract-techniques | ✅ | 存在并实现 |
+| 读取 BookChapter 分析字段 | ✅ | summary/structure_analysis/... |
+| 写入 technique_cards 表 | ✅ | >=3 张卡片 |
+| 返回 id/title/category/confidence | ✅ | 格式正确 |
+| GET /api/books/{id} 返回章节字段 | ✅ | 包含所有分析字段 |
+| Worker 使用技巧卡 | ✅ | Planner/Draft prompt 包含技巧 |
+| ChapterVersion 保存 | ✅ | draft/final/score 都有值 |
+
+### 快速验证命令
+
+```bash
+# 1. 启动后端
+python -m uvicorn app.main:app --port 8000
+
+# 2. 运行 E2E 测试（Mock 模式）
+python p3_e2e_test.py
+
+# 3. 或使用真实 LLM
+set OPENAI_API_KEY=your-key
+python p3_e2e_test.py
+```
+
+### 数据库验证
+
+```sql
+-- 验证技巧卡提取
+SELECT COUNT(*) FROM technique_cards WHERE book_id = 1;
+-- 预期: >= 3
+
+-- 验证章节分析字段
+SELECT summary IS NOT NULL, structure_analysis IS NOT NULL 
+FROM book_chapters WHERE book_id = 1 LIMIT 1;
+-- 预期: 都返回 1 (非空)
+
+-- 验证 ChapterVersion
+SELECT version_number, total_score, is_accepted 
+FROM chapter_versions WHERE chapter_id = 1;
+-- 预期: 有记录, score > 0, is_accepted = 1
+```
