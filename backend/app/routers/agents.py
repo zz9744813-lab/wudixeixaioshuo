@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.task import GenerationStep, GenerationTask, TaskStatus
-from app.services.mock_llm_service import mock_llm_service
+from app.services.openai_llm_service import llm_manager
 
 router = APIRouter()
 
@@ -23,6 +23,9 @@ class GenerateChapterRequest(BaseModel):
 @router.get("/status")
 async def get_agent_status(db: Session = Depends(get_db)):
     """获取 Agent 运行状态"""
+    # 初始化 LLM 管理器
+    llm_manager.init_from_db(db)
+
     running_tasks = db.query(GenerationTask).filter(
         GenerationTask.status == TaskStatus.RUNNING
     ).count()
@@ -31,10 +34,19 @@ async def get_agent_status(db: Session = Depends(get_db)):
         GenerationTask.status == TaskStatus.PENDING
     ).count()
 
+    # 获取 LLM 健康状态
+    try:
+        health = await llm_manager.health_check("default")
+        llm_status = health.get("status", "unknown")
+    except:
+        llm_status = "mock"
+
     return {
         "status": "running" if running_tasks > 0 else "idle",
         "running_tasks": running_tasks,
         "pending_tasks": pending_tasks,
+        "llm_status": llm_status,
+        "llm_provider": health.get("provider", "mock") if llm_status != "mock" else "mock",
         "agents": [
             {"name": "Planner", "status": "ready", "description": "规划章节内容"},
             {"name": "Draft", "status": "ready", "description": "起草章节初稿"},
@@ -49,6 +61,8 @@ async def get_agent_status(db: Session = Depends(get_db)):
 @router.post("/generate-chapter")
 async def generate_chapter(request: GenerateChapterRequest, db: Session = Depends(get_db)):
     """生成章节（演示完整流程）"""
+    # 初始化 LLM 管理器
+    llm_manager.init_from_db(db)
 
     # 创建章节
     chapter = Chapter(
@@ -79,7 +93,7 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
 
     # Step 1: Planner
     await asyncio.sleep(0.5)
-    planner_response = await mock_llm_service.generate(
+    planner_response = await llm_manager.generate(
         prompt=f"规划第{request.chapter_index}章",
         role="planner"
     )
@@ -106,7 +120,7 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
 
     # Step 2: Draft
     await asyncio.sleep(0.5)
-    draft_response = await mock_llm_service.generate(
+    draft_response = await llm_manager.generate(
         prompt=f"起草第{request.chapter_index}章",
         role="draft"
     )
@@ -134,7 +148,7 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
 
     # Step 3: Critic
     await asyncio.sleep(0.5)
-    critic_response = await mock_llm_service.generate(
+    critic_response = await llm_manager.generate(
         prompt=f"审稿第{request.chapter_index}章",
         role="critic"
     )
@@ -165,7 +179,7 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
     # Step 4: Rewrite (如果分数不够高)
     if chapter.total_score < 85:
         await asyncio.sleep(0.5)
-        rewrite_response = await mock_llm_service.generate(
+        rewrite_response = await llm_manager.generate(
             prompt=f"改稿第{request.chapter_index}章",
             role="rewrite"
         )
@@ -193,7 +207,7 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
 
     # Step 5: Continuity
     await asyncio.sleep(0.5)
-    continuity_response = await mock_llm_service.generate(
+    continuity_response = await llm_manager.generate(
         prompt=f"检查连续性第{request.chapter_index}章",
         role="continuity"
     )

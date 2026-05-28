@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.model_config import ModelProvider, ModelRole
+from app.services.openai_llm_service import OpenAILLMService
 
 router = APIRouter()
 
@@ -113,17 +114,61 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
     if not provider:
         raise HTTPException(status_code=404, detail="提供商不存在")
 
-    # 模拟测试
-    from datetime import datetime
-    provider.last_tested_at = datetime.utcnow()
-    provider.last_test_result = "success"
-    db.commit()
+    try:
+        # 创建临时服务实例进行测试
+        llm_service = OpenAILLMService(
+            base_url=provider.base_url,
+            api_key=provider.api_key_encrypted or "",
+            model_name=provider.default_model,
+            timeout=provider.timeout_seconds or 120,
+            retry_times=1,  # 测试时只重试1次
+        )
 
-    return {
-        "provider_id": provider_id,
-        "status": "success",
-        "message": "连接测试成功",
-    }
+        # 执行健康检查
+        health_result = await llm_service.health_check()
+
+        # 尝试发送一个简单的测试请求
+        test_response = await llm_service.generate(
+            prompt="Hello, this is a test message. Please respond with 'OK'.",
+            max_tokens=10,
+            temperature=0.0,
+        )
+
+        # 更新提供商状态
+        from datetime import datetime
+        provider.last_tested_at = datetime.utcnow()
+        provider.last_test_result = "success"
+        db.commit()
+
+        await llm_service.close()
+
+        return {
+            "provider_id": provider_id,
+            "status": "success",
+            "message": "连接测试成功",
+            "health_check": health_result,
+            "test_response": {
+                "model": test_response.get("model"),
+                "content_preview": test_response.get("content", "")[:50] + "..." if len(test_response.get("content", "")) > 50 else test_response.get("content", ""),
+                "tokens": test_response.get("total_tokens"),
+                "cost": test_response.get("cost"),
+            }
+        }
+
+    except Exception as e:
+        from datetime import datetime
+        provider.last_tested_at = datetime.utcnow()
+        provider.last_test_result = "failed"
+        db.commit()
+
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "provider_id": provider_id,
+                "status": "failed",
+                "message": f"连接测试失败: {str(e)}",
+            }
+        )
 
 
 @router.delete("/providers/{provider_id}")
@@ -162,3 +207,120 @@ async def list_roles(project_id: Optional[int] = None, db: Session = Depends(get
         }
         for r in roles
     ]
+
+
+# 角色映射创建模型
+class RoleCreate(BaseModel):
+    role: str = Field(..., pattern="^(planner|draft|critic|rewrite|continuity|learning|study|split|analyze|default)$")
+    model_name: str
+    provider_id: int
+    temperature: Optional[float] = 0.7
+    max_tokens: Optional[int] = 4000
+    project_id: Optional[int] = None
+
+
+class QuickSetupRequest(BaseModel):
+    name: str = "默认配置"
+    provider_type: str = Field(..., pattern="^(openai|anthropic|gemini|openrouter|custom)$")
+    base_url: str
+    api_key: str
+    default_model: str = "gpt-3.5-turbo"
+
+
+@router.post("/quick-setup")
+async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
+    """
+    快速配置 LLM
+    一键创建提供商并为所有角色配置默认模型
+    """
+    # 创建提供商
+    api_key_mask = f"sk-****{config.api_key[-4:]}" if config.api_key else None
+
+    provider = ModelProvider(
+        name=config.name,
+        provider_type=config.provider_type,
+        base_url=config.base_url,
+        api_key_encrypted=config.api_key,
+        api_key_mask=api_key_mask,
+        default_model=config.default_model,
+        is_enabled=1,
+        is_default=1,
+    )
+    db.add(provider)
+    db.commit()
+    db.refresh(provider)
+
+    # 创建角色映射
+    roles = ["planner", "draft", "critic", "rewrite", "continuity", "learning", "study", "split", "analyze", "default"]
+
+    for role in roles:
+        # 检查是否已存在
+        existing = db.query(ModelRole).filter(
+            ModelRole.role == role,
+            ModelRole.project_id == None
+        ).first()
+
+        if existing:
+            # 更新现有配置
+            existing.provider_id = provider.id
+            existing.model_name = config.default_model
+        else:
+            # 创建新配置
+            role_config = ModelRole(
+                role=role,
+                provider_id=provider.id,
+                model_name=config.default_model,
+                temperature=0.7 if role in ["draft", "rewrite"] else 0.3,
+                max_tokens=4000,
+                priority=1,
+            )
+            db.add(role_config)
+
+    db.commit()
+
+    return {
+        "message": "LLM 配置成功",
+        "provider_id": provider.id,
+        "provider_name": provider.name,
+        "model": config.default_model,
+        "roles_configured": roles,
+    }
+
+
+@router.post("/roles")
+async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
+    """创建角色映射"""
+    # 验证提供商存在
+    provider = db.query(ModelProvider).filter(ModelProvider.id == role.provider_id).first()
+    if not provider:
+        raise HTTPException(status_code=404, detail="提供商不存在")
+
+    # 检查是否已存在相同角色配置
+    existing = db.query(ModelRole).filter(
+        ModelRole.role == role.role,
+        ModelRole.project_id == role.project_id
+    ).first()
+
+    if existing:
+        raise HTTPException(status_code=400, detail=f"角色 '{role.role}' 的配置已存在")
+
+    role_config = ModelRole(
+        role=role.role,
+        provider_id=role.provider_id,
+        model_name=role.model_name,
+        temperature=role.temperature,
+        max_tokens=role.max_tokens,
+        project_id=role.project_id,
+        priority=1,
+    )
+    db.add(role_config)
+    db.commit()
+    db.refresh(role_config)
+
+    return {
+        "id": role_config.id,
+        "role": role_config.role,
+        "model_name": role_config.model_name,
+        "provider_id": role_config.provider_id,
+        "message": "角色映射已创建",
+    }
