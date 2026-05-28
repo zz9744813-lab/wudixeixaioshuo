@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: novel-agent-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./backend:/app/backend
+    environment:
+      - DATABASE_URL=sqlite:///app/data/novel_agent.db
+      - UPLOAD_DIR=/app/data/uploads
+      - ARTIFACTS_DIR=/app/data/artifacts
+      - LOG_LEVEL=info
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: novel-agent-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # 可选：使用更强大的生产级数据库
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: novel-agent-db
+  #   environment:
+  #     POSTGRES_USER: novelagent
+  #     POSTGRES_PASSWORD: novelagent123
+  #     POSTGRES_DB: novel_agent
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+volumes:
+  postgres_data:
