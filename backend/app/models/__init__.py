@@ -22,6 +22,11 @@ from app.models.technique import (
     StoryPattern,
     TechniqueCard,
 )
+from app.models.foreshadow import (
+    Foreshadow,
+    ForeshadowPlan,
+    ForeshadowReview,
+)
 
 __all__ = [
     "Project",
@@ -37,7 +42,11 @@ __all__ = [
     "StoryPattern",
     "FailurePattern",
     "ProjectPlaybook",
-    "BookProfile",  # P4新增
+    "BookProfile",
+    # Foreshadow models (P4 Phase 3)
+    "Foreshadow",
+    "ForeshadowPlan",
+    "ForeshadowReview",
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",
@@ -46,7 +55,7 @@ __all__ = [
     "EvolutionRun",
     "EvolutionLog",
     "VersionHistory",
-    # Memory models (P4)
+    # Memory models (P4 Phase 1)
     "CharacterMemory",
     "ChapterMemory",
     "WorldMemory",
