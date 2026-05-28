@@ -7,19 +7,18 @@
 ### 1. 配置 OpenAI-compatible 模型
 
 ```bash
-curl -X POST http://localhost:8000/api/models/configs \
+curl -X POST http://localhost:8000/api/models/quick-setup \
   -H "Content-Type: application/json" \
   -d '{
     "name": "OpenAI GPT-4",
-    "provider": "openai",
-    "model": "gpt-4",
+    "provider_type": "openai",
     "api_key": "your-api-key",
     "base_url": "https://api.openai.com/v1",
-    "is_active": true
+    "default_model": "gpt-4"
   }'
 ```
 
-**预期结果**: 返回 200，包含配置 ID
+**预期结果**: 返回 200，包含 provider_id 和 roles_configured
 
 ### 2. 上传 TXT
 
@@ -113,9 +112,11 @@ SELECT COUNT(*) FROM technique_cards WHERE book_id = 1;
 curl -X POST http://localhost:8000/api/projects/ \
   -H "Content-Type: application/json" \
   -d '{
-    "title": "我的小说",
+    "name": "我的小说",
     "genre": "玄幻",
-    "target_length": 100000,
+    "total_word_goal": 100000,
+    "daily_word_goal": 3000,
+    "chapter_word_goal": 3000,
     "description": "这是一个测试项目"
   }'
 ```
@@ -124,7 +125,7 @@ curl -X POST http://localhost:8000/api/projects/ \
 ```json
 {
   "id": 1,
-  "title": "我的小说",
+  "name": "我的小说",
   "status": "planning"
 }
 ```

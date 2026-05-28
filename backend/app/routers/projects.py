@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.project import NovelBible, Project, ProjectStatus
+from app.models.technique import ProjectPlaybook
 
 router = APIRouter()
 
@@ -205,3 +206,112 @@ async def pause_project(project_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "项目已暂停", "id": project.id, "status": project.status}
+
+
+# ========== Playbook 接口 ==========
+
+class PlaybookUpdate(BaseModel):
+    source_techniques: Optional[list] = None
+    rules: Optional[list] = None
+    style_boundaries: Optional[str] = None
+    tone_guidelines: Optional[str] = None
+    chapter_template: Optional[dict] = None
+    scoring_rubric: Optional[dict] = None
+
+
+@router.post("/{project_id}/playbook")
+async def update_playbook(
+    project_id: int,
+    playbook_data: PlaybookUpdate,
+    db: Session = Depends(get_db)
+):
+    """创建或更新项目写作手册 (Playbook)"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    # 查找或创建 Playbook
+    playbook = db.query(ProjectPlaybook).filter(
+        ProjectPlaybook.project_id == project_id
+    ).first()
+
+    if not playbook:
+        playbook = ProjectPlaybook(project_id=project_id)
+        db.add(playbook)
+
+    # 更新字段
+    if playbook_data.source_techniques is not None:
+        playbook.source_techniques = playbook_data.source_techniques
+    if playbook_data.rules is not None:
+        playbook.rules = playbook_data.rules
+    if playbook_data.style_boundaries is not None:
+        playbook.style_boundaries = playbook_data.style_boundaries
+    if playbook_data.tone_guidelines is not None:
+        playbook.tone_guidelines = playbook_data.tone_guidelines
+    if playbook_data.chapter_template is not None:
+        playbook.chapter_template = playbook_data.chapter_template
+    if playbook_data.scoring_rubric is not None:
+        playbook.scoring_rubric = playbook_data.scoring_rubric
+
+    db.commit()
+    db.refresh(playbook)
+
+    return {
+        "message": "Playbook 已更新",
+        "project_id": project_id,
+        "source_techniques": playbook.source_techniques,
+        "rules_count": len(playbook.rules) if playbook.rules else 0,
+    }
+
+
+@router.get("/{project_id}/playbook")
+async def get_playbook(project_id: int, db: Session = Depends(get_db)):
+    """获取项目写作手册"""
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    playbook = db.query(ProjectPlaybook).filter(
+        ProjectPlaybook.project_id == project_id
+    ).first()
+
+    if not playbook:
+        raise HTTPException(status_code=404, detail="Playbook 不存在")
+
+    return {
+        "project_id": project_id,
+        "source_techniques": playbook.source_techniques,
+        "rules": playbook.rules,
+        "style_boundaries": playbook.style_boundaries,
+        "tone_guidelines": playbook.tone_guidelines,
+        "chapter_template": playbook.chapter_template,
+        "scoring_rubric": playbook.scoring_rubric,
+    }
+
+
+@router.get("/{project_id}/failures")
+async def get_project_failures(project_id: int, db: Session = Depends(get_db)):
+    """获取项目失败模式记录"""
+    from app.models.technique import FailurePattern
+
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    failures = db.query(FailurePattern).filter(
+        FailurePattern.project_id == project_id
+    ).order_by(
+        FailurePattern.occurrence_count.desc()
+    ).all()
+
+    return [
+        {
+            "id": f.id,
+            "category": f.category,
+            "symptom": f.symptom,
+            "prevention_rule": f.prevention_rule,
+            "occurrence_count": f.occurrence_count,
+            "created_at": f.created_at.isoformat() if f.created_at else None,
+        }
+        for f in failures
+    ]
