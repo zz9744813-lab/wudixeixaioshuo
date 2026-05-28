@@ -27,10 +27,15 @@ from app.models.foreshadow import (
     ForeshadowPlan,
     ForeshadowReview,
 )
+from app.models.production import (
+    ProductionLog,
+    ProductionPolicy,
+    ProductionStats,
+)
 from app.models.review import (
+    FinalReview,
     ReviewProfile,
     ReviewResult,
-    FinalReview,
 )
 
 __all__ = [
@@ -56,6 +61,10 @@ __all__ = [
     "ReviewProfile",
     "ReviewResult",
     "FinalReview",
+    # Production models (P4 Phase 5)
+    "ProductionPolicy",
+    "ProductionLog",
+    "ProductionStats",
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",
