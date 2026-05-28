@@ -184,6 +184,12 @@ async def get_book(book_id: int, db: Session = Depends(get_db)):
                 "index": c.chapter_index,
                 "title": c.title,
                 "word_count": c.word_count,
+                "summary": c.summary,
+                "structure_analysis": c.structure_analysis,
+                "character_mentions": c.character_mentions,
+                "plot_points": c.plot_points,
+                "emotional_beats": c.emotional_beats,
+                "hooks": c.hooks,
             }
             for c in book.chapters[:20]  # 只返回前20章
         ],
@@ -642,7 +648,9 @@ async def extract_techniques(book_id: int, db: Session = Depends(get_db)):
                 is_verified=0,
             )
             db.add(technique)
+            db.flush()  # 获取自增ID
             created_techniques.append({
+                "id": technique.id,
                 "title": technique.title,
                 "category": technique.category,
                 "confidence": technique.confidence_score
