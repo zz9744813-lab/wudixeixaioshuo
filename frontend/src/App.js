@@ -14,6 +14,7 @@ import ModelConfig from './pages/ModelConfig';
 import Feedback from './pages/Feedback';
 import Evolution from './pages/Evolution';
 import Logs from './pages/Logs';
+import WorkerDashboard from './pages/WorkerDashboard';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="/models" element={<ModelConfig />} />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/evolution" element={<Evolution />} />
+          <Route path="/worker" element={<WorkerDashboard />} />
           <Route path="/logs" element={<Logs />} />
         </Routes>
       </Layout>

@@ -14,6 +14,7 @@ from app.routers import (
     agents,
     bible,
     books,
+    chapters,
     dashboard,
     evolution,
     feedback,
@@ -22,6 +23,7 @@ from app.routers import (
     projects,
     tasks,
     techniques,
+    worker,
 )
 
 
@@ -62,6 +64,8 @@ app.include_router(agents.router, prefix="/api/agents", tags=["Agents"])
 app.include_router(models.router, prefix="/api/models", tags=["Models"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"])
+app.include_router(bible.router, prefix="/api", tags=["Bible"])
+app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
 
 
 @app.get("/")
