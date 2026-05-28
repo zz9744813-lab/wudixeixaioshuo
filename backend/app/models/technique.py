@@ -24,7 +24,7 @@ class TechniqueCategory(str, PyEnum):
 
 
 class TechniqueCard(Base):
-    """技巧卡表"""
+    """技巧卡表 - P4扩展版，支持分类体系和效果追踪"""
     __tablename__ = "technique_cards"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -32,6 +32,19 @@ class TechniqueCard(Base):
 
     category = Column(String(50), nullable=False)
     title = Column(String(200), nullable=False)
+
+    # P4新增：分类体系
+    taxonomy_level_1 = Column(String(100), index=True)  # 一级分类
+    taxonomy_level_2 = Column(String(100), index=True)  # 二级分类
+    scene_stage = Column(String(100))  # 适用场景阶段
+    # opening / daily_scene / conflict / climax / transition / ending / volume_opening / volume_finale
+
+    suitable_chapter_range = Column(JSON, default=list)  # 适合章节范围，如 [1, 10] 表示开篇
+    source_book_type = Column(String(100))  # 来源书籍类型：爽文/玄幻/都市/悬疑/恋爱等
+
+    # P4新增：难度与风险
+    difficulty = Column(Integer, default=3)  # 难度 1-5
+    risk_level = Column(Integer, default=1)  # 风险等级 1-5
 
     # 观察来源
     observation = Column(Text)  # 观察描述
@@ -49,10 +62,17 @@ class TechniqueCard(Base):
     anti_pattern = Column(Text)  # 容易翻车的地方
     prevention_rule = Column(Text)  # 预防措施
 
-    # 评分
+    # 评分 - P4扩展
     confidence_score = Column(Float, default=0.0)  # 置信度
     success_rate = Column(Float, default=0.0)  # 成功率
     usage_count = Column(Integer, default=0)  # 使用次数
+    effectiveness_score = Column(Float, default=0.0)  # 效果评分
+    positive_review_count = Column(Integer, default=0)  # 好评数
+    negative_review_count = Column(Integer, default=0)  # 差评数
+
+    # P4新增：使用追踪
+    used_in_chapters = Column(JSON, default=list)  # 使用过的章节ID列表
+    cluster_id = Column(Integer, nullable=True)  # 聚类ID，用于去重
 
     # Prompt指令（给Agent用）
     prompt_instruction = Column(Text)
@@ -137,6 +157,38 @@ class ProjectPlaybook(Base):
 
     # 评分标准
     scoring_rubric = Column(JSON)  # 评分细则
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# P4新增：BookProfile 书籍档案
+class BookProfile(Base):
+    """书籍档案表 - 记录书籍的题材、风格等元数据"""
+    __tablename__ = "book_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+    book_id = Column(Integer, ForeignKey("books.id"), unique=True)
+
+    # 基本分类
+    genre = Column(String(100))  # 主题材
+    sub_genre = Column(String(100))  # 子题材
+    audience = Column(String(100))  # 目标读者群
+
+    # 风格标签
+    style_tags = Column(JSON, default=list)  # 风格标签列表
+    narrative_pov = Column(String(50))  # 叙事视角
+    pacing_type = Column(String(50))  # 节奏类型
+
+    # 商业属性
+    commercial_density = Column(Integer, default=5)  # 爽点密度 1-10
+    adult_level = Column(Integer, default=0)  # 成人向程度 0-10
+
+    # 分析结果
+    strengths = Column(JSON, default=list)  # 优点列表
+    weaknesses = Column(JSON, default=list)  # 缺点列表
+    reusable_skill_categories = Column(JSON, default=list)  # 可复用技巧分类
 
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow)

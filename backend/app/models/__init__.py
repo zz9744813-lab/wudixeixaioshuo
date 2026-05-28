@@ -16,6 +16,7 @@ from app.models.model_config import ModelCallLog, ModelProvider, ModelRole
 from app.models.project import NovelBible, Project
 from app.models.task import GenerationStep, GenerationTask
 from app.models.technique import (
+    BookProfile,
     FailurePattern,
     ProjectPlaybook,
     StoryPattern,
@@ -36,6 +37,7 @@ __all__ = [
     "StoryPattern",
     "FailurePattern",
     "ProjectPlaybook",
+    "BookProfile",  # P4新增
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",
