@@ -17,6 +17,7 @@ from app.routers import (
     chapters,
     dashboard,
     evolution,
+    export,
     feedback,
     health,
     models,
@@ -66,6 +67,7 @@ app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"])
 app.include_router(bible.router, prefix="/api", tags=["Bible"])
 app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
+app.include_router(export.router, prefix="/api/export", tags=["Export"])
 
 
 @app.get("/")

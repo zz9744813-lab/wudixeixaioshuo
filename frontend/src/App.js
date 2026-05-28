@@ -15,6 +15,7 @@ import Feedback from './pages/Feedback';
 import FeedbackCenter from './pages/FeedbackCenter';
 import Evolution from './pages/Evolution';
 import EvolutionCenter from './pages/EvolutionCenter';
+import ExportPage from './pages/ExportPage';
 import Logs from './pages/Logs';
 import WorkerDashboard from './pages/WorkerDashboard';
 
@@ -36,6 +37,7 @@ function App() {
           <Route path="/feedback" element={<FeedbackCenter />} />
           <Route path="/evolution" element={<EvolutionCenter />} />
           <Route path="/worker" element={<WorkerDashboard />} />
+          <Route path="/export" element={<ExportPage />} />
           <Route path="/logs" element={<Logs />} />
         </Routes>
       </Layout>

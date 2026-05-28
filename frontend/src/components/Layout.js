@@ -16,7 +16,8 @@ function Layout({ children }) {
     { path: '/tasks', label: '任务队列', icon: '' },
     { path: '/models', label: '模型配置中心', icon: '' },
     { path: '/feedback', label: '反馈中心', icon: '' },
-    { path: '/evolution', label: '失败模式库', icon: '' },
+    { path: '/evolution', label: 'Darwin 进化', icon: '' },
+    { path: '/export', label: '小说导出', icon: '' },
     { path: '/logs', label: '系统日志', icon: '' },
   ];
 

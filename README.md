@@ -43,66 +43,63 @@ npm start
 ## 系统架构
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    前端 (React)                              │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
-│  │ Dashboard│ │ 项目   │ │ 拆书   │ │ Agent  │           │
-│  │ 仪表盘   │ │ 管理   │ │ 学习   │ │ 控制台  │           │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘           │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            │ REST API
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    后端 (FastAPI)                            │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
-│  │ Projects│ │ Books   │ │ Tasks   │ │ Models  │           │
-│  │ 项目    │ │ 书籍    │ │ 任务    │ │ 模型配置 │           │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘           │
-├─────────────────────────────────────────────────────────────┤
-│                    Agents 层                                 │
-│  Planner → Draft → Critic → Rewrite → Continuity           │
-├─────────────────────────────────────────────────────────────┤
-│                    Services 层                               │
-│  MockLLM / OpenAI / Anthropic / ...                         │
-├─────────────────────────────────────────────────────────────┤
-│                    数据层 (SQLite)                           │
-│  Projects │ Books │ Chapters │ Tasks │ Techniques          │
-└─────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------+
+|                         前端 (React)                              |
+|  +------------+  +------------+  +------------+  +------------+ |
+|  | Dashboard  |  |   项目     |  |   拆书     |  |   Bible    | |
+|  |   仪表盘   |  |   管理     |  |   学习     |  |   编辑器   | |
+|  +------------+  +------------+  +------------+  +------------+ |
+|  +------------+  +------------+  +------------+  +------------+ |
+|  | 写作工厂   |  |   Worker   |  |  Agent     |  |  Darwin    | |
+|  | 章节流水线 |  | 自动控制台 |  | 控制台    |  | 进化中心   | |
+|  +------------+  +------------+  +------------+  +------------+ |
+|  +------------+  +------------+  +----------------------------+ |
+|  | 反馈中心   |  | 导出中心   |  |       模型配置中心         | |
+|  +------------+  +------------+  +----------------------------+ |
++------------------------------------------------------------------+
+                              |
+                              | REST API
+                              v
++------------------------------------------------------------------+
+|                        后端 (FastAPI)                             |
+|  +-------------+  +-------------+  +-------------+  +-----------+|
+|  |   Projects  |  |    Books    |  |   Chapters  |  |   Bible   ||
+|  |    项目     |  |    书籍     |  |    章节     |  |   设定    ||
+|  +-------------+  +-------------+  +-------------+  +-----------+|
++------------------------------------------------------------------+
+|                         Agents 层                                 |
+|   Planner -> Draft -> Critic -> Rewrite -> Continuity           |
+|   (规划)   (起草)   (审核)   (改写)     (连续性)                |
++------------------------------------------------------------------+
+|                       Services 层                                 |
+|   MockLLM / OpenAI / Anthropic / Azure / Custom API             |
++------------------------------------------------------------------+
+|                       数据层 (SQLite)                             |
+|   Projects | Books | Chapters | Bible | Feedback | Evolution    |
++------------------------------------------------------------------+
 ```
 
 ## 功能模块
 
 | 模块 | 描述 | 状态 |
 |------|------|------|
-| Dashboard | 仪表盘，显示统计信息和快捷入口 | ✅ |
-| 拆书学习 | 上传小说，自动分章和分析 | ✅ |
-| 技巧库 | 提取的写作技巧和套路 | ✅ |
-| 小说项目 | 创建和管理小说项目 | ✅ |
-| 24小时写作工厂 | 自动写作循环 | ✅ |
-| Agent 控制台 | 三栏式Agent工作台 | ✅ |
-| 任务队列 | 查看和管理任务 | ✅ |
-| 模型配置中心 | 配置LLM API | ✅ |
-| 反馈中心 | 用户反馈和系统反馈 | ✅ |
-| 失败模式库 | 进化记录和失败案例 | ✅ |
-
-## 数据库模型
-
-- **Project**: 小说项目
-- **NovelBible**: 小说圣经（世界观、人物设定）
-- **Book**: 导入的书籍
-- **BookChapter**: 书籍章节
-- **Chapter**: 小说章节（生成的）
-- **GenerationTask**: 生成任务
-- **GenerationStep**: 生成步骤（记录Agent过程）
-- **TechniqueCard**: 技巧卡
-- **ModelProvider**: 模型提供商
-- **Feedback**: 反馈
-- **EvolutionRun**: 进化记录
+| Dashboard | 仪表盘，显示统计信息和快捷入口 | |
+| 拆书学习 | 上传小说，自动分章和分析，提取技巧 | |
+| 技巧库 | 提取的写作技巧和套路库 | |
+| 小说项目 | 创建和管理小说项目 | |
+| Bible编辑器 | 世界观、人物、大纲管理 | |
+| 写作流水线 | 5步章节生成流程 | |
+| 24h自动写作 | Worker后台循环自动写作 | |
+| Agent控制台 | 多Agent协作控制 | |
+| 任务队列 | 查看和管理任务状态 | |
+| 模型配置 | 配置LLM API和角色映射 | |
+| 反馈中心 | 多维度反馈收集和统计 | |
+| Darwin进化 | 自我进化机制，A/B测试 | |
+| 导出中心 | 支持多种格式导出小说 | |
 
 ## 开发阶段
 
-### Phase 1: 项目骨架 ✅
+### Phase 1: 项目骨架 
 - [x] FastAPI 后端
 - [x] SQLite 数据库
 - [x] 所有数据库模型
@@ -111,62 +108,70 @@ npm start
 - [x] Docker 配置
 - [x] 基础 Dashboard
 
-### Phase 2: 模型配置中心 ✅
-- [x] Provider CRUD
-- [x] API Key 加密存储
-- [x] 模型角色映射
-- [x] 连接测试
-
-### Phase 3: 拆书学习模块 ✅
+### Phase 2: 拆书学习模块 
 - [x] 文件上传（TXT/MD）
 - [x] 自动分章
 - [x] 章节摘要
 - [x] 技巧卡提取
 
-### Phase 4-8: 待开发
-- 小说 Bible 与大纲
-- 章节生成流水线
-- 24小时任务循环
-- 反馈与进化
-- 体验优化
+### Phase 3: 多 Agent 框架 
+- [x] Planner Agent
+- [x] Draft Agent
+- [x] Critic Agent
+- [x] Rewrite Agent
+- [x] Continuity Agent
 
-## API 端点
+### Phase 4: 小说 Bible 与大纲 
+- [x] 世界观设定管理
+- [x] 人物档案管理
+- [x] 大纲编辑
+- [x] AI辅助生成
 
-### Dashboard
-- `GET /api/dashboard/stats` - 获取统计数据
-- `GET /api/dashboard/recent-activity` - 获取最近活动
+### Phase 5: 章节生成流水线 
+- [x] 5步写作流程
+- [x] 多维度评分
+- [x] 自动重写循环
+- [x] 版本管理
 
-### Projects
-- `GET /api/projects/` - 项目列表
-- `POST /api/projects/` - 创建项目
-- `GET /api/projects/{id}` - 项目详情
-- `PUT /api/projects/{id}` - 更新项目
-- `DELETE /api/projects/{id}` - 删除项目
-- `POST /api/projects/{id}/start` - 启动项目
-- `POST /api/projects/{id}/pause` - 暂停项目
+### Phase 6: 24小时自动写作 
+- [x] Worker后台调度器
+- [x] 任务队列管理
+- [x] 每日目标/预算控制
+- [x] 自动触发下一章
 
-### Books
-- `GET /api/books/` - 书籍列表
-- `POST /api/books/upload` - 上传书籍
-- `GET /api/books/{id}` - 书籍详情
-- `POST /api/books/{id}/split` - 分章
-- `POST /api/books/{id}/analyze` - 分析
+### Phase 7: 反馈与进化 
+- [x] 多维度反馈收集
+- [x] AI自动分析
+- [x] Darwin进化引擎
+- [x] A/B测试
+- [x] 最佳实践库
 
-### Agents
-- `GET /api/agents/status` - Agent 状态
-- `POST /api/agents/generate-chapter` - 生成章节
+### Phase 8: 导出功能 
+- [x] 支持 Markdown/TXT/DOCX/EPUB/PDF/JSON
+- [x] 字数统计
+- [x] 导出历史管理
+- [x] 章节筛选
 
-### Tasks
-- `GET /api/tasks/` - 任务列表
-- `POST /api/tasks/` - 创建任务
-- `GET /api/tasks/{id}` - 任务详情
-- `POST /api/tasks/{id}/cancel` - 取消任务
-- `POST /api/tasks/{id}/retry` - 重试任务
+## API 端点概览
+
+| 模块 | 端点前缀 | 主要功能 |
+|------|----------|----------|
+| Dashboard | `/api/dashboard` | 统计数据、最近活动 |
+| 项目 | `/api/projects` | CRUD、启动/暂停 |
+| Bible | `/api/bible` | 设定管理 |
+| 章节 | `/api/chapters` | 生成、状态 |
+| Agent | `/api/agents` | 状态、生成控制 |
+| Worker | `/api/worker` | 自动写作控制 |
+| 任务 | `/api/tasks` | 队列管理 |
+| 模型 | `/api/models` | 配置管理 |
+| 反馈 | `/api/feedback` | 反馈管理、统计 |
+| 进化 | `/api/evolution` | Darwin进化 |
+| 导出 | `/api/export` | 多格式导出 |
 
 ## 技术栈
 
 - **后端**: Python 3.11, FastAPI, SQLAlchemy, SQLite
-- **前端**: React 18, React Router, CSS3
+- **前端**: React 18, Material-UI, React Router
 - **部署**: Docker, Docker Compose
 
 ## 目录结构
@@ -181,33 +186,47 @@ novel-agent-workbench/
 │   │   │   ├── project.py
 │   │   │   ├── book.py
 │   │   │   ├── chapter.py
-│   │   │   ├── task.py
-│   │   │   └── ...
+│   │   │   ├── bible.py
+│   │   │   ├── feedback.py
+│   │   │   └── evolution.py
 │   │   ├── routers/             # API 路由
-│   │   │   ├── dashboard.py
 │   │   │   ├── projects.py
-│   │   │   └── ...
+│   │   │   ├── books.py
+│   │   │   ├── chapters.py
+│   │   │   ├── bible.py
+│   │   │   ├── worker.py
+│   │   │   ├── feedback.py
+│   │   │   ├── evolution.py
+│   │   │   └── export.py
 │   │   └── services/            # 服务层
 │   │       ├── llm_service.py
-│   │       └── mock_llm_service.py
+│   │       ├── mock_llm_service.py
+│   │       ├── bible_service.py
+│   │       ├── writing_pipeline_service.py
+│   │       ├── worker_service.py
+│   │       ├── feedback_service.py
+│   │       ├── evolution_service.py
+│   │       └── export_service.py
 │   ├── requirements.txt
-│   └── tests/
+│   └── Dockerfile
 ├── frontend/
 │   ├── src/
 │   │   ├── components/          # React 组件
 │   │   ├── pages/               # 页面组件
-│   │   ├── services/            # API 服务
+│   │   │   ├── Dashboard.js
+│   │   │   ├── Projects.js
+│   │   │   ├── BibleEditor.js
+│   │   │   ├── WritingFactory.js
+│   │   │   ├── WorkerDashboard.js
+│   │   │   ├── FeedbackCenter.js
+│   │   │   ├── EvolutionCenter.js
+│   │   │   └── ExportPage.js
 │   │   ├── App.js
 │   │   └── index.js
-│   └── package.json
-├── data/                        # 数据目录
-│   ├── uploads/                 # 上传文件
-│   ├── artifacts/               # 生成产物
-│   └── novel_agent.db           # SQLite 数据库
-├── docker/
-│   ├── Dockerfile.backend
-│   └── Dockerfile.frontend
+│   ├── package.json
+│   └── Dockerfile
 ├── docker-compose.yml
+├── exports/                     # 导出文件目录
 └── README.md
 ```
 
@@ -226,7 +245,7 @@ novel-agent-workbench/
    - 自定义 OpenAI 兼容 API
 3. 配置 Base URL 和 API Key
 4. 测试连接
-5. 映射模型角色（Planner/Draft/Critic/...）
+5. 映射模型角色（Planner/Draft/Critic/Rewrite/Continuity）
 
 ### 环境变量
 
@@ -245,7 +264,7 @@ REACT_APP_API_URL=http://localhost:8000/api
 1. **Mock 模式**: 未配置 API 时，系统自动使用 MockLLMService 生成模拟内容
 2. **API Key 安全**: API Key 加密存储，前端只显示掩码
 3. **数据目录**: 所有数据保存在 `./data/` 目录
-4. **日志**: 运行日志保存在 `./data/logs/`
+4. **导出目录**: 导出文件保存在 `./exports/` 目录
 
 ## 贡献
 
