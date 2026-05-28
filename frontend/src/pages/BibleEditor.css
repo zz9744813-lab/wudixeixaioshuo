@@ -1,0 +1,190 @@
+.bible-editor {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.bible-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 12px;
+}
+
+.bible-tabs button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.bible-tabs button:hover {
+  background: #f3f4f6;
+}
+
+.bible-tabs button.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.bible-section {
+  min-height: 400px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1f2937;
+}
+
+.section-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.world-textarea {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.world-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.character-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.character-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.character-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.character-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.role-badge {
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.character-summary {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 0;
+}
+
+.add-character-form {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.add-character-form h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.form-row input,
+.form-row select {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.add-character-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  resize: vertical;
+}
+
+.outline-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.outline-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 12px;
+}
+
+.outline-item:last-child {
+  border-bottom: none;
+}
+
+.chapter-index {
+  color: #6b7280;
+  font-size: 13px;
+  min-width: 60px;
+}
+
+.chapter-title {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.more-chapters {
+  text-align: center;
+  color: #6b7280;
+  padding: 16px;
+  font-size: 14px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+}

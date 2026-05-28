@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { API_BASE_URL } from '../services/api';
+import BibleEditor from './BibleEditor';
 import './ProjectDetail.css';
 
 function ProjectDetail() {
@@ -173,29 +174,7 @@ function ProjectDetail() {
 
         {activeTab === 'bible' && (
           <div className="bible-tab">
-            <h3>小说圣经</h3>
-            {project.bible ? (
-              <div className="bible-content">
-                <div className="bible-section">
-                  <h4>世界观</h4>
-                  <p>{project.bible.world_setting || '未设置'}</p>
-                </div>
-                <div className="bible-section">
-                  <h4>人物</h4>
-                  {project.bible.characters && project.bible.characters.length > 0 ? (
-                    <ul>
-                      {project.bible.characters.map((char, idx) => (
-                        <li key={idx}>{char.name || char}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>未设置人物</p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="empty">暂无小说圣经</p>
-            )}
+            <BibleEditor projectId={project.id} />
           </div>
         )}
 

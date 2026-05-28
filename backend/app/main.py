@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.database import engine, init_db
 from app.routers import (
     agents,
+    bible,
     books,
     dashboard,
     evolution,
@@ -53,6 +54,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
+app.include_router(bible.router, prefix="/api", tags=["Bible"])
 app.include_router(books.router, prefix="/api/books", tags=["Books"])
 app.include_router(techniques.router, prefix="/api/techniques", tags=["Techniques"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])

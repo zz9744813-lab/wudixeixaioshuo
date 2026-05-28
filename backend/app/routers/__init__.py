@@ -4,6 +4,7 @@ Routers 导入集合
 
 from app.routers import (
     agents,
+    bible,
     books,
     dashboard,
     evolution,
