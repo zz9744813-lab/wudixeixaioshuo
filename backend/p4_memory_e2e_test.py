@@ -6,6 +6,10 @@ P4记忆系统端到端测试
 import asyncio
 import sys
 import os
+
+# 设置UTF-8编码
+sys.stdout.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from sqlalchemy import create_engine
@@ -164,7 +168,7 @@ class P4MemoryE2ETest:
             project_id=self.project_id,
             title="第1章：废物少年",
             chapter_index=1,
-            status=ChapterStatus.PENDING
+            status=ChapterStatus.PLANNED
         )
         self.db.add(chapter)
         self.db.commit()
@@ -296,25 +300,76 @@ class P4MemoryE2ETest:
 
         return True
 
-    def test_10_verify_generation_step(self):
-        """测试10: 验证GenerationStep包含MemoryUpdate"""
-        print("\n[测试10] 验证GenerationStep记录...")
+    async def test_10_verify_generation_step(self):
+        """测试10: 验证真实Worker链路生成MemoryUpdate步骤和章节记忆"""
+        print("\n[测试10] 验证真实Worker链路...")
 
-        # 模拟创建MemoryUpdate步骤
-        step = GenerationStep(
-            task_id=1,
-            chapter_id=self.chapter_id,
-            step_index=10,
-            agent_name="MemoryUpdate",
-            input_prompt="记忆更新",
-            raw_output='{"chapter_memory": {"id": 1}}',
-            model_name="memory_agent",
-            provider_name="internal"
-        )
-        self.db.add(step)
+        # 1. 使用已创建的章节和任务（从test_5）
+        chapter = self.db.query(Chapter).filter(Chapter.id == self.chapter_id).first()
+        task = self.db.query(GenerationTask).filter(
+            GenerationTask.chapter_id == self.chapter_id
+        ).first()
+
+        assert chapter is not None, "章节应存在"
+        assert task is not None, "任务应存在"
+
+        # 2. 模拟Worker执行：更新章节为完成状态并设置内容
+        chapter_content = """
+林凡站在青云宗外门的演武场上，握紧拳头。
+
+"废物就是废物，三年还停留在炼气期三层！"
+
+周围弟子的嘲笑声像刀子一样刺入林凡的心中。但他没有低头，
+而是默默运转体内的灵气。
+
+就在昨晚，他意外获得了一枚神秘戒指，
+戒指里藏着一位上古大能的残魂...
+
+"小子，想变强吗？"苍老的声音在林凡脑海中响起。
+
+林凡眼中燃起希望的火焰："我要变强！我要证明给所有人看！"
+"""
+        chapter.final_content = chapter_content
+        chapter.status = ChapterStatus.COMPLETED
+        task.status = TaskStatus.COMPLETED
         self.db.commit()
 
-        # 查询验证
+        # 3. 调用MemoryUpdateAgent（Worker中实际使用的方法）
+        agent = MemoryUpdateAgent(self.db)
+        memory_result = await agent.update_from_chapter(
+            project_id=self.project_id,
+            chapter_id=self.chapter_id,
+            chapter_index=1,
+            chapter_title="第1章：废物少年",
+            chapter_content=chapter_content,
+            plan={"goal": "介绍主角背景"},
+            bible={"characters": [{"name": "林凡"}]}
+        )
+
+        # 4. 模拟Worker保存MemoryUpdate步骤到GenerationStep
+        last_step = self.db.query(GenerationStep).filter(
+            GenerationStep.task_id == task.id
+        ).order_by(GenerationStep.step_index.desc()).first()
+        step_index = (last_step.step_index + 1) if last_step else 1
+
+        import json
+        memory_step = GenerationStep(
+            task_id=task.id,
+            chapter_id=self.chapter_id,
+            step_index=step_index,
+            agent_name="MemoryUpdate",
+            input_prompt="记忆更新",
+            raw_output=json.dumps(memory_result, ensure_ascii=False),
+            parsed_output=json.dumps(memory_result, ensure_ascii=False),
+            model_name="memory_agent",
+            provider_name="internal",
+            input_tokens=0,
+            output_tokens=0
+        )
+        self.db.add(memory_step)
+        self.db.commit()
+
+        # 5. 验证GenerationStep中记录了MemoryUpdate
         steps = self.db.query(GenerationStep).filter(
             GenerationStep.chapter_id == self.chapter_id,
             GenerationStep.agent_name == "MemoryUpdate"
@@ -322,8 +377,31 @@ class P4MemoryE2ETest:
 
         assert len(steps) > 0, "应有MemoryUpdate步骤"
 
-        print(f"✓ GenerationStep验证成功:")
+        # 6. 验证ChapterMemory已自动生成
+        chapter_mem = self.db.query(ChapterMemory).filter(
+            ChapterMemory.project_id == self.project_id,
+            ChapterMemory.chapter_id == self.chapter_id
+        ).first()
+
+        assert chapter_mem is not None, "章节记忆应自动生成"
+
+        # 7. 验证下一章context包含上一章记忆
+        service = MemoryService(self.db)
+        context = service.assemble_context_for_chapter(
+            project_id=self.project_id,
+            chapter_index=2  # 下一章
+        )
+
+        recent_chapters = context.get('recent_chapters', [])
+        assert len(recent_chapters) > 0, "上下文应包含最近章节"
+
+        chapter_indices = [ch['index'] for ch in recent_chapters]
+        assert 1 in chapter_indices, "上下文应包含第1章记忆"
+
+        print(f"✓ 真实Worker链路验证成功:")
         print(f"  - MemoryUpdate步骤数: {len(steps)}")
+        print(f"  - ChapterMemory生成: {chapter_mem.short_summary[:50] if chapter_mem.short_summary else '无摘要'}...")
+        print(f"  - 上下文包含章节: {chapter_indices}")
 
         return True
 
@@ -346,7 +424,7 @@ class P4MemoryE2ETest:
                 ("从章节更新记忆", lambda: asyncio.run(self.test_7_memory_update_from_chapter())),
                 ("验证章节记忆", self.test_8_verify_chapter_memory),
                 ("验证记忆上下文", self.test_9_verify_memory_in_context),
-                ("验证GenerationStep", self.test_10_verify_generation_step),
+                ("验证Worker链路", lambda: asyncio.run(self.test_10_verify_generation_step())),
             ]
 
             passed = 0

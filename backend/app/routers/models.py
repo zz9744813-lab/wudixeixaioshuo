@@ -211,7 +211,7 @@ async def list_roles(project_id: Optional[int] = None, db: Session = Depends(get
 
 # 角色映射创建模型
 class RoleCreate(BaseModel):
-    role: str = Field(..., pattern="^(planner|draft|critic|rewrite|continuity|learning|study|split|analyze|default)$")
+    role: str = Field(..., pattern="^(planner|draft|critic|rewrite|continuity|learning|study|split|analyze|memory_update|memory_retrieval|foreshadow|logic_critic|style_critic|commercial_critic|default)$")
     model_name: str
     provider_id: int
     temperature: Optional[float] = 0.7
@@ -251,7 +251,13 @@ async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
     db.refresh(provider)
 
     # 创建角色映射
-    roles = ["planner", "draft", "critic", "rewrite", "continuity", "learning", "study", "split", "analyze", "default"]
+    roles = [
+        "planner", "draft", "critic", "rewrite", "continuity",
+        "learning", "study", "split", "analyze", "default",
+        # P4新增角色
+        "memory_update", "memory_retrieval", "foreshadow",
+        "logic_critic", "style_critic", "commercial_critic"
+    ]
 
     for role in roles:
         # 检查是否已存在
