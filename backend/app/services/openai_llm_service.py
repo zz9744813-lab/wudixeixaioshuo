@@ -322,6 +322,13 @@ class LLMServiceManager:
         "study",        # 学习/分析 Agent
         "split",        # 分章 Agent
         "analyze",      # 分析 Agent
+        # P4新增角色
+        "memory_update",    # 记忆更新 Agent
+        "memory_retrieval", # 记忆检索 Agent
+        "foreshadow",       # 伏笔管理 Agent
+        "logic_critic",     # 逻辑评审 Agent
+        "style_critic",     # 文风评审 Agent
+        "commercial_critic", # 商业性评审 Agent
         "default",      # 默认角色
     ]
 

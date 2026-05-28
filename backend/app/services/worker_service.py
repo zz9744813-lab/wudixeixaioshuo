@@ -215,19 +215,48 @@ class WritingWorker:
                 db.commit()
 
                 # P4: 章节完成后更新记忆系统
+                memory_update_step = None
                 try:
                     logger.info(f"[Task {gen_task.id}] 开始更新记忆系统...")
-                    await self.memory_update_agent.update_from_chapter(
+                    memory_result = await self.memory_update_agent.update_from_chapter(
                         project_id=project.id,
                         chapter_id=chapter.id,
                         chapter_index=chapter.chapter_index,
                         chapter_title=chapter.title,
                         chapter_content=result.get("final_content", ""),
+                        plan=result.get("plan"),
+                        bible=bible_data,
                         db=db
                     )
                     logger.info(f"[Task {gen_task.id}] 记忆系统更新完成")
+
+                    # 保存 MemoryUpdate 步骤
+                    memory_response = {
+                        "content": json.dumps(memory_result, ensure_ascii=False),
+                        "model": "memory_agent",
+                        "provider": "internal",
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "duration_seconds": 0
+                    }
+                    memory_update_step = self._save_step(
+                        db, gen_task, chapter, "MemoryUpdate", "记忆更新", memory_response
+                    )
+
                 except Exception as e:
                     logger.error(f"[Task {gen_task.id}] 记忆系统更新失败: {e}")
+                    # 保存失败步骤
+                    error_response = {
+                        "content": "",
+                        "model": "memory_agent",
+                        "provider": "internal",
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                        "duration_seconds": 0
+                    }
+                    memory_update_step = self._save_step(
+                        db, gen_task, chapter, "MemoryUpdate", "记忆更新", error_response, error_message=str(e)
+                    )
                     # 记忆更新失败不影响章节完成状态
 
             else:
@@ -273,6 +302,19 @@ class WritingWorker:
         # 获取 Bible - 正确访问 ORM 对象
         bible = project.bible
         bible_data = self._bible_to_dict(bible) if bible else {}
+
+        # P4: 获取记忆上下文（供 Continuity 使用）
+        memory_context_for_continuity = ""
+        try:
+            context_data = await self.memory_service.assemble_context_for_chapter(
+                db=db,
+                project_id=gen_task.project_id,
+                chapter_index=chapter.chapter_index
+            )
+            memory_context_for_continuity = self.memory_service.format_context_for_prompt(context_data)
+        except Exception as e:
+            logger.warning(f"Continuity 记忆上下文获取失败: {e}")
+            memory_context_for_continuity = "（记忆系统暂不可用）"
 
         # 创建初始版本
         current_version = self._get_or_create_version(db, chapter, 1)
@@ -399,7 +441,9 @@ class WritingWorker:
 
             # ===== Step 5: Continuity =====
             logger.info(f"[Task {gen_task.id}] Step 5: Continuity")
-            continuity_result = await self._run_continuity(db, gen_task, chapter, draft_content, bible_data)
+            continuity_result = await self._run_continuity(
+                db, gen_task, chapter, draft_content, bible_data, memory_context_for_continuity
+            )
             steps_data.append(continuity_result)
             total_tokens += continuity_result.get("tokens", 0)
             total_cost += continuity_result.get("cost", 0.0)
@@ -998,7 +1042,7 @@ class WritingWorker:
             step = self._save_step(db, gen_task, chapter, "Rewrite", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
-    async def _run_continuity(self, db, gen_task, chapter, content: str, bible_data: dict) -> dict:
+    async def _run_continuity(self, db, gen_task, chapter, content: str, bible_data: dict, memory_context: str = "") -> dict:
         """执行 Continuity Agent"""
         prompt = f"""请检查以下章节的连续性：
 
@@ -1014,12 +1058,16 @@ class WritingWorker:
 伏笔列表:
 {json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False, indent=2)}
 
+## 相关记忆上下文
+{memory_context}
+
 请检查：
-1. 人设一致性
-2. 设定一致性
-3. 时间线连续性
+1. 人设一致性（对照记忆上下文中的人物状态）
+2. 设定一致性（对照世界观记忆）
+3. 时间线连续性（对照最近章节摘要）
 4. 伏笔回收情况
-5. 潜在问题
+5. 与记忆上下文的一致性
+6. 潜在问题
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
 

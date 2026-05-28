@@ -14,7 +14,7 @@ from app.models.memory import (
 )
 from app.services.memory_service import MemoryService
 
-router = APIRouter(prefix="/memory", tags=["memory"])
+router = APIRouter(tags=["memory"])
 
 
 # ========== Request/Response Models ==========
