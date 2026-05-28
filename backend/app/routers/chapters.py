@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.project import Project
-from app.services.writing_pipeline_service import WritingPipelineService
+from app.models.task import GenerationTask, TaskStatus, TaskType, TaskPriority
 
 router = APIRouter()
 
@@ -123,10 +123,9 @@ async def get_chapter(
 async def generate_chapter(
     project_id: int,
     chapter_id: int,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """生成章节（启动流水线）"""
+    """生成章节（创建 GenerationTask，由 Worker 执行）"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
@@ -139,16 +138,39 @@ async def generate_chapter(
     if not chapter:
         raise HTTPException(status_code=404, detail="章节不存在")
 
-    # 在后台运行流水线
-    async def run_pipeline():
-        await WritingPipelineService.run_pipeline(db, chapter_id, project)
+    # 检查是否已有待处理或运行中的任务
+    existing_task = db.query(GenerationTask).filter(
+        GenerationTask.chapter_id == chapter_id,
+        GenerationTask.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])
+    ).first()
 
-    background_tasks.add_task(run_pipeline)
+    if existing_task:
+        return {
+            "message": "该章节已有生成任务在处理中",
+            "task_id": existing_task.id,
+            "status": existing_task.status,
+        }
+
+    # 创建 GenerationTask
+    task = GenerationTask(
+        project_id=project_id,
+        chapter_id=chapter_id,
+        task_type="chapter_pipeline",
+        status=TaskStatus.PENDING,
+        priority=TaskPriority.NORMAL,
+    )
+    db.add(task)
+
+    # 更新章节状态
+    chapter.status = ChapterStatus.PLANNED
+    db.commit()
+    db.refresh(task)
 
     return {
-        "message": "章节生成已启动",
+        "message": "章节生成任务已创建，等待 Worker 执行",
         "chapter_id": chapter_id,
-        "status": "running",
+        "task_id": task.id,
+        "status": "pending",
     }
 
 
@@ -158,7 +180,7 @@ async def get_pipeline_status(
     chapter_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取流水线状态"""
+    """获取流水线状态（从 GenerationTask/Step 获取）"""
     chapter = db.query(Chapter).filter(
         Chapter.id == chapter_id,
         Chapter.project_id == project_id
@@ -167,8 +189,47 @@ async def get_pipeline_status(
     if not chapter:
         raise HTTPException(status_code=404, detail="章节不存在")
 
-    status = WritingPipelineService.get_pipeline_status(db, chapter_id)
-    return status
+    # 从 GenerationTask 获取状态
+    from app.models.task import GenerationStep
+    task = db.query(GenerationTask).filter(
+        GenerationTask.chapter_id == chapter_id
+    ).order_by(GenerationTask.created_at.desc()).first()
+
+    if not task:
+        return {
+            "chapter_id": chapter_id,
+            "status": chapter.status,
+            "title": chapter.title,
+            "score": chapter.total_score,
+            "word_count": chapter.final_word_count,
+            "steps": [],
+            "message": "暂无生成任务",
+        }
+
+    steps = db.query(GenerationStep).filter(
+        GenerationStep.task_id == task.id
+    ).order_by(GenerationStep.step_index).all()
+
+    return {
+        "chapter_id": chapter_id,
+        "status": chapter.status,
+        "title": chapter.title,
+        "score": chapter.total_score,
+        "word_count": chapter.final_word_count,
+        "task_id": task.id,
+        "task_status": task.status,
+        "steps": [
+            {
+                "step_index": s.step_index,
+                "agent_name": s.agent_name,
+                "score": s.score,
+                "model_name": s.model_name,
+                "duration_seconds": s.duration_seconds,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in steps
+        ]
+    }
 
 
 @router.get("/projects/{project_id}/chapters/{chapter_id}/content")

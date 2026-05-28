@@ -94,7 +94,7 @@ async def create_task(task: TaskCreate, db: Session = Depends(get_db)):
 
 @router.get("/{task_id}")
 async def get_task(task_id: int, db: Session = Depends(get_db)):
-    """获取任务详情"""
+    """获取任务详情（包含完整 Step 信息）"""
     task = db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -117,9 +117,17 @@ async def get_task(task_id: int, db: Session = Depends(get_db)):
                 "id": s.id,
                 "step_index": s.step_index,
                 "agent_name": s.agent_name,
+                "input_prompt": s.input_prompt,
+                "raw_output": s.raw_output,
+                "parsed_output": s.parsed_output,
                 "score": s.score,
+                "score_breakdown": s.score_breakdown,
                 "model_name": s.model_name,
+                "provider_name": s.provider_name,
+                "input_tokens": s.input_tokens,
+                "output_tokens": s.output_tokens,
                 "duration_seconds": s.duration_seconds,
+                "error_message": s.error_message,
                 "created_at": s.created_at.isoformat() if s.created_at else None,
             }
             for s in task.steps

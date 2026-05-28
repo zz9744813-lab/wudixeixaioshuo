@@ -65,7 +65,11 @@ class Book(Base):
 
     # 关系
     chapters = relationship("BookChapter", back_populates="book", order_by="BookChapter.chapter_index")
-    technique_cards = relationship("TechniqueCard", back_populates="book")
+    technique_cards = relationship(
+        "TechniqueCard",
+        back_populates="book",
+        cascade="all, delete-orphan"
+    )
 
 
 class BookChapter(Base):

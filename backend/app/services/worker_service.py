@@ -707,6 +707,16 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Planner 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Planner", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     async def _run_draft(self, db, gen_task, chapter, bible_data: dict, chapter_plan: dict) -> dict:
@@ -775,6 +785,16 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Draft 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Draft", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     async def _run_critic(self, db, gen_task, chapter, content: str, bible_data: dict) -> dict:
@@ -824,6 +844,16 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Critic 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Critic", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     async def _run_rewrite(self, db, gen_task, chapter, content: str, critique: str, bible_data: dict, is_darwin: bool = False) -> dict:
@@ -862,6 +892,16 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Rewrite 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Rewrite", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     async def _run_continuity(self, db, gen_task, chapter, content: str, bible_data: dict) -> dict:
@@ -908,6 +948,16 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Continuity 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Continuity", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     async def _run_learning(self, db, gen_task, chapter, steps_data: list) -> dict:
@@ -938,13 +988,29 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Learning 执行失败: {e}")
+            # 保存失败步骤
+            error_response = {
+                "content": "",
+                "model": "unknown",
+                "provider": "unknown",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "duration_seconds": 0,
+            }
+            step = self._save_step(db, gen_task, chapter, "Learning", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
-    def _save_step(self, db, gen_task, chapter, agent_name, prompt, response, score=None, score_breakdown=None):
+    def _save_step(self, db, gen_task, chapter, agent_name, prompt, response, score=None, score_breakdown=None, error_message=None):
         """保存生成步骤"""
+        import time
         step_index = db.query(GenerationStep).filter(
             GenerationStep.task_id == gen_task.id
         ).count() + 1
+
+        # 计算耗时（如果 response 中有 duration_seconds）
+        duration = response.get("duration_seconds", 0)
+        started_at = datetime.utcnow()
+        finished_at = datetime.utcnow()
 
         step = GenerationStep(
             task_id=gen_task.id,
@@ -960,7 +1026,10 @@ class WritingWorker:
             provider_name=response.get("provider", "unknown"),
             input_tokens=response.get("input_tokens", 0),
             output_tokens=response.get("output_tokens", 0),
-            duration_seconds=int(response.get("duration_seconds", 0)),
+            started_at=started_at,
+            finished_at=finished_at,
+            duration_seconds=int(duration),
+            error_message=error_message,
         )
         db.add(step)
         db.commit()
