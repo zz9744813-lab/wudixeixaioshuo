@@ -27,6 +27,11 @@ from app.models.foreshadow import (
     ForeshadowPlan,
     ForeshadowReview,
 )
+from app.models.review import (
+    ReviewProfile,
+    ReviewResult,
+    FinalReview,
+)
 
 __all__ = [
     "Project",
@@ -47,6 +52,10 @@ __all__ = [
     "Foreshadow",
     "ForeshadowPlan",
     "ForeshadowReview",
+    # Review models (P4 Phase 4)
+    "ReviewProfile",
+    "ReviewResult",
+    "FinalReview",
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",

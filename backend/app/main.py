@@ -24,6 +24,7 @@ from app.routers import (
     memory,
     models,
     projects,
+    reviews,  # P4 Phase 4
     skills,  # P4 Phase 2
     tasks,
     techniques,
@@ -64,7 +65,8 @@ app.include_router(chapters.router, prefix="/api", tags=["Chapters"])
 app.include_router(books.router, prefix="/api/books", tags=["Books"])
 app.include_router(techniques.router, prefix="/api/techniques", tags=["Techniques"])
 app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])  # P4 Phase 2
-app.include_router(foreshadows.router, prefix="/api/foreshadows", tags=["Foreshadows"])  # P4 Phase 3
+app.include_router(foreshadows.router, prefix="/api/foreshadows", tags=["Foreshadows"])
+app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])  # P4 Phase 3
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(agents.router, prefix="/api/agents", tags=["Agents"])
 app.include_router(models.router, prefix="/api/models", tags=["Models"])
