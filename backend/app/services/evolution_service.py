@@ -41,7 +41,7 @@ class EvolutionService:
     使用实际存在的模型：EvolutionRun, EvolutionLog, VersionHistory
     """
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session = None):
         self.db = db
 
     def create_evolution_round(
@@ -250,3 +250,81 @@ class EvolutionService:
             }
             for e in successful
         ]
+
+    async def evaluate_generation(
+        self,
+        db: Session,
+        chapter_id: int,
+        steps_data: List[dict],
+        final_score: float
+    ) -> dict:
+        """
+        Darwin 进化决策 - 评估是否保留当前生成结果
+
+        策略：
+        1. 如果分数 >= 85：保留
+        2. 如果分数 < 60：回滚
+        3. 如果 60 <= 分数 < 85：检查改进潜力
+
+        Returns:
+            {
+                "keep": bool,
+                "reason": str,
+                "improvements": List[str]
+            }
+        """
+        try:
+            # 1. 简单阈值判断
+            if final_score >= 85:
+                return {
+                    "keep": True,
+                    "reason": f"评分优秀 ({final_score}/100)，保留结果",
+                    "improvements": []
+                }
+
+            if final_score < 60:
+                return {
+                    "keep": False,
+                    "reason": f"评分过低 ({final_score}/100)，需要重写",
+                    "improvements": [
+                        "整体情节需要重新设计",
+                        "人物塑造需要加强",
+                        "节奏控制需要调整"
+                    ]
+                }
+
+            # 2. 分析步骤数据，提取改进点
+            improvements = []
+
+            for step in steps_data:
+                agent = step.get("agent", "")
+                score = step.get("score", 0)
+
+                if agent == "Critic" and score < 80:
+                    improvements.append("审稿发现较多问题，需要针对性改进")
+
+                if agent == "Continuity" and score < 80:
+                    improvements.append("连续性问题需要修复")
+
+            # 3. 根据改进点数量决定
+            if len(improvements) >= 2:
+                return {
+                    "keep": False,
+                    "reason": f"评分 {final_score}，发现 {len(improvements)} 个主要问题",
+                    "improvements": improvements
+                }
+
+            # 4. 默认保留
+            return {
+                "keep": True,
+                "reason": f"评分可接受 ({final_score}/100)，改进点较少",
+                "improvements": improvements if improvements else ["微调即可"]
+            }
+
+        except Exception as e:
+            logger.error(f"Darwin 决策失败: {e}")
+            return {
+                "keep": True,
+                "reason": f"评估过程出错，默认保留: {str(e)}",
+                "improvements": []
+            }

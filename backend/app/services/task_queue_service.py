@@ -1,28 +1,19 @@
 """
-Task Queue Service - 写作任务队列管理
+Task Queue Service - 写作任务队列管理 (P3版本)
+基于 GenerationTask 的队列管理
 """
 
-import json
 import logging
 from datetime import datetime
-from enum import Enum
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.project import Project
+from app.models.task import GenerationTask, TaskStatus, TaskPriority, TaskType
 
 logger = logging.getLogger(__name__)
-
-
-class QueueStatus(str, Enum):
-    """队列状态"""
-    PENDING = "pending"
-    QUEUED = "queued"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"
 
 
 class TaskQueueService:
@@ -30,7 +21,7 @@ class TaskQueueService:
     写作任务队列管理
 
     功能：
-    - 批量添加章节到队列
+    - 批量创建 GenerationTask
     - 优先级管理
     - 自动排序
     - 进度追踪
@@ -45,7 +36,7 @@ class TaskQueueService:
         chapter_ids: Optional[List[int]] = None
     ) -> dict:
         """
-        添加章节到写作队列
+        添加章节到写作队列 - 创建 GenerationTask
         """
         query = self.db.query(Chapter).filter(
             Chapter.project_id == project_id,
@@ -57,66 +48,95 @@ class TaskQueueService:
 
         chapters = query.order_by(Chapter.chapter_index.asc()).all()
 
-        added_count = 0
+        created_tasks = []
         for chapter in chapters:
+            # 检查是否已存在待处理的任务
+            existing = self.db.query(GenerationTask).filter(
+                GenerationTask.chapter_id == chapter.id,
+                GenerationTask.status.in_([TaskStatus.PENDING, TaskStatus.RUNNING])
+            ).first()
+
+            if existing:
+                continue
+
+            # 创建新的生成任务
+            gen_task = GenerationTask(
+                project_id=project_id,
+                chapter_id=chapter.id,
+                task_type=TaskType.DRAFT,
+                status=TaskStatus.PENDING,
+                priority=TaskPriority.NORMAL,
+                target_agent="full_pipeline",
+            )
+            self.db.add(gen_task)
+            created_tasks.append(gen_task)
+
+            # 更新章节状态
             chapter.status = ChapterStatus.PLANNED
-            chapter.metadata = chapter.metadata or {}
-            chapter.metadata["queued_at"] = datetime.now().isoformat()
-            chapter.metadata["queue_status"] = QueueStatus.QUEUED.value
-            added_count += 1
 
         self.db.commit()
 
-        logger.info(f"已添加 {added_count} 个章节到队列")
+        # 刷新获取ID
+        for task in created_tasks:
+            self.db.refresh(task)
+
+        logger.info(f"已创建 {len(created_tasks)} 个 GenerationTask")
 
         return {
-            "added_count": added_count,
-            "chapter_ids": [c.id for c in chapters],
+            "added_count": len(created_tasks),
+            "task_ids": [t.id for t in created_tasks],
+            "chapter_ids": [t.chapter_id for t in created_tasks],
             "project_id": project_id,
         }
 
     def remove_from_queue(self, chapter_id: int) -> bool:
-        """从队列中移除章节"""
-        chapter = self.db.query(Chapter).filter(
-            Chapter.id == chapter_id
-        ).first()
+        """从队列中移除章节 - 取消 GenerationTask"""
+        # 查找并取消相关的待处理任务
+        tasks = self.db.query(GenerationTask).filter(
+            GenerationTask.chapter_id == chapter_id,
+            GenerationTask.status.in_([TaskStatus.PENDING, TaskStatus.PAUSED])
+        ).all()
 
-        if not chapter:
-            return False
+        for task in tasks:
+            task.status = TaskStatus.CANCELLED
+            task.finished_at = datetime.utcnow()
 
-        if chapter.status in [ChapterStatus.PLANNED, ChapterStatus.FAILED]:
-            chapter.status = ChapterStatus.PLANNED
-            if chapter.metadata:
-                chapter.metadata["queue_status"] = QueueStatus.PENDING.value
-                chapter.metadata["removed_at"] = datetime.now().isoformat()
-            self.db.commit()
-            return True
-
-        return False
+        self.db.commit()
+        return len(tasks) > 0
 
     def get_queue_status(self, project_id: Optional[int] = None) -> dict:
-        """获取队列状态"""
-        query = self.db.query(Chapter)
+        """获取队列状态 - 基于 GenerationTask"""
+        query = self.db.query(GenerationTask)
 
         if project_id:
-            query = query.filter(Chapter.project_id == project_id)
+            query = query.filter(GenerationTask.project_id == project_id)
 
         # 统计各状态数量
-        planned = query.filter(Chapter.status == ChapterStatus.PLANNED).count()
-        drafting = query.filter(Chapter.status == ChapterStatus.DRAFTING).count()
-        critic = query.filter(Chapter.status == ChapterStatus.CRITICING).count()
-        completed = query.filter(Chapter.status == ChapterStatus.COMPLETED).count()
-        failed = query.filter(Chapter.status == ChapterStatus.FAILED).count()
+        pending = query.filter(GenerationTask.status == TaskStatus.PENDING).count()
+        running = query.filter(GenerationTask.status == TaskStatus.RUNNING).count()
+        paused = query.filter(GenerationTask.status == TaskStatus.PAUSED).count()
+        completed = query.filter(GenerationTask.status == TaskStatus.COMPLETED).count()
+        failed = query.filter(GenerationTask.status == TaskStatus.FAILED).count()
+        cancelled = query.filter(GenerationTask.status == TaskStatus.CANCELLED).count()
 
-        total = planned + drafting + critic + completed + failed
+        total = pending + running + paused + completed + failed
+
+        # 获取今日统计
+        today = datetime.utcnow().date()
+        today_completed = self.db.query(GenerationTask).filter(
+            GenerationTask.status == TaskStatus.COMPLETED,
+            GenerationTask.finished_at >= today
+        ).count()
 
         return {
             "total": total,
-            "planned": planned,
-            "drafting": drafting,
-            "critic": critic,
+            "pending": pending,
+            "running": running,
+            "paused": paused,
             "completed": completed,
             "failed": failed,
+            "cancelled": cancelled,
+            "today_completed": today_completed,
             "progress": {
                 "percentage": (completed / total * 100) if total > 0 else 0,
                 "completed": completed,
@@ -124,34 +144,34 @@ class TaskQueueService:
             }
         }
 
-    def get_next_task(self, project_id: Optional[int] = None) -> Optional[Chapter]:
-        """获取下一个待处理任务"""
-        query = self.db.query(Chapter).filter(
-            Chapter.status == ChapterStatus.PLANNED
+    def get_next_task(self, project_id: Optional[int] = None) -> Optional[GenerationTask]:
+        """获取下一个待处理任务 - 返回 GenerationTask"""
+        query = self.db.query(GenerationTask).filter(
+            GenerationTask.status == TaskStatus.PENDING
         )
 
         if project_id:
-            query = query.filter(Chapter.project_id == project_id)
+            query = query.filter(GenerationTask.project_id == project_id)
 
-        return query.order_by(Chapter.chapter_index.asc()).first()
+        return query.order_by(
+            GenerationTask.priority.desc(),
+            GenerationTask.created_at.asc()
+        ).first()
 
     def reorder_queue(
         self,
-        chapter_ids: List[int]
+        task_ids: List[int]
     ) -> bool:
-        """
-        重新排序队列
-        """
+        """重新排序队列 - 通过调整优先级"""
         try:
-            for index, chapter_id in enumerate(chapter_ids):
-                chapter = self.db.query(Chapter).filter(
-                    Chapter.id == chapter_id
+            for index, task_id in enumerate(task_ids):
+                task = self.db.query(GenerationTask).filter(
+                    GenerationTask.id == task_id
                 ).first()
 
-                if chapter:
-                    chapter.chapter_index = index + 1
-                    if chapter.metadata:
-                        chapter.metadata["reordered_at"] = datetime.now().isoformat()
+                if task:
+                    # 使用优先级表示顺序（数值越大优先级越高）
+                    task.priority = len(task_ids) - index
 
             self.db.commit()
             return True
@@ -162,40 +182,56 @@ class TaskQueueService:
 
     def pause_queue(self, project_id: Optional[int] = None) -> int:
         """暂停队列"""
-        query = self.db.query(Chapter).filter(
-            Chapter.status == ChapterStatus.PLANNED
+        query = self.db.query(GenerationTask).filter(
+            GenerationTask.status == TaskStatus.PENDING
         )
 
         if project_id:
-            query = query.filter(Chapter.project_id == project_id)
+            query = query.filter(GenerationTask.project_id == project_id)
 
-        chapters = query.all()
-        count = len(chapters)
+        tasks = query.all()
+        count = len(tasks)
 
-        for chapter in chapters:
-            if chapter.metadata:
-                chapter.metadata["paused_at"] = datetime.now().isoformat()
-                chapter.metadata["queue_status"] = QueueStatus.PENDING.value
+        for task in tasks:
+            task.status = TaskStatus.PAUSED
+
+        self.db.commit()
+        return count
+
+    def resume_queue(self, project_id: Optional[int] = None) -> int:
+        """恢复队列"""
+        query = self.db.query(GenerationTask).filter(
+            GenerationTask.status == TaskStatus.PAUSED
+        )
+
+        if project_id:
+            query = query.filter(GenerationTask.project_id == project_id)
+
+        tasks = query.all()
+        count = len(tasks)
+
+        for task in tasks:
+            task.status = TaskStatus.PENDING
 
         self.db.commit()
         return count
 
     def clear_failed(self, project_id: Optional[int] = None) -> int:
-        """清空失败的章节，重置为 planned"""
-        query = self.db.query(Chapter).filter(
-            Chapter.status == ChapterStatus.FAILED
+        """清空失败的任务，重置为 pending"""
+        query = self.db.query(GenerationTask).filter(
+            GenerationTask.status == TaskStatus.FAILED
         )
 
         if project_id:
-            query = query.filter(Chapter.project_id == project_id)
+            query = query.filter(GenerationTask.project_id == project_id)
 
-        chapters = query.all()
-        count = len(chapters)
+        tasks = query.all()
+        count = len(tasks)
 
-        for chapter in chapters:
-            chapter.status = ChapterStatus.PLANNED
-            if chapter.metadata:
-                chapter.metadata["retried_at"] = datetime.now().isoformat()
+        for task in tasks:
+            task.status = TaskStatus.PENDING
+            task.retry_count = 0
+            task.error_message = None
 
         self.db.commit()
         return count
@@ -209,34 +245,79 @@ class TaskQueueService:
         if not project:
             return {"error": "项目不存在"}
 
-        chapters = self.db.query(Chapter).filter(
-            Chapter.project_id == project_id
-        ).order_by(Chapter.chapter_index.asc()).all()
+        # 获取所有任务
+        tasks = self.db.query(GenerationTask).filter(
+            GenerationTask.project_id == project_id
+        ).order_by(GenerationTask.created_at.asc()).all()
 
-        daily_goal = project.config.get("daily_word_goal", 10000)
-        token_budget = project.config.get("daily_token_budget", 100000)
+        # 获取关联的章节信息
+        chapters_info = []
+        for task in tasks:
+            chapter = self.db.query(Chapter).filter(
+                Chapter.id == task.chapter_id
+            ).first()
+            if chapter:
+                chapters_info.append({
+                    "task_id": task.id,
+                    "chapter_id": chapter.id,
+                    "title": chapter.title,
+                    "chapter_index": chapter.chapter_index,
+                    "status": task.status,
+                    "priority": task.priority,
+                })
+
+        daily_goal = project.config.get("daily_word_goal", 10000) if project.config else 10000
+        token_budget = project.config.get("daily_token_budget", 100000) if project.config else 100000
 
         # 估算总字数和天数
-        total_words = sum(
-            c.metadata.get("word_count", 3000) if c.metadata else 3000 for c in chapters
-        )
-        estimated_days = total_words / daily_goal if daily_goal > 0 else 0
+        total_chapters = len(chapters_info)
+        estimated_words = total_chapters * 3000  # 平均每章3000字
+        estimated_days = estimated_words / daily_goal if daily_goal > 0 else 0
 
         return {
             "project_id": project_id,
-            "total_chapters": len(chapters),
-            "total_words": total_words,
+            "total_tasks": len(tasks),
+            "total_chapters": total_chapters,
+            "estimated_words": estimated_words,
             "daily_word_goal": daily_goal,
             "daily_token_budget": token_budget,
             "estimated_days": round(estimated_days, 1),
-            "chapters": [
-                {
-                    "id": c.id,
-                    "title": c.title,
-                    "chapter_index": c.chapter_index,
-                    "status": c.status.value if c.status else None,
-                    "estimated_words": c.metadata.get("word_count", 3000) if c.metadata else 3000,
-                }
-                for c in chapters
-            ]
+            "tasks": chapters_info,
+        }
+
+    def get_task_details(self, task_id: int) -> Optional[dict]:
+        """获取任务详情"""
+        task = self.db.query(GenerationTask).filter(
+            GenerationTask.id == task_id
+        ).first()
+
+        if not task:
+            return None
+
+        chapter = self.db.query(Chapter).filter(
+            Chapter.id == task.chapter_id
+        ).first()
+
+        return {
+            "task_id": task.id,
+            "project_id": task.project_id,
+            "chapter_id": task.chapter_id,
+            "chapter_title": chapter.title if chapter else None,
+            "task_type": task.task_type,
+            "status": task.status,
+            "priority": task.priority,
+            "progress": {
+                "completed_steps": task.completed_steps,
+                "total_steps": task.total_steps,
+            },
+            "cost": {
+                "estimated": task.estimated_cost,
+                "actual": task.actual_cost,
+            },
+            "tokens": task.token_used,
+            "retry_count": task.retry_count,
+            "error_message": task.error_message,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "started_at": task.started_at.isoformat() if task.started_at else None,
+            "finished_at": task.finished_at.isoformat() if task.finished_at else None,
         }
