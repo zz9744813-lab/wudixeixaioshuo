@@ -61,6 +61,13 @@ async def list_techniques(
     ]
 
 
+@router.get("/categories")
+async def get_categories(db: Session = Depends(get_db)):
+    """获取技巧分类列表"""
+    categories = db.query(TechniqueCard.category).distinct().all()
+    return [c[0] for c in categories if c[0]]
+
+
 @router.get("/{technique_id}")
 async def get_technique(technique_id: int, db: Session = Depends(get_db)):
     """获取技巧卡详情"""
@@ -89,10 +96,3 @@ async def get_technique(technique_id: int, db: Session = Depends(get_db)):
         "is_verified": technique.is_verified == 1,
         "created_at": technique.created_at.isoformat() if technique.created_at else None,
     }
-
-
-@router.get("/categories")
-async def get_categories(db: Session = Depends(get_db)):
-    """获取技巧分类列表"""
-    categories = db.query(TechniqueCard.category).distinct().all()
-    return [c[0] for c in categories if c[0]]

@@ -17,6 +17,7 @@ from app.database import SessionLocal
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
 from app.models.project import Project, NovelBible
 from app.models.task import GenerationTask, GenerationStep, TaskStatus, TaskPriority, TaskType
+from app.models.technique import TechniqueCard, ProjectPlaybook
 from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 
@@ -450,8 +451,75 @@ class WritingWorker:
 
         return version
 
+    def _get_project_techniques(self, db: Session, project_id: int) -> list:
+        """获取项目关联的技巧卡"""
+        techniques = db.query(TechniqueCard).filter(
+            TechniqueCard.is_active == 1
+        ).order_by(
+            TechniqueCard.confidence_score.desc()
+        ).limit(10).all()
+
+        return [
+            {
+                "id": t.id,
+                "title": t.title,
+                "category": t.category,
+                "observation": t.observation,
+                "principle": t.principle,
+                "transfer_rule": t.transfer_rule,
+                "usage_instruction": t.usage_instruction,
+                "anti_pattern": t.anti_pattern,
+                "prevention_rule": t.prevention_rule,
+                "prompt_instruction": t.prompt_instruction,
+                "confidence_score": t.confidence_score,
+            }
+            for t in techniques
+        ]
+
+    def _get_project_playbook(self, db: Session, project_id: int) -> dict:
+        """获取项目写作手册"""
+        playbook = db.query(ProjectPlaybook).filter(
+            ProjectPlaybook.project_id == project_id
+        ).first()
+
+        if not playbook:
+            return {}
+
+        return {
+            "rules": playbook.rules or [],
+            "style_boundaries": playbook.style_boundaries or "",
+            "tone_guidelines": playbook.tone_guidelines or "",
+            "chapter_template": playbook.chapter_template or {},
+            "scoring_rubric": playbook.scoring_rubric or {},
+        }
+
+    def _format_techniques_for_prompt(self, techniques: list) -> str:
+        """将技巧卡格式化为 Prompt 指令"""
+        if not techniques:
+            return "无特定技巧要求。"
+
+        sections = []
+        sections.append("## 必须使用的写作技巧")
+
+        for i, tech in enumerate(techniques[:5], 1):  # 最多使用5个技巧
+            sections.append(f"\n### 技巧 {i}: {tech['title']} ({tech['category']})")
+            sections.append(f"**使用指令**: {tech['usage_instruction'] or '无'}")
+            if tech['prompt_instruction']:
+                sections.append(f"**Prompt**: {tech['prompt_instruction']}")
+            if tech['anti_pattern']:
+                sections.append(f"**禁用反模式**: {tech['anti_pattern']}")
+            if tech['prevention_rule']:
+                sections.append(f"**预防措施**: {tech['prevention_rule']}")
+
+        return "\n".join(sections)
+
     async def _run_planner(self, db, gen_task, chapter, bible_data: dict) -> dict:
-        """执行 Planner Agent"""
+        """执行 Planner Agent - 使用技巧库"""
+        # 获取项目技巧卡和写作手册
+        techniques = self._get_project_techniques(db, gen_task.project_id)
+        playbook = self._get_project_playbook(db, gen_task.project_id)
+        tech_instructions = self._format_techniques_for_prompt(techniques)
+
         prompt = f"""请为以下章节进行详细规划：
 
 章节标题: {chapter.title}
@@ -469,13 +537,25 @@ class WritingWorker:
 章纲:
 {json.dumps(bible_data.get('chapter_outline', []), ensure_ascii=False, indent=2)}
 
+{tech_instructions}
+
+写作手册规则:
+{chr(10).join(playbook.get('rules', ['无']))}
+
+风格约束:
+{playbook.get('style_boundaries', '无')}
+
+语气指导:
+{playbook.get('tone_guidelines', '无')}
+
 请输出：
 1. 本章目标
 2. 冲突设计（外部冲突、内部冲突）
 3. 人物安排
 4. 章节钩子（开头钩子、结尾钩子）
 5. 情绪节奏设计
-6. 关键剧情点（3-5个）"""
+6. 关键剧情点（3-5个）
+7. 要使用的技巧卡（列出具体技巧名称）"""
 
         try:
             response = await llm_manager.generate(prompt=prompt, role="planner", temperature=0.7)
@@ -495,7 +575,12 @@ class WritingWorker:
             return {"success": False, "error": str(e)}
 
     async def _run_draft(self, db, gen_task, chapter, bible_data: dict, chapter_plan: dict) -> dict:
-        """执行 Draft Agent"""
+        """执行 Draft Agent - 使用技巧库"""
+        # 获取项目技巧卡和写作手册
+        techniques = self._get_project_techniques(db, gen_task.project_id)
+        playbook = self._get_project_playbook(db, gen_task.project_id)
+        tech_instructions = self._format_techniques_for_prompt(techniques)
+
         prompt = f"""请根据以下规划起草章节内容：
 
 章节标题: {chapter.title}
@@ -513,11 +598,23 @@ class WritingWorker:
 风格边界:
 {json.dumps(bible_data.get('style_boundaries', []), ensure_ascii=False, indent=2)}
 
+{tech_instructions}
+
+写作手册规则:
+{chr(10).join(playbook.get('rules', ['无']))}
+
+风格约束:
+{playbook.get('style_boundaries', '无')}
+
+语气指导:
+{playbook.get('tone_guidelines', '无')}
+
 写作要求：
 - 使用中文写作
 - 注意节奏控制
 - 对话自然
 - 场景描写生动
+- 必须遵守上述技巧卡的要求
 - 避免使用禁止设定: {json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False)}
 
 请直接输出章节正文内容："""
