@@ -527,71 +527,66 @@ async def get_chapter(chapter_id: int, db: Session = Depends(get_db)):
 async def extract_techniques(book_id: int, db: Session = Depends(get_db)):
     """
     从拆书分析结果中提取技巧卡。
-
-    流程：
-    1. 读取 BookChapter 的章节分析字段
-    2. 调用 study/analyze 模型提取可迁移写作技巧
-    3. 解析为 TechniqueCard
-    4. 至少保证落库 3 张技巧卡
     """
-    book = db.query(Book).filter(Book.id == book_id).first()
-    if not book:
-        raise HTTPException(status_code=404, detail="书籍不存在")
+    try:
+        book = db.query(Book).filter(Book.id == book_id).first()
+        if not book:
+            raise HTTPException(status_code=404, detail="书籍不存在")
 
-    chapters = (
-        db.query(BookChapter)
-        .filter(BookChapter.book_id == book_id)
-        .order_by(BookChapter.chapter_index.asc())
-        .all()
-    )
-
-    if not chapters:
-        raise HTTPException(status_code=400, detail="请先进行分章处理")
-
-    analyzed_chapters = [
-        ch for ch in chapters
-        if ch.summary or ch.structure_analysis or ch.hooks or ch.plot_points or ch.emotional_beats
-    ]
-
-    if not analyzed_chapters:
-        raise HTTPException(
-            status_code=400,
-            detail="请先执行拆书分析，确保章节 summary / structure_analysis / hooks 等字段已写入"
+        chapters = (
+            db.query(BookChapter)
+            .filter(BookChapter.book_id == book_id)
+            .order_by(BookChapter.chapter_index.asc())
+            .all()
         )
 
-    # 避免重复生成太多：如果已有技巧卡，先返回已有结果
-    existing = (
-        db.query(TechniqueCard)
-        .filter(TechniqueCard.book_id == book_id)
-        .order_by(TechniqueCard.created_at.desc())
-        .all()
-    )
+        if not chapters:
+            raise HTTPException(status_code=400, detail="请先进行分章处理")
 
-    if len(existing) >= 3:
-        return {
-            "message": f"已存在 {len(existing)} 张技巧卡",
-            "book_id": book_id,
-            "techniques": [_technique_to_response(t) for t in existing],
-        }
+        analyzed_chapters = [
+            ch for ch in chapters
+            if ch.summary or ch.structure_analysis or ch.hooks or ch.plot_points or ch.emotional_beats
+        ]
 
-    # 取前 12 章做技巧提取样本，避免一次 prompt 过长
-    sample_chapters = analyzed_chapters[:12]
+        if not analyzed_chapters:
+            raise HTTPException(
+                status_code=400,
+                detail="请先执行拆书分析，确保章节 summary / structure_analysis / hooks 等字段已写入"
+            )
 
-    chapter_blocks = []
-    for ch in sample_chapters:
-        chapter_blocks.append({
-            "chapter_index": ch.chapter_index,
-            "title": ch.title,
-            "summary": ch.summary,
-            "structure_analysis": ch.structure_analysis,
-            "character_mentions": ch.character_mentions,
-            "plot_points": ch.plot_points,
-            "emotional_beats": ch.emotional_beats,
-            "hooks": ch.hooks,
-            "content_excerpt": (ch.content or "")[:1200],
-        })
+        # 避免重复生成
+        existing = (
+            db.query(TechniqueCard)
+            .filter(TechniqueCard.book_id == book_id)
+            .order_by(TechniqueCard.created_at.desc())
+            .all()
+        )
 
-    prompt = f"""
+        if len(existing) >= 3:
+            return {
+                "message": f"已存在 {len(existing)} 张技巧卡",
+                "book_id": book_id,
+                "techniques": [_technique_to_response(t) for t in existing],
+            }
+
+        # 取前 12 章做样本
+        sample_chapters = analyzed_chapters[:12]
+
+        chapter_blocks = []
+        for ch in sample_chapters:
+            chapter_blocks.append({
+                "chapter_index": ch.chapter_index,
+                "title": ch.title,
+                "summary": ch.summary,
+                "structure_analysis": ch.structure_analysis,
+                "character_mentions": ch.character_mentions,
+                "plot_points": ch.plot_points,
+                "emotional_beats": ch.emotional_beats,
+                "hooks": ch.hooks,
+                "content_excerpt": (ch.content or "")[:1200],
+            })
+
+        prompt = f"""
 你是一个专业网文拆书教练。请从以下小说拆书数据中提取"可迁移的写作技巧卡"。
 
 重要要求：
@@ -615,101 +610,119 @@ async def extract_techniques(book_id: int, db: Session = Depends(get_db)):
     {{
       "category": "structure|character|pacing|hook|emotion|style|readability|commercial",
       "title": "技巧名称",
-      "observation": "你从原书中观察到的现象，不能大段引用原文",
+      "observation": "你从原书中观察到的现象",
       "description": "技巧描述",
-      "principle": "为什么这个技巧有效",
-      "transfer_rule": "这个技巧适合迁移到什么场景",
-      "usage_instruction": "写作时具体怎么用",
-      "anti_pattern": "错误使用方式或容易翻车的地方",
-      "prevention_rule": "避免翻车的规则",
-      "prompt_instruction": "给写作 Agent 的直接指令",
-      "applicable_genres": ["玄幻", "都市", "悬疑"],
-      "tags": ["钩子", "节奏", "人物"],
-      "source_chapters": [1, 2],
+      "principle": "为什么有效",
+      "transfer_rule": "适用场景",
+      "usage_instruction": "使用方法",
+      "anti_pattern": "错误用法",
+      "prevention_rule": "预防措施",
+      "prompt_instruction": "给AI的指令",
+      "applicable_genres": ["玄幻"],
+      "tags": ["标签"],
+      "source_chapters": [1],
       "confidence_score": 0.85
     }}
   ]
 }}
 """
 
-    llm_result = None
-    try:
-        llm_manager.init_from_db(db)
-        llm_result = await llm_manager.generate(
-            prompt=prompt,
-            role="study",
-            temperature=0.3,
-            max_tokens=4000,
-        )
+        llm_result = None
+        try:
+            llm_manager.init_from_db(db)
+            llm_result = await llm_manager.generate(
+                prompt=prompt,
+                role="study",
+                temperature=0.3,
+                max_tokens=4000,
+            )
+        except Exception as e:
+            print(f"[DEBUG] LLM call failed: {e}")
+
+        techniques_data = []
+
+        if llm_result and llm_result.get("content"):
+            content = llm_result.get("content", "")
+            print(f"[DEBUG] LLM content type: {type(content)}")
+            try:
+                techniques_data = _parse_technique_json(content)
+                print(f"[DEBUG] Parsed {len(techniques_data)} techniques from LLM")
+            except Exception as e:
+                print(f"[DEBUG] Parse error: {e}")
+                techniques_data = []
+
+        # 兜底生成
+        if len(techniques_data) < 3:
+            print(f"[DEBUG] Using fallback, LLM returned {len(techniques_data)} techniques")
+            fallback = _build_fallback_techniques(book, analyzed_chapters)
+            techniques_data.extend(fallback)
+            print(f"[DEBUG] After fallback: {len(techniques_data)} techniques")
+
+        # 去重
+        seen_titles = set()
+        cleaned = []
+        for item in techniques_data:
+            title = str(item.get("title") or "").strip()
+            if not title or title in seen_titles:
+                continue
+            seen_titles.add(title)
+            cleaned.append(item)
+            if len(cleaned) >= 8:
+                break
+
+        print(f"[DEBUG] After dedup: {len(cleaned)} techniques")
+
+        if len(cleaned) < 3:
+            raise HTTPException(status_code=500, detail="技巧卡生成失败：有效技巧不足 3 张")
+
+        created_cards = []
+
+        for item in cleaned:
+            category = _normalize_technique_category(item.get("category"))
+
+            card = TechniqueCard(
+                book_id=book_id,
+                category=category,
+                title=str(item.get("title") or "未命名技巧")[:200],
+                observation=item.get("observation") or "",
+                source_chapters=item.get("source_chapters") or [],
+                description=item.get("description") or "",
+                principle=item.get("principle") or "",
+                transfer_rule=item.get("transfer_rule") or "",
+                usage_instruction=item.get("usage_instruction") or "",
+                anti_pattern=item.get("anti_pattern") or "",
+                prevention_rule=item.get("prevention_rule") or "",
+                prompt_instruction=item.get("prompt_instruction") or "",
+                applicable_genres=item.get("applicable_genres") or ([book.genre] if book.genre else []),
+                tags=item.get("tags") or [],
+                confidence_score=float(item.get("confidence_score") or item.get("confidence") or 0.75),
+                success_rate=0.0,
+                usage_count=0,
+                is_active=1,
+                is_verified=0,
+            )
+
+            db.add(card)
+            created_cards.append(card)
+
+        db.commit()
+
+        for card in created_cards:
+            db.refresh(card)
+
+        return {
+            "message": f"成功提取 {len(created_cards)} 个技巧卡片",
+            "book_id": book_id,
+            "techniques": [_technique_to_response(card) for card in created_cards],
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        # 没有配置真实模型时，不直接失败，使用规则兜底生成
-        print(f"extract-techniques LLM 调用失败，使用兜底生成: {e}")
-
-    techniques_data = []
-
-    if llm_result and llm_result.get("content"):
-        techniques_data = _parse_technique_json(llm_result.get("content", ""))
-
-    # 如果 LLM 解析失败或返回不足 3 张，使用兜底技巧生成
-    if len(techniques_data) < 3:
-        fallback = _build_fallback_techniques(book, analyzed_chapters)
-        techniques_data.extend(fallback)
-
-    # 去重并限制数量
-    seen_titles = set()
-    cleaned = []
-    for item in techniques_data:
-        title = str(item.get("title") or "").strip()
-        if not title or title in seen_titles:
-            continue
-        seen_titles.add(title)
-        cleaned.append(item)
-        if len(cleaned) >= 8:
-            break
-
-    if len(cleaned) < 3:
-        raise HTTPException(status_code=500, detail="技巧卡生成失败：有效技巧不足 3 张")
-
-    created_cards = []
-
-    for item in cleaned:
-        category = _normalize_technique_category(item.get("category"))
-
-        card = TechniqueCard(
-            book_id=book_id,
-            category=category,
-            title=str(item.get("title") or "未命名技巧")[:200],
-            observation=item.get("observation") or "",
-            source_chapters=item.get("source_chapters") or [],
-            description=item.get("description") or "",
-            principle=item.get("principle") or "",
-            transfer_rule=item.get("transfer_rule") or "",
-            usage_instruction=item.get("usage_instruction") or "",
-            anti_pattern=item.get("anti_pattern") or "",
-            prevention_rule=item.get("prevention_rule") or "",
-            prompt_instruction=item.get("prompt_instruction") or "",
-            applicable_genres=item.get("applicable_genres") or ([book.genre] if book.genre else []),
-            tags=item.get("tags") or [],
-            confidence_score=float(item.get("confidence_score") or item.get("confidence") or 0.75),
-            success_rate=0.0,
-            usage_count=0,
-            is_active=1,
-            is_verified=0,
-        )
-
-        db.add(card)
-        created_cards.append(card)
-
-    db.commit()
-
-    for card in created_cards:
-        db.refresh(card)
-
-    return {
-        "message": f"成功提取 {len(created_cards)} 个技巧卡片",
-        "book_id": book_id,
-        "techniques": [_technique_to_response(card) for card in created_cards],
-    }
+        import traceback
+        print(f"[ERROR] extract_techniques failed: {e}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"技巧提取失败: {str(e)}")
 
 
 def _parse_technique_json(content: str) -> list:
@@ -863,7 +876,7 @@ def _build_fallback_techniques(book: Book, chapters: list) -> list:
             "description": "用压力推动行动，用行动暴露人物，用目标承接下一段剧情。",
             "principle": "压力让剧情动起来，反应让人物立起来，目标让读者知道接下来要看什么。",
             "transfer_rule": "适合成长型主角、考核副本、宗门升级、职场逆袭、末世求生等剧情。",
-            "usage_instruction": "写章节时按"压力事件 → 主角反应 → 明确目标"组织关键段落。",
+            "usage_instruction": "写章节时按'压力事件 → 主角反应 → 明确目标'组织关键段落。",
             "anti_pattern": "只有设定解释，没有外部压力，会导致章节像资料说明书。",
             "prevention_rule": "每章至少安排一个外部压力源，并让主角做出可见选择。",
             "prompt_instruction": "本章必须包含一个外部压力事件，主角必须做出选择，并在结尾形成下一步目标。",
