@@ -114,17 +114,15 @@ class EvolutionService:
         if not old_version or not new_version:
             return {"error": "版本不存在"}
 
-        # 获取章节评分
-        chapter = self.db.query(Chapter).filter(
-            Chapter.id == test_chapter_id
-        ).first()
+        # 获取章节评分 - 从 ChapterVersion 获取
+        from app.models.chapter import ChapterVersion
+        chapter_version = self.db.query(ChapterVersion).filter(
+            ChapterVersion.chapter_id == test_chapter_id
+        ).order_by(ChapterVersion.version_number.desc()).first()
 
-        if not chapter:
-            return {"error": "章节不存在"}
-
-        # 计算改进率
-        old_score = old_version.total_score or 0
-        new_score = new_version.total_score or 0
+        # 计算改进率 - 使用 VersionHistory.score
+        old_score = old_version.score or 0
+        new_score = new_version.score or 0
 
         improvement = 0.0
         if old_score > 0:
@@ -140,6 +138,8 @@ class EvolutionService:
             evolution.after_score = new_score
             evolution.improvement = round(improvement, 2)
             evolution.test_sample_count = 1
+            evolution.before_version_id = old_version_id
+            evolution.after_version_id = new_version_id
             self.db.commit()
 
         # 判断是否通过（改进率 > 5%）

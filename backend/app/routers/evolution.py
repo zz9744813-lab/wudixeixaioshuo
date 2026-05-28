@@ -141,7 +141,7 @@ async def get_evolution(
         "reason": evolution.reason,
         "test_sample_count": evolution.test_sample_count,
         "judge_agents": evolution.judge_agents,
-        "created_at": evolution.created_at.isoformat() if evolution.created_id else None,
+        "created_at": evolution.created_at.isoformat() if evolution.created_at else None,
         "decided_at": evolution.decided_at.isoformat() if evolution.decided_at else None,
         "versions": [
             {
@@ -190,9 +190,19 @@ async def evolution_action(
     service = EvolutionService(db)
 
     if request.action == "apply":
-        # 获取最近的有效版本
+        # 获取该进化记录关联的版本
+        evolution = db.query(EvolutionRun).filter(
+            EvolutionRun.id == evolution_id
+        ).first()
+
+        if not evolution:
+            raise HTTPException(status_code=404, detail="进化记录不存在")
+
+        # 查找对应的 VersionHistory
         version = db.query(VersionHistory).filter(
-            VersionHistory.id == EvolutionRun.id
+            VersionHistory.project_id == evolution.project_id,
+            VersionHistory.asset_type == evolution.target_type,
+            VersionHistory.asset_name == evolution.target_name
         ).order_by(VersionHistory.created_at.desc()).first()
 
         if not version:

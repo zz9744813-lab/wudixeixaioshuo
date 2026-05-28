@@ -48,6 +48,10 @@ class EvolutionRun(Base):
     after_score = Column(Float)
     improvement = Column(Float)  # 提升幅度
 
+    # 版本关联 - 新增
+    before_version_id = Column(Integer, ForeignKey("version_history.id"))
+    after_version_id = Column(Integer, ForeignKey("version_history.id"))
+
     # 决策
     decision = Column(String(20), default=EvolutionDecision.PENDING)
     reason = Column(Text)  # 决策理由
@@ -91,6 +95,10 @@ class VersionHistory(Base):
 
     content = Column(Text)  # 版本内容
     checksum = Column(String(64))  # 内容校验和
+
+    # 评分 - 新增
+    score = Column(Float)  # 总分
+    score_breakdown = Column(JSON)  # 各维度评分
 
     # 元数据
     created_by = Column(String(100))  # 创建者 (agent/user)

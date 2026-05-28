@@ -13,12 +13,13 @@ from app.database import Base
 
 class BookStatus(str, PyEnum):
     """书籍状态"""
-    IMPORTED = "imported"      # 已导入
-    PROCESSING = "processing"  # 处理中
-    SPLITTING = "splitting"    # 分章中
-    ANALYZING = "analyzing"    # 分析中
-    COMPLETED = "completed"    # 已完成
-    FAILED = "failed"          # 失败
+    IMPORTED = "imported"           # 已导入
+    PROCESSING = "processing"       # 处理中
+    SPLITTING = "splitting"         # 分章中
+    SPLIT_COMPLETED = "split_completed"  # 分章完成
+    ANALYZING = "analyzing"         # 分析中
+    COMPLETED = "completed"         # 已完成
+    FAILED = "failed"               # 失败
 
 
 class SourceType(str, PyEnum):
