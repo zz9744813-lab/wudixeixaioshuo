@@ -2,6 +2,7 @@
 Books Router - 书籍/拆书路由
 """
 
+import json
 import os
 import re
 import shutil
@@ -15,6 +16,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.book import Book, BookChapter, BookStatus, SourceType
 from app.services.openai_llm_service import llm_manager
+
+from app.models.technique import TechniqueCard, TechniqueCategory
 
 router = APIRouter()
 
@@ -273,7 +276,7 @@ async def split_book(book_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{book_id}/analyze")
 async def analyze_book(book_id: int, db: Session = Depends(get_db)):
-    """开始拆书分析 - 使用真实 LLM 分析书籍"""
+    """开始拆书分析 - 使用真实 LLM 分析书籍，并将章节级分析写回数据库"""
     book = db.query(Book).filter(Book.id == book_id).first()
     if not book:
         raise HTTPException(status_code=404, detail="书籍不存在")
@@ -347,10 +350,79 @@ async def analyze_book(book_id: int, db: Session = Depends(get_db)):
             max_tokens=1500
         )
 
-        book.analysis_progress = 80
+        book.analysis_progress = 70
         db.commit()
 
-        # 3. 分析爽点机制
+        # 3. 逐个章节分析 - 写回章节字段
+        all_chapters = db.query(BookChapter).filter(
+            BookChapter.book_id == book_id
+        ).order_by(BookChapter.chapter_index).all()
+
+        for idx, chapter in enumerate(all_chapters):
+            # 章节级分析
+            chapter_prompt = f"""请分析以下章节的内容，提取关键信息：
+
+章节标题：{chapter.title}
+章节内容（前3000字）：
+{chapter.content[:3000]}
+
+请用JSON格式返回：
+{{
+    "summary": "章节摘要（200字以内）",
+    "structure_analysis": {{"opening": "开头手法", "development": "发展方式", "climax": "高潮/转折", "ending": "结尾设计"}},
+    "character_mentions": ["人物A", "人物B"],
+    "plot_points": ["剧情点1", "剧情点2"],
+    "emotional_beats": [{{"position": "开头/中间/结尾", "emotion": "情绪类型", "intensity": 1-10}}],
+    "hooks": [{{"type": "悬念类型", "description": "钩子描述", "position": "位置"}}]
+}}
+
+只返回JSON，不要其他内容。"""
+
+            try:
+                chapter_response = await llm_manager.generate(
+                    prompt=chapter_prompt,
+                    role="analyze",
+                    temperature=0.3,
+                    max_tokens=1500
+                )
+
+                import json
+                content = chapter_response.get('content', '{}')
+                # 尝试提取JSON
+                try:
+                    # 查找JSON块
+                    json_match = re.search(r'\{[\s\S]*\}', content)
+                    if json_match:
+                        chapter_analysis = json.loads(json_match.group())
+                    else:
+                        chapter_analysis = json.loads(content)
+
+                    # 写回章节字段
+                    chapter.summary = chapter_analysis.get('summary', '')
+                    chapter.structure_analysis = chapter_analysis.get('structure_analysis')
+                    chapter.character_mentions = chapter_analysis.get('character_mentions', [])
+                    chapter.plot_points = chapter_analysis.get('plot_points', [])
+                    chapter.emotional_beats = chapter_analysis.get('emotional_beats', [])
+                    chapter.hooks = chapter_analysis.get('hooks', [])
+
+                except json.JSONDecodeError:
+                    print(f"章节 {chapter.chapter_index} JSON解析失败")
+                    chapter.summary = content[:500] if content else ""
+
+            except Exception as e:
+                print(f"章节 {chapter.chapter_index} 分析失败: {e}")
+
+            # 每10章提交一次，避免长时间锁定
+            if idx % 10 == 0:
+                db.commit()
+                book.analysis_progress = 70 + (idx / len(all_chapters)) * 20
+                db.commit()
+
+        db.commit()
+        book.analysis_progress = 90
+        db.commit()
+
+        # 4. 分析爽点机制
         hook_prompt = f"""请分析以下小说片段的爽点/钩子设计：
 
 {sample_text[:5000]}
@@ -385,9 +457,15 @@ async def analyze_book(book_id: int, db: Session = Depends(get_db)):
 
 {hook_response.get('content', '')}
 
+## 四、章节分析统计
+
+- 总章节数：{len(all_chapters)}
+- 已分析章节：{len([c for c in all_chapters if c.summary])}
+- 提取人物：{sum(len(c.character_mentions or []) for c in all_chapters)}
+- 识别剧情点：{sum(len(c.plot_points or []) for c in all_chapters)}
+
 ---
 分析完成时间：{datetime.utcnow().isoformat()}
-分析样本：前{len(sample_chapters)}章
 """
 
         book.analysis_report = report
@@ -403,6 +481,7 @@ async def analyze_book(book_id: int, db: Session = Depends(get_db)):
                 "narrative_model": narrative_response.get('content', '')[:200] + "...",
                 "character_model": character_response.get('content', '')[:200] + "...",
                 "hooks_count": hook_response.get('content', '').count('技巧'),
+                "chapters_analyzed": len([c for c in all_chapters if c.summary]),
             },
             "report_length": len(report),
         }
@@ -429,7 +508,160 @@ async def get_chapter(chapter_id: int, db: Session = Depends(get_db)):
         "content": chapter.content[:2000] + "..." if len(chapter.content) > 2000 else chapter.content,
         "word_count": chapter.word_count,
         "summary": chapter.summary,
+        "structure_analysis": chapter.structure_analysis,
+        "character_mentions": chapter.character_mentions,
+        "plot_points": chapter.plot_points,
+        "emotional_beats": chapter.emotional_beats,
+        "hooks": chapter.hooks,
     }
+
+
+@router.post("/{book_id}/extract-techniques")
+async def extract_techniques(book_id: int, db: Session = Depends(get_db)):
+    """
+    提取技巧卡片 - 从已分析的书籍中提取写作技巧
+    读取BookChapter内容和分析，调用study/analyze角色，创建TechniqueCard记录
+    """
+    book = db.query(Book).filter(Book.id == book_id).first()
+    if not book:
+        raise HTTPException(status_code=404, detail="书籍不存在")
+
+    # 检查是否有已分析的章节
+    analyzed_chapters = db.query(BookChapter).filter(
+        BookChapter.book_id == book_id,
+        BookChapter.summary.isnot(None)
+    ).all()
+
+    if not analyzed_chapters:
+        raise HTTPException(status_code=400, detail="书籍尚未分析，请先调用 analyze 接口")
+
+    try:
+        # 初始化 LLM
+        llm_manager.init_from_db(db)
+
+        # 准备章节分析数据
+        chapters_data = []
+        for ch in analyzed_chapters[:10]:  # 取前10章作为样本
+            chapters_data.append({
+                "index": ch.chapter_index,
+                "title": ch.title,
+                "summary": ch.summary or "",
+                "structure": ch.structure_analysis or {},
+                "characters": ch.character_mentions or [],
+                "plot_points": ch.plot_points or [],
+                "emotional_beats": ch.emotional_beats or [],
+                "hooks": ch.hooks or [],
+                "content_sample": ch.content[:1500] if ch.content else ""
+            })
+
+        import json
+        chapters_json = json.dumps(chapters_data, ensure_ascii=False, indent=2)
+
+        # 构建提取技巧卡的Prompt
+        extract_prompt = f"""请从以下小说章节的详细分析中，提取5-10个具体的写作技巧卡片。
+
+章节分析数据：
+{chapters_json}
+
+要求提取的技巧卡片包含以下字段（请用JSON数组格式返回）：
+[
+  {{
+    "category": "技巧类别: structure/character/pacing/hook/emotion/style/readability/commercial",
+    "title": "技巧名称（简洁）",
+    "observation": "观察描述：从原文中观察到的具体写作手法",
+    "principle": "为什么有效：心理学或叙事学原理",
+    "transfer_rule": "可迁移场景：适用于什么类型/场景/风格",
+    "usage_instruction": "使用指令：如何应用这个技巧",
+    "anti_pattern": "容易翻车的地方：常见错误用法",
+    "prevention_rule": "预防措施：如何避免错误",
+    "prompt_instruction": "Prompt指令：给AI Agent的指令模板",
+    "confidence_score": 0.85,
+    "applicable_genres": ["适用题材1", "适用题材2"],
+    "tags": ["标签1", "标签2"]
+  }}
+]
+
+请确保每个技巧都是具体、可操作的，不是泛泛而谈。
+只返回JSON数组，不要其他内容。"""
+
+        # 调用 LLM 提取技巧
+        response = await llm_manager.generate(
+            prompt=extract_prompt,
+            role="study",
+            temperature=0.4,
+            max_tokens=4000
+        )
+
+        content = response.get('content', '[]')
+
+        # 解析JSON响应
+        try:
+            # 查找JSON数组
+            json_match = re.search(r'\[[\s\S]*\]', content)
+            if json_match:
+                techniques_data = json.loads(json_match.group())
+            else:
+                techniques_data = json.loads(content)
+        except json.JSONDecodeError as e:
+            print(f"JSON解析失败: {e}")
+            print(f"原始内容: {content[:500]}")
+            raise HTTPException(status_code=500, detail=f"技巧提取结果解析失败: {e}")
+
+        if not isinstance(techniques_data, list):
+            raise HTTPException(status_code=500, detail="技巧提取结果格式错误，应为数组")
+
+        # 创建 TechniqueCard 记录
+        created_techniques = []
+        for tech_data in techniques_data:
+            # 验证类别
+            category = tech_data.get('category', 'structure')
+            valid_categories = [c.value for c in TechniqueCategory]
+            if category not in valid_categories:
+                category = 'structure'  # 默认类别
+
+            # 从来源章节提取索引
+            source_chapters = [ch['index'] for ch in chapters_data[:5]]
+
+            technique = TechniqueCard(
+                book_id=book_id,
+                category=category,
+                title=tech_data.get('title', '未命名技巧'),
+                observation=tech_data.get('observation', ''),
+                description=tech_data.get('observation', '')[:200],  # 描述复用观察
+                principle=tech_data.get('principle', ''),
+                transfer_rule=tech_data.get('transfer_rule', ''),
+                usage_instruction=tech_data.get('usage_instruction', ''),
+                anti_pattern=tech_data.get('anti_pattern', ''),
+                prevention_rule=tech_data.get('prevention_rule', ''),
+                prompt_instruction=tech_data.get('prompt_instruction', ''),
+                confidence_score=tech_data.get('confidence_score', 0.5),
+                source_chapters=source_chapters,
+                applicable_genres=tech_data.get('applicable_genres', []),
+                tags=tech_data.get('tags', []),
+                is_active=1,
+                is_verified=0,
+            )
+            db.add(technique)
+            created_techniques.append({
+                "title": technique.title,
+                "category": technique.category,
+                "confidence": technique.confidence_score
+            })
+
+        db.commit()
+
+        return {
+            "message": f"成功提取 {len(created_techniques)} 个技巧卡片",
+            "book_id": book_id,
+            "techniques": created_techniques,
+            "source_chapters": len(analyzed_chapters)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"技巧提取失败: {str(e)}")
 
 
 @router.delete("/{book_id}")
