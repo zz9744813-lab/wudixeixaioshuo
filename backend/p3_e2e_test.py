@@ -509,23 +509,64 @@ def test_11_verify_results():
         print(f"    [FAIL] 查询章节失败: {resp.status_code}")
         all_pass = False
 
-    # 3. 验证 GenerationStep 中是否包含技巧卡
+    # 3. 验证 GenerationStep - 严格检查
     if task_id:
         print("  检查 GenerationStep...")
-        resp = requests.get(f"{BASE_URL}/tasks/{task_id}/steps")
+        resp = requests.get(f"{BASE_URL}/tasks/{task_id}")
         if resp.status_code == 200:
-            steps = resp.json()
+            task_data = resp.json()
+            steps = task_data.get("steps", [])
             print(f"    [OK] 有 {len(steps)} 个步骤")
 
-            # 检查 Planner 和 Draft 步骤的 prompt 是否包含技巧
+            # 必须 >= 5 个步骤
+            if len(steps) < 5:
+                print(f"    [FAIL] 步骤数量不足: {len(steps)} < 5")
+                all_pass = False
+            else:
+                print(f"    [OK] 步骤数量 >= 5")
+
+            # 必须包含的关键 Agent
+            required_agents = ["Planner", "Draft", "Critic", "Continuity", "Learning"]
+            found_agents = [s.get("agent_name") for s in steps]
+            for agent in required_agents:
+                if agent in found_agents:
+                    print(f"    [OK] 包含 {agent}")
+                else:
+                    print(f"    [FAIL] 缺少 {agent}")
+                    all_pass = False
+
+            # 每个步骤必须有 input_prompt, raw_output, model_name
             for step in steps:
-                if step.get("agent_name") in ["Planner", "Draft"]:
-                    prompt = step.get("input_prompt", "")
-                    has_tech = "技巧" in prompt or "technique" in prompt.lower() or "使用指令" in prompt
-                    has_playbook = "写作手册" in prompt or "Playbook" in prompt or "规则" in prompt
-                    print(f"    - {step.get('agent_name')}: 技巧={has_tech}, Playbook={has_playbook}")
+                agent_name = step.get("agent_name", "Unknown")
+                has_input = bool(step.get("input_prompt"))
+                has_output = bool(step.get("raw_output"))
+                has_model = bool(step.get("model_name"))
+
+                if not has_input:
+                    print(f"    [FAIL] {agent_name}: 缺少 input_prompt")
+                    all_pass = False
+                if not has_output:
+                    print(f"    [FAIL] {agent_name}: 缺少 raw_output")
+                    all_pass = False
+                if not has_model:
+                    print(f"    [FAIL] {agent_name}: 缺少 model_name")
+                    all_pass = False
+
+            # 显示步骤摘要
+            print("    步骤摘要:")
+            for step in steps:
+                agent = step.get("agent_name", "Unknown")
+                score = step.get("score", "N/A")
+                model = step.get("model_name", "unknown")
+                prompt_len = len(step.get("input_prompt", ""))
+                output_len = len(step.get("raw_output", ""))
+                print(f"      - {agent}: score={score}, model={model}, prompt={prompt_len}字, output={output_len}字")
         else:
-            print(f"    [INFO] 步骤查询失败: {resp.status_code}")
+            print(f"    [FAIL] 任务查询失败: {resp.status_code}")
+            all_pass = False
+    else:
+        print("  [SKIP] 无 task_id，跳过 GenerationStep 检查")
+        all_pass = False
 
     # 4. 验证 FailurePattern
     print("  检查 FailurePattern...")
