@@ -692,8 +692,14 @@ class WritingWorker:
 7. 要使用的技巧卡（列出具体技巧名称）
 8. 要避免的错误模式（列出具体预防措施）"""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="planner", temperature=0.7)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             # 保存步骤
             step = self._save_step(db, gen_task, chapter, "Planner", prompt, response)
@@ -707,6 +713,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Planner 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -714,7 +721,9 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Planner", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
@@ -770,8 +779,14 @@ class WritingWorker:
 
 请直接输出章节正文内容："""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="draft", temperature=0.8)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             # 保存步骤
             step = self._save_step(db, gen_task, chapter, "Draft", prompt, response)
@@ -785,6 +800,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Draft 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -792,7 +808,9 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Draft", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
@@ -823,8 +841,14 @@ class WritingWorker:
 3. 问题列表（如有）
 4. 改进建议"""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="critic", temperature=0.3)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             content_text = response.get("content", "")
             score = self._extract_score(content_text)
@@ -844,6 +868,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Critic 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -851,7 +876,9 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Critic", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
@@ -877,8 +904,14 @@ class WritingWorker:
 - 提高可读性和流畅度
 - 章节字数保持在2000-5000字之间"""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="rewrite", temperature=0.7)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             # 保存步骤
             step = self._save_step(db, gen_task, chapter, "Rewrite", prompt, response)
@@ -892,6 +925,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Rewrite 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -899,7 +933,9 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Rewrite", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
@@ -929,8 +965,14 @@ class WritingWorker:
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="continuity", temperature=0.3)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             content_text = response.get("content", "")
             score = 90 if "通过" in content_text else 75
@@ -948,6 +990,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Continuity 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -955,7 +998,9 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Continuity", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
@@ -974,8 +1019,14 @@ class WritingWorker:
 2. 改进空间
 3. 可复用的技巧（3-5个技巧卡片）"""
 
+        started_at = datetime.utcnow()
         try:
             response = await llm_manager.generate(prompt=prompt, role="learning", temperature=0.5)
+            finished_at = datetime.utcnow()
+            response["started_at"] = started_at
+            response["finished_at"] = finished_at
+            if "duration_seconds" not in response:
+                response["duration_seconds"] = (finished_at - started_at).total_seconds()
 
             # 保存步骤
             step = self._save_step(db, gen_task, chapter, "Learning", prompt, response)
@@ -988,6 +1039,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Learning 执行失败: {e}")
+            finished_at = datetime.utcnow()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -995,44 +1047,54 @@ class WritingWorker:
                 "provider": "unknown",
                 "input_tokens": 0,
                 "output_tokens": 0,
-                "duration_seconds": 0,
+                "duration_seconds": (finished_at - started_at).total_seconds(),
+                "started_at": started_at,
+                "finished_at": finished_at,
             }
             step = self._save_step(db, gen_task, chapter, "Learning", prompt, error_response, error_message=str(e))
             return {"success": False, "error": str(e)}
 
     def _save_step(self, db, gen_task, chapter, agent_name, prompt, response, score=None, score_breakdown=None, error_message=None):
-        """保存生成步骤"""
-        import time
-        step_index = db.query(GenerationStep).filter(
+        """保存生成步骤到 GenerationStep"""
+        from datetime import datetime
+
+        # 计算步骤序号
+        last_step = db.query(GenerationStep).filter(
             GenerationStep.task_id == gen_task.id
-        ).count() + 1
+        ).order_by(GenerationStep.step_index.desc()).first()
+        step_index = (last_step.step_index + 1) if last_step else 1
 
-        # 计算耗时（如果 response 中有 duration_seconds）
+        # 获取时间信息
+        started_at = response.get("started_at", datetime.utcnow())
+        finished_at = response.get("finished_at", datetime.utcnow())
         duration = response.get("duration_seconds", 0)
-        started_at = datetime.utcnow()
-        finished_at = datetime.utcnow()
 
+        # 创建 GenerationStep
         step = GenerationStep(
             task_id=gen_task.id,
             chapter_id=chapter.id,
             step_index=step_index,
             agent_name=agent_name,
-            input_prompt=prompt[:5000],
-            raw_output=response.get("content", ""),
-            parsed_output=response.get("content", ""),
+            input_prompt=prompt[:5000] if prompt else None,
+            raw_output=response.get("content", "") if response else None,
+            parsed_output=response.get("content", "") if response else None,
             score=score,
             score_breakdown=score_breakdown,
-            model_name=response.get("model", "unknown"),
-            provider_name=response.get("provider", "unknown"),
-            input_tokens=response.get("input_tokens", 0),
-            output_tokens=response.get("output_tokens", 0),
+            model_name=response.get("model", "unknown") if response else "unknown",
+            provider_name=response.get("provider", "unknown") if response else "unknown",
+            input_tokens=response.get("input_tokens", 0) if response else 0,
+            output_tokens=response.get("output_tokens", 0) if response else 0,
             started_at=started_at,
             finished_at=finished_at,
-            duration_seconds=int(duration),
+            duration_seconds=int(duration) if duration else 0,
             error_message=error_message,
         )
+
         db.add(step)
         db.commit()
+        db.refresh(step)
+
+        logger.info(f"[Task {gen_task.id}] Step {step_index} ({agent_name}) saved, id={step.id}")
         return step
 
     def _extract_score(self, text: str) -> int:
