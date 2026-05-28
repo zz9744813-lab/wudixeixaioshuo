@@ -20,6 +20,7 @@ from app.routers import (
     export,
     feedback,
     health,
+    memory,
     models,
     projects,
     tasks,
@@ -67,6 +68,7 @@ app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"])
 app.include_router(bible.router, prefix="/api", tags=["Bible"])
 app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
+app.include_router(memory.router, prefix="/api/memory", tags=["Memory"])  # P4: 记忆系统
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
 
 

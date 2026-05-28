@@ -15,11 +15,14 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
+from app.models.memory import CharacterMemory, ChapterMemory, WorldMemory
 from app.models.project import Project, NovelBible
 from app.models.task import GenerationTask, GenerationStep, TaskStatus, TaskPriority, TaskType
 from app.models.technique import TechniqueCard, ProjectPlaybook, FailurePattern
 from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
+from app.services.memory_service import MemoryService
+from app.services.memory_update_agent import MemoryUpdateAgent
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,9 @@ class WritingWorker:
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
         self.evolution_service = EvolutionService()
+        # P4: 初始化记忆服务
+        self.memory_service = MemoryService()
+        self.memory_update_agent = MemoryUpdateAgent()
 
     async def start(self):
         """启动 Worker"""
@@ -206,6 +212,24 @@ class WritingWorker:
                 chapter.final_word_count = len(result.get("final_content", ""))
                 chapter.total_score = result.get("final_score", 0)
                 chapter.completed_at = datetime.utcnow()
+                db.commit()
+
+                # P4: 章节完成后更新记忆系统
+                try:
+                    logger.info(f"[Task {gen_task.id}] 开始更新记忆系统...")
+                    await self.memory_update_agent.update_from_chapter(
+                        project_id=project.id,
+                        chapter_id=chapter.id,
+                        chapter_index=chapter.chapter_index,
+                        chapter_title=chapter.title,
+                        chapter_content=result.get("final_content", ""),
+                        db=db
+                    )
+                    logger.info(f"[Task {gen_task.id}] 记忆系统更新完成")
+                except Exception as e:
+                    logger.error(f"[Task {gen_task.id}] 记忆系统更新失败: {e}")
+                    # 记忆更新失败不影响章节完成状态
+
             else:
                 gen_task.status = TaskStatus.FAILED
                 gen_task.error_message = result.get("error", "未知错误")
@@ -643,7 +667,7 @@ class WritingWorker:
         return new_rules
 
     async def _run_planner(self, db, gen_task, chapter, bible_data: dict) -> dict:
-        """执行 Planner Agent - 使用技巧库"""
+        """执行 Planner Agent - 使用技巧库 + 记忆上下文"""
         # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
@@ -651,6 +675,19 @@ class WritingWorker:
 
         tech_instructions = self._format_techniques_for_prompt(techniques)
         failure_warnings = self._format_failures_for_prompt(failures)
+
+        # P4: 组装记忆上下文
+        memory_context = ""
+        try:
+            context_data = await self.memory_service.assemble_context_for_chapter(
+                db=db,
+                project_id=gen_task.project_id,
+                chapter_index=chapter.chapter_index
+            )
+            memory_context = self.memory_service.format_context_for_prompt(context_data)
+        except Exception as e:
+            logger.warning(f"记忆上下文组装失败: {e}")
+            memory_context = "（记忆系统暂不可用）"
 
         prompt = f"""请为以下章节进行详细规划：
 
@@ -669,6 +706,9 @@ class WritingWorker:
 章纲:
 {json.dumps(bible_data.get('chapter_outline', []), ensure_ascii=False, indent=2)}
 
+## 相关记忆上下文
+{memory_context}
+
 {tech_instructions}
 
 {failure_warnings}
@@ -685,12 +725,13 @@ class WritingWorker:
 请输出：
 1. 本章目标
 2. 冲突设计（外部冲突、内部冲突）
-3. 人物安排
+3. 人物安排（参考记忆上下文中的人物状态）
 4. 章节钩子（开头钩子、结尾钩子）
 5. 情绪节奏设计
 6. 关键剧情点（3-5个）
 7. 要使用的技巧卡（列出具体技巧名称）
-8. 要避免的错误模式（列出具体预防措施）"""
+8. 要避免的错误模式（列出具体预防措施）
+9. 需要回顾的前文伏笔（基于记忆上下文）"""
 
         started_at = datetime.utcnow()
         try:
@@ -729,7 +770,7 @@ class WritingWorker:
             return {"success": False, "error": str(e)}
 
     async def _run_draft(self, db, gen_task, chapter, bible_data: dict, chapter_plan: dict) -> dict:
-        """执行 Draft Agent - 使用技巧库"""
+        """执行 Draft Agent - 使用技巧库 + 记忆上下文"""
         # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
@@ -738,6 +779,19 @@ class WritingWorker:
         tech_instructions = self._format_techniques_for_prompt(techniques)
         failure_warnings = self._format_failures_for_prompt(failures)
 
+        # P4: 组装记忆上下文
+        memory_context = ""
+        try:
+            context_data = await self.memory_service.assemble_context_for_chapter(
+                db=db,
+                project_id=gen_task.project_id,
+                chapter_index=chapter.chapter_index
+            )
+            memory_context = self.memory_service.format_context_for_prompt(context_data)
+        except Exception as e:
+            logger.warning(f"记忆上下文组装失败: {e}")
+            memory_context = "（记忆系统暂不可用）"
+
         prompt = f"""请根据以下规划起草章节内容：
 
 章节标题: {chapter.title}
@@ -745,6 +799,9 @@ class WritingWorker:
 
 章节规划:
 {json.dumps(chapter_plan, ensure_ascii=False, indent=2)}
+
+## 相关记忆上下文（必读）
+{memory_context}
 
 世界观设定:
 {bible_data.get('world_setting', '')}
@@ -771,10 +828,11 @@ class WritingWorker:
 写作要求：
 - 使用中文写作
 - 注意节奏控制
-- 对话自然
+- 对话自然，符合人物当前状态（参考记忆上下文）
 - 场景描写生动
 - 必须遵守上述技巧卡的使用指令
 - 必须避免上述错误模式
+- 必须尊重记忆上下文中的人物状态和关系变化
 - 避免使用禁止设定: {json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False)}
 
 请直接输出章节正文内容："""

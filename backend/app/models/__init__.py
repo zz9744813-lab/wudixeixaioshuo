@@ -3,9 +3,15 @@
 """
 
 from app.models.book import Book, BookChapter
-from app.models.chapter import Chapter, ChapterVersion
+from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
 from app.models.evolution import EvolutionLog, EvolutionRun, VersionHistory
 from app.models.feedback import Feedback, UserPreference
+from app.models.memory import (
+    CharacterMemory,
+    ChapterMemory,
+    WorldMemory,
+    RelationshipMemory,
+)
 from app.models.model_config import ModelCallLog, ModelProvider, ModelRole
 from app.models.project import NovelBible, Project
 from app.models.task import GenerationStep, GenerationTask
@@ -22,6 +28,7 @@ __all__ = [
     "Book",
     "BookChapter",
     "Chapter",
+    "ChapterStatus",
     "ChapterVersion",
     "GenerationTask",
     "GenerationStep",
@@ -37,4 +44,9 @@ __all__ = [
     "EvolutionRun",
     "EvolutionLog",
     "VersionHistory",
+    # Memory models (P4)
+    "CharacterMemory",
+    "ChapterMemory",
+    "WorldMemory",
+    "RelationshipMemory",
 ]
