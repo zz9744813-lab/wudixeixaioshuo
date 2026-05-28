@@ -17,7 +17,7 @@ from app.database import SessionLocal
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
 from app.models.project import Project, NovelBible
 from app.models.task import GenerationTask, GenerationStep, TaskStatus, TaskPriority, TaskType
-from app.models.technique import TechniqueCard, ProjectPlaybook
+from app.models.technique import TechniqueCard, ProjectPlaybook, FailurePattern
 from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 
@@ -349,9 +349,26 @@ class WritingWorker:
                         score_breakdown = critic_result2.get("score_breakdown", score_breakdown)
                         current_version = new_version
                     else:
-                        # 新版本没有改进，回滚
+                        # 新版本没有改进，回滚并记录失败模式
                         logger.info(f"[Task {gen_task.id}] 新版本未改进 ({new_score} vs {score})，保留旧版本")
                         new_version.is_accepted = 0
+
+                        # P2: 记录 Rewrite 失败
+                        self._record_failure_pattern(
+                            db, gen_task.project_id,
+                            category="Rewrite未改进",
+                            symptom=f"Rewrite #{rewrite_count} 后评分从 {score} 降至 {new_score}",
+                            prevention_rule="Rewrite前需确保问题诊断准确，避免盲目修改"
+                        )
+
+                        # P2: 从低分维度生成改进规则
+                        if critic_result2.get("score_breakdown"):
+                            self._update_playbook_from_critic(
+                                db, gen_task.project_id,
+                                critic_result2.get("score_breakdown", {}),
+                                new_critique
+                            )
+
                         db.commit()
                 else:
                     break
@@ -513,12 +530,127 @@ class WritingWorker:
 
         return "\n".join(sections)
 
+    def _get_failure_patterns(self, db: Session, project_id: int) -> list:
+        """获取项目的失败模式（按发生次数排序）"""
+        patterns = db.query(FailurePattern).filter(
+            FailurePattern.project_id == project_id
+        ).order_by(
+            FailurePattern.occurrence_count.desc()
+        ).limit(5).all()
+
+        return [
+            {
+                "category": p.category,
+                "symptom": p.symptom,
+                "prevention_rule": p.prevention_rule,
+                "occurrence_count": p.occurrence_count,
+            }
+            for p in patterns
+        ]
+
+    def _format_failures_for_prompt(self, patterns: list) -> str:
+        """将失败模式格式化为 Prompt 警告"""
+        if not patterns:
+            return "无已知失败模式。"
+
+        sections = []
+        sections.append("## 必须避免的错误模式（基于历史失败）")
+
+        for i, p in enumerate(patterns, 1):
+            sections.append(f"\n### 错误模式 {i}: {p['category']}")
+            sections.append(f"**症状**: {p['symptom']}")
+            if p['prevention_rule']:
+                sections.append(f"**预防措施**: {p['prevention_rule']}")
+            sections.append(f"**历史发生**: {p['occurrence_count']} 次")
+
+        return "\n".join(sections)
+
+    def _record_failure_pattern(
+        self, db: Session, project_id: int,
+        category: str, symptom: str, prevention_rule: str = ""
+    ):
+        """记录失败模式"""
+        # 查找是否已有类似失败
+        existing = db.query(FailurePattern).filter(
+            FailurePattern.project_id == project_id,
+            FailurePattern.category == category,
+            FailurePattern.symptom == symptom
+        ).first()
+
+        if existing:
+            existing.occurrence_count += 1
+            if prevention_rule:
+                existing.prevention_rule = prevention_rule
+        else:
+            pattern = FailurePattern(
+                project_id=project_id,
+                category=category,
+                symptom=symptom,
+                prevention_rule=prevention_rule,
+                occurrence_count=1
+            )
+            db.add(pattern)
+
+        db.commit()
+
+    def _update_playbook_from_critic(
+        self, db: Session, project_id: int,
+        score_breakdown: dict, critique: str
+    ):
+        """从 Critic 评分低的维度生成改进规则"""
+        playbook = db.query(ProjectPlaybook).filter(
+            ProjectPlaybook.project_id == project_id
+        ).first()
+
+        if not playbook:
+            # 创建新的 playbook
+            playbook = ProjectPlaybook(project_id=project_id, rules=[])
+            db.add(playbook)
+
+        # 初始化 rules
+        if not playbook.rules:
+            playbook.rules = []
+
+        # 评分阈值
+        THRESHOLD = 70
+
+        # 检查各维度评分
+        dimension_rules = {
+            "plot_progress": "确保剧情有实质性推进，避免情节停滞",
+            "character_consistency": "检查人物言行是否与其设定一致",
+            "pacing": "控制节奏，避免过快或过慢",
+            "hook": "确保章节有吸引人的开头和结尾钩子",
+            "emotional_reward": "增加情绪满足点，让读者有获得感",
+            "style_consistency": "保持文风稳定，避免突兀的语调变化",
+            "continuity": "检查与前文的连续性和逻辑一致性",
+            "clarity": "确保信息清晰，避免让读者困惑",
+            "readability": "增强可读性，注意段落和对话的自然流畅",
+        }
+
+        new_rules = []
+        for dimension, score in score_breakdown.items():
+            if score < THRESHOLD and dimension in dimension_rules:
+                rule = f"[改进] {dimension_rules[dimension]} (当前评分: {score})"
+                if rule not in playbook.rules:
+                    new_rules.append(rule)
+
+        if new_rules:
+            playbook.rules.extend(new_rules)
+            playbook.updated_at = datetime.utcnow()
+            db.commit()
+            logger.info(f"已更新 Playbook，新增 {len(new_rules)} 条规则")
+
+        return new_rules
+
     async def _run_planner(self, db, gen_task, chapter, bible_data: dict) -> dict:
         """执行 Planner Agent - 使用技巧库"""
-        # 获取项目技巧卡和写作手册
+        # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
+        failures = self._get_failure_patterns(db, gen_task.project_id)
+
         tech_instructions = self._format_techniques_for_prompt(techniques)
+        failure_warnings = self._format_failures_for_prompt(failures)
 
         prompt = f"""请为以下章节进行详细规划：
 
@@ -539,6 +671,8 @@ class WritingWorker:
 
 {tech_instructions}
 
+{failure_warnings}
+
 写作手册规则:
 {chr(10).join(playbook.get('rules', ['无']))}
 
@@ -555,7 +689,8 @@ class WritingWorker:
 4. 章节钩子（开头钩子、结尾钩子）
 5. 情绪节奏设计
 6. 关键剧情点（3-5个）
-7. 要使用的技巧卡（列出具体技巧名称）"""
+7. 要使用的技巧卡（列出具体技巧名称）
+8. 要避免的错误模式（列出具体预防措施）"""
 
         try:
             response = await llm_manager.generate(prompt=prompt, role="planner", temperature=0.7)
@@ -576,10 +711,13 @@ class WritingWorker:
 
     async def _run_draft(self, db, gen_task, chapter, bible_data: dict, chapter_plan: dict) -> dict:
         """执行 Draft Agent - 使用技巧库"""
-        # 获取项目技巧卡和写作手册
+        # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
+        failures = self._get_failure_patterns(db, gen_task.project_id)
+
         tech_instructions = self._format_techniques_for_prompt(techniques)
+        failure_warnings = self._format_failures_for_prompt(failures)
 
         prompt = f"""请根据以下规划起草章节内容：
 
@@ -600,6 +738,8 @@ class WritingWorker:
 
 {tech_instructions}
 
+{failure_warnings}
+
 写作手册规则:
 {chr(10).join(playbook.get('rules', ['无']))}
 
@@ -614,7 +754,8 @@ class WritingWorker:
 - 注意节奏控制
 - 对话自然
 - 场景描写生动
-- 必须遵守上述技巧卡的要求
+- 必须遵守上述技巧卡的使用指令
+- 必须避免上述错误模式
 - 避免使用禁止设定: {json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False)}
 
 请直接输出章节正文内容："""
