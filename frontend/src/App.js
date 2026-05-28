@@ -12,7 +12,9 @@ import AgentConsole from './pages/AgentConsole';
 import Tasks from './pages/Tasks';
 import ModelConfig from './pages/ModelConfig';
 import Feedback from './pages/Feedback';
+import FeedbackCenter from './pages/FeedbackCenter';
 import Evolution from './pages/Evolution';
+import EvolutionCenter from './pages/EvolutionCenter';
 import Logs from './pages/Logs';
 import WorkerDashboard from './pages/WorkerDashboard';
 
@@ -31,8 +33,8 @@ function App() {
           <Route path="/agents" element={<AgentConsole />} />
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/models" element={<ModelConfig />} />
-          <Route path="/feedback" element={<Feedback />} />
-          <Route path="/evolution" element={<Evolution />} />
+          <Route path="/feedback" element={<FeedbackCenter />} />
+          <Route path="/evolution" element={<EvolutionCenter />} />
           <Route path="/worker" element={<WorkerDashboard />} />
           <Route path="/logs" element={<Logs />} />
         </Routes>
