@@ -115,10 +115,10 @@ class WritingWorker:
         """处理下一个任务"""
         db = SessionLocal()
         try:
-            # 查找待写作的章节
+            # 查找待写作的章节 - 使用 PLANNED 而不是 PENDING
             chapter = db.query(Chapter).filter(
-                Chapter.status == ChapterStatus.PENDING
-            ).order_by(Chapter.order_num.asc()).first()
+                Chapter.status == ChapterStatus.PLANNED
+            ).order_by(Chapter.chapter_index.asc()).first()
 
             if not chapter:
                 return
@@ -170,8 +170,8 @@ class WritingWorker:
     ) -> dict:
         """执行写作流水线"""
         try:
-            # 更新章节状态为写作中
-            chapter.status = ChapterStatus.WRITING
+            # 更新章节状态为起草中 - 使用 DRAFTING 而不是 WRITING
+            chapter.status = ChapterStatus.DRAFTING
             db.commit()
 
             # 调用流水线服务

@@ -10,11 +10,11 @@ from typing import Optional
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 数据库配置
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///F:/kelaode/quanzidong/data/novel_agent.db"
-)
+# 数据库配置 - 使用相对路径，支持环境变量覆盖
+import os
+
+DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "novel_agent.db")
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
 
 # 创建引擎
 engine = create_engine(

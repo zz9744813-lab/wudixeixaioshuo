@@ -46,27 +46,20 @@ class TaskQueueService:
     ) -> dict:
         """
         添加章节到写作队列
-
-        Args:
-            project_id: 项目ID
-            chapter_ids: 指定章节ID列表，None 表示添加所有待写作章节
-
-        Returns:
-            添加结果统计
         """
         query = self.db.query(Chapter).filter(
             Chapter.project_id == project_id,
-            Chapter.status.in_([ChapterStatus.PENDING, ChapterStatus.FAILED])
+            Chapter.status.in_([ChapterStatus.PLANNED, ChapterStatus.FAILED])
         )
 
         if chapter_ids:
             query = query.filter(Chapter.id.in_(chapter_ids))
 
-        chapters = query.order_by(Chapter.order_num.asc()).all()
+        chapters = query.order_by(Chapter.chapter_index.asc()).all()
 
         added_count = 0
         for chapter in chapters:
-            chapter.status = ChapterStatus.PENDING
+            chapter.status = ChapterStatus.PLANNED
             chapter.metadata = chapter.metadata or {}
             chapter.metadata["queued_at"] = datetime.now().isoformat()
             chapter.metadata["queue_status"] = QueueStatus.QUEUED.value
@@ -91,8 +84,8 @@ class TaskQueueService:
         if not chapter:
             return False
 
-        if chapter.status in [ChapterStatus.PENDING, ChapterStatus.FAILED]:
-            chapter.status = ChapterStatus.PENDING
+        if chapter.status in [ChapterStatus.PLANNED, ChapterStatus.FAILED]:
+            chapter.status = ChapterStatus.PLANNED
             if chapter.metadata:
                 chapter.metadata["queue_status"] = QueueStatus.PENDING.value
                 chapter.metadata["removed_at"] = datetime.now().isoformat()
@@ -109,19 +102,19 @@ class TaskQueueService:
             query = query.filter(Chapter.project_id == project_id)
 
         # 统计各状态数量
-        pending = query.filter(Chapter.status == ChapterStatus.PENDING).count()
-        writing = query.filter(Chapter.status == ChapterStatus.WRITING).count()
-        review = query.filter(Chapter.status == ChapterStatus.REVIEW).count()
+        planned = query.filter(Chapter.status == ChapterStatus.PLANNED).count()
+        drafting = query.filter(Chapter.status == ChapterStatus.DRAFTING).count()
+        critic = query.filter(Chapter.status == ChapterStatus.CRITICING).count()
         completed = query.filter(Chapter.status == ChapterStatus.COMPLETED).count()
         failed = query.filter(Chapter.status == ChapterStatus.FAILED).count()
 
-        total = pending + writing + review + completed + failed
+        total = planned + drafting + critic + completed + failed
 
         return {
             "total": total,
-            "pending": pending,
-            "writing": writing,
-            "review": review,
+            "planned": planned,
+            "drafting": drafting,
+            "critic": critic,
             "completed": completed,
             "failed": failed,
             "progress": {
@@ -134,13 +127,13 @@ class TaskQueueService:
     def get_next_task(self, project_id: Optional[int] = None) -> Optional[Chapter]:
         """获取下一个待处理任务"""
         query = self.db.query(Chapter).filter(
-            Chapter.status == ChapterStatus.PENDING
+            Chapter.status == ChapterStatus.PLANNED
         )
 
         if project_id:
             query = query.filter(Chapter.project_id == project_id)
 
-        return query.order_by(Chapter.order_num.asc()).first()
+        return query.order_by(Chapter.chapter_index.asc()).first()
 
     def reorder_queue(
         self,
@@ -148,9 +141,6 @@ class TaskQueueService:
     ) -> bool:
         """
         重新排序队列
-
-        Args:
-            chapter_ids: 按新顺序排列的章节ID列表
         """
         try:
             for index, chapter_id in enumerate(chapter_ids):
@@ -159,7 +149,7 @@ class TaskQueueService:
                 ).first()
 
                 if chapter:
-                    chapter.order_num = index + 1
+                    chapter.chapter_index = index + 1
                     if chapter.metadata:
                         chapter.metadata["reordered_at"] = datetime.now().isoformat()
 
@@ -171,9 +161,9 @@ class TaskQueueService:
             return False
 
     def pause_queue(self, project_id: Optional[int] = None) -> int:
-        """暂停队列（将 pending 改为 paused）"""
+        """暂停队列"""
         query = self.db.query(Chapter).filter(
-            Chapter.status == ChapterStatus.PENDING
+            Chapter.status == ChapterStatus.PLANNED
         )
 
         if project_id:
@@ -191,7 +181,7 @@ class TaskQueueService:
         return count
 
     def clear_failed(self, project_id: Optional[int] = None) -> int:
-        """清空失败的章节，重置为 pending"""
+        """清空失败的章节，重置为 planned"""
         query = self.db.query(Chapter).filter(
             Chapter.status == ChapterStatus.FAILED
         )
@@ -203,7 +193,7 @@ class TaskQueueService:
         count = len(chapters)
 
         for chapter in chapters:
-            chapter.status = ChapterStatus.PENDING
+            chapter.status = ChapterStatus.PLANNED
             if chapter.metadata:
                 chapter.metadata["retried_at"] = datetime.now().isoformat()
 
@@ -221,14 +211,14 @@ class TaskQueueService:
 
         chapters = self.db.query(Chapter).filter(
             Chapter.project_id == project_id
-        ).order_by(Chapter.order_num.asc()).all()
+        ).order_by(Chapter.chapter_index.asc()).all()
 
         daily_goal = project.config.get("daily_word_goal", 10000)
         token_budget = project.config.get("daily_token_budget", 100000)
 
         # 估算总字数和天数
         total_words = sum(
-            c.metadata.get("word_count", 3000) for c in chapters
+            c.metadata.get("word_count", 3000) if c.metadata else 3000 for c in chapters
         )
         estimated_days = total_words / daily_goal if daily_goal > 0 else 0
 
@@ -243,9 +233,9 @@ class TaskQueueService:
                 {
                     "id": c.id,
                     "title": c.title,
-                    "order_num": c.order_num,
-                    "status": c.status.value,
-                    "estimated_words": c.metadata.get("word_count", 3000),
+                    "chapter_index": c.chapter_index,
+                    "status": c.status.value if c.status else None,
+                    "estimated_words": c.metadata.get("word_count", 3000) if c.metadata else 3000,
                 }
                 for c in chapters
             ]
