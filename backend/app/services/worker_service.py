@@ -59,9 +59,8 @@ class WritingWorker:
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
         self.evolution_service = EvolutionService()
-        # P4: 初始化记忆服务
-        self.memory_service = MemoryService()
-        self.memory_update_agent = MemoryUpdateAgent()
+        # P4: MemoryUpdateAgent 在使用时创建
+        self.memory_update_agent = None
 
     async def start(self):
         """启动 Worker"""
@@ -217,6 +216,14 @@ class WritingWorker:
                 # P4: 章节完成后更新记忆系统
                 memory_update_step = None
                 try:
+                    # 获取 bible_data
+                    bible = project.bible
+                    bible_data = self._bible_to_dict(bible) if bible else {}
+
+                    # 初始化 MemoryUpdateAgent
+                    if not self.memory_update_agent:
+                        self.memory_update_agent = MemoryUpdateAgent()
+
                     logger.info(f"[Task {gen_task.id}] 开始更新记忆系统...")
                     memory_result = await self.memory_update_agent.update_from_chapter(
                         project_id=project.id,
@@ -265,9 +272,11 @@ class WritingWorker:
                 chapter.status = ChapterStatus.FAILED
                 gen_task.retry_count += 1
 
-            # 更新任务统计
-            gen_task.completed_steps = result.get("completed_steps", 0)
-            gen_task.total_steps = result.get("total_steps", 0)
+            # 更新任务统计 - 从数据库重新计算步骤数
+            gen_task.completed_steps = db.query(GenerationStep).filter(
+                GenerationStep.task_id == gen_task.id
+            ).count()
+            gen_task.total_steps = gen_task.completed_steps
             gen_task.token_used = result.get("tokens_used", 0)
             gen_task.actual_cost = result.get("cost", 0.0)
 
@@ -306,12 +315,12 @@ class WritingWorker:
         # P4: 获取记忆上下文（供 Continuity 使用）
         memory_context_for_continuity = ""
         try:
-            context_data = await self.memory_service.assemble_context_for_chapter(
-                db=db,
+            memory_service = MemoryService(db)
+            context_data = memory_service.assemble_context_for_chapter(
                 project_id=gen_task.project_id,
                 chapter_index=chapter.chapter_index
             )
-            memory_context_for_continuity = self.memory_service.format_context_for_prompt(context_data)
+            memory_context_for_continuity = memory_service.format_context_for_prompt(context_data)
         except Exception as e:
             logger.warning(f"Continuity 记忆上下文获取失败: {e}")
             memory_context_for_continuity = "（记忆系统暂不可用）"
@@ -723,12 +732,12 @@ class WritingWorker:
         # P4: 组装记忆上下文
         memory_context = ""
         try:
-            context_data = await self.memory_service.assemble_context_for_chapter(
-                db=db,
+            memory_service = MemoryService(db)
+            context_data = memory_service.assemble_context_for_chapter(
                 project_id=gen_task.project_id,
                 chapter_index=chapter.chapter_index
             )
-            memory_context = self.memory_service.format_context_for_prompt(context_data)
+            memory_context = memory_service.format_context_for_prompt(context_data)
         except Exception as e:
             logger.warning(f"记忆上下文组装失败: {e}")
             memory_context = "（记忆系统暂不可用）"
@@ -826,12 +835,12 @@ class WritingWorker:
         # P4: 组装记忆上下文
         memory_context = ""
         try:
-            context_data = await self.memory_service.assemble_context_for_chapter(
-                db=db,
+            memory_service = MemoryService(db)
+            context_data = memory_service.assemble_context_for_chapter(
                 project_id=gen_task.project_id,
                 chapter_index=chapter.chapter_index
             )
-            memory_context = self.memory_service.format_context_for_prompt(context_data)
+            memory_context = memory_service.format_context_for_prompt(context_data)
         except Exception as e:
             logger.warning(f"记忆上下文组装失败: {e}")
             memory_context = "（记忆系统暂不可用）"
