@@ -11,6 +11,8 @@ const forbiddenPatterns = [
   { pattern: 'fetch(`${API_BASE}', desc: "直接使用 fetch 拼接 API_BASE" },
   { pattern: 'new EventSource', desc: "使用原生 EventSource（应该用 @microsoft/fetch-event-source）" },
   { pattern: 'http://localhost:8000/api', desc: "硬编码 localhost API 地址" },
+  { pattern: "window.open(`/api/", desc: "直接打开受保护 API URL，无法携带 X-API-Key" },
+  { pattern: "window.open('/api/", desc: "直接打开受保护 API URL，无法携带 X-API-Key" },
 ];
 
 const excludeFiles = [

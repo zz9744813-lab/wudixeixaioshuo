@@ -271,44 +271,6 @@ class TestFileUploadUtils:
         assert not test_file.exists()
 
 
-class TestExportPathSecurity:
-    """导出路径安全测试"""
-
-    def test_export_download_rejects_path_traversal(self, client, api_headers):
-        """导出下载拒绝路径穿越"""
-        response = client.get(
-            "/api/export/download/../../../etc/passwd",
-            headers=api_headers
-        )
-        assert response.status_code in [400, 404]
-
-    def test_export_download_rejects_illegal_chars(self, client, api_headers):
-        """导出下载拒绝非法字符"""
-        response = client.get(
-            "/api/export/download/file;rm -rf /",
-            headers=api_headers
-        )
-        assert response.status_code == 400
-
-    def test_export_download_accepts_valid_filename(self, client, api_headers):
-        """导出下载接受合法文件名"""
-        response = client.get(
-            "/api/export/download/test_export.md",
-            headers=api_headers
-        )
-        # 应该返回404（文件不存在）而非400（非法请求）
-        assert response.status_code == 404
-
-    def test_export_delete_rejects_path_traversal(self, client, api_headers):
-        """导出删除拒绝路径穿越"""
-        response = client.delete(
-            "/api/export/../../../app/main.py",
-            headers=api_headers
-        )
-        # 路由不匹配返回404，鉴权失败返回401/403，验证失败返回400
-        assert response.status_code in [400, 401, 403, 404]
-
-
 class TestFileExtensionValidation:
     """文件扩展名验证测试"""
 

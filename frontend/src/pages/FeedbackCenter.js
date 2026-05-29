@@ -107,9 +107,6 @@ function FeedbackCenter() {
       setError('操作失败: ' + err.message);
     }
   };
-      setError('解决失败: ' + err.message);
-    }
-  };
 
   const renderStats = () => {
     if (!stats) return <LinearProgress />;

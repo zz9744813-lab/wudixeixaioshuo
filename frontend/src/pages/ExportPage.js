@@ -116,14 +116,34 @@ function ExportPage() {
     fetchData();
   }, []);
 
+  // 使用 axios blob 下载文件（携带 X-API-Key）
+  const downloadExport = async (filename) => {
+    try {
+      const response = await api.get(`/export/download/${filename}`, {
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('下载失败: ' + err.message);
+    }
+  };
+
   const handleExport = async () => {
     setLoading(true);
     try {
       const res = await api.post("/export/", exportConfig);
       setDialogOpen(false);
       fetchData();
-      // 自动下载
-      window.open(`/api/export/download/${res.data.filename}`, '_blank');
+      // 自动下载 - 使用 axios blob
+      await downloadExport(res.data.filename);
     } catch (err) {
       setError(err.response?.data?.detail || '导出失败');
     }
@@ -139,8 +159,8 @@ function ExportPage() {
     }
   };
 
-  const handleDownload = (filename) => {
-    window.open(`/api/export/download/${filename}`, '_blank');
+  const handleDownload = async (filename) => {
+    await downloadExport(filename);
   };
 
   const formatFileSize = (bytes) => {
