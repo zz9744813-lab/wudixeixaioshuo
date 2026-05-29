@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class EvolutionDecision(str, PyEnum):
@@ -61,7 +62,7 @@ class EvolutionRun(Base):
     judge_agents = Column(JSON, default=list)  # 参与评判的Agent
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     decided_at = Column(DateTime)
 
 
@@ -79,7 +80,7 @@ class EvolutionLog(Base):
     details = Column(JSON)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class VersionHistory(Base):
@@ -108,4 +109,4 @@ class VersionHistory(Base):
     is_current = Column(Integer, default=0)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)

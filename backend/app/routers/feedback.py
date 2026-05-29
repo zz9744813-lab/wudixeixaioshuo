@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.feedback import Feedback, FeedbackSource
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -125,7 +126,7 @@ async def process_feedback(
         raise HTTPException(status_code=404, detail="反馈不存在")
 
     feedback.is_processed = 1
-    feedback.processed_at = datetime.utcnow()
+    feedback.processed_at = utc_now()
     db.commit()
 
     return {"message": "反馈已标记为处理"}

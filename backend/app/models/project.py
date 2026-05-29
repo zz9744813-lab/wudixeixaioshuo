@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class ProjectStatus(str, PyEnum):
@@ -81,8 +82,8 @@ class Project(Base):
     total_words_written = Column(Integer, default=0)  # 已写字数
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     started_at = Column(DateTime)
     completed_at = Column(DateTime)
 
@@ -125,8 +126,8 @@ class NovelBible(Base):
     chapter_outline = Column(JSON, default=list)  # 章纲
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 关系
     project = relationship("Project", back_populates="bible")

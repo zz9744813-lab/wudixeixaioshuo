@@ -18,6 +18,7 @@ from app.models.book import Book, BookChapter, BookStatus, SourceType
 from app.services.openai_llm_service import llm_manager
 
 from app.models.technique import TechniqueCard, TechniqueCategory
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -472,13 +473,13 @@ async def analyze_book(book_id: int, db: Session = Depends(get_db)):
 - 识别剧情点：{sum(len(c.plot_points or []) for c in all_chapters)}
 
 ---
-分析完成时间：{datetime.utcnow().isoformat()}
+分析完成时间：{utc_now().isoformat()}
 """
 
         book.analysis_report = report
         book.analysis_progress = 100
         book.status = BookStatus.COMPLETED
-        book.analyzed_at = datetime.utcnow()
+        book.analyzed_at = utc_now()
         db.commit()
 
         return {

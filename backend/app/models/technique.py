@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class TechniqueCategory(str, PyEnum):
@@ -86,8 +87,8 @@ class TechniqueCard(Base):
     is_verified = Column(Integer, default=0)  # 是否已验证
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 关系
     book = relationship("Book", back_populates="technique_cards")
@@ -111,7 +112,7 @@ class StoryPattern(Base):
     risks = Column(Text)  # 风险点
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class FailurePattern(Base):
@@ -131,7 +132,7 @@ class FailurePattern(Base):
     occurrence_count = Column(Integer, default=1)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class ProjectPlaybook(Base):
@@ -159,8 +160,8 @@ class ProjectPlaybook(Base):
     scoring_rubric = Column(JSON)  # 评分细则
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
 # P4新增：BookProfile 书籍档案
@@ -191,5 +192,5 @@ class BookProfile(Base):
     reusable_skill_categories = Column(JSON, default=list)  # 可复用技巧分类
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)

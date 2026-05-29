@@ -15,6 +15,7 @@ from app.models.chapter import Chapter, ChapterVersion
 from app.models.evolution import EvolutionDecision, EvolutionRun, EvolutionTarget, VersionHistory
 from app.models.feedback import Feedback
 from app.models.project import Project
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -182,7 +183,7 @@ class EvolutionService:
 
         # 更新进化记录
         evolution.decision = EvolutionDecision.KEEP
-        evolution.decided_at = datetime.utcnow()
+        evolution.decided_at = utc_now()
         evolution.reason = f"已应用版本 {version_id}"
 
         self.db.commit()
@@ -199,7 +200,7 @@ class EvolutionService:
             return False
 
         evolution.decision = EvolutionDecision.REVERT
-        evolution.decided_at = datetime.utcnow()
+        evolution.decided_at = utc_now()
         evolution.reason = "改进效果不佳，已回滚"
 
         self.db.commit()

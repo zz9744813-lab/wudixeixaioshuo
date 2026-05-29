@@ -3,6 +3,7 @@ OpenAI-compatible LLM Service - OpenAI 兼容的 LLM 服务
 支持任何兼容 OpenAI API 格式的服务（OpenAI, Azure, DeepSeek, 本地模型等）
 """
 
+import asyncio
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -155,18 +156,18 @@ class OpenAILLMService(BaseLLMService):
                 last_error = f"HTTP {e.response.status_code}: {e.response.text}"
                 if e.response.status_code == 429:  # Rate limit
                     wait_time = 2 ** attempt
-                    time.sleep(wait_time)
+                    await asyncio.sleep(wait_time)
                     continue
                 elif e.response.status_code >= 500:  # Server error, retry
                     if attempt < self.retry_times - 1:
-                        time.sleep(1)
+                        await asyncio.sleep(1)
                         continue
                 raise Exception(f"API 请求失败: {last_error}")
 
             except httpx.TimeoutException:
                 last_error = "请求超时"
                 if attempt < self.retry_times - 1:
-                    time.sleep(1)
+                    await asyncio.sleep(1)
                     continue
                 raise Exception(f"API 请求超时，已重试 {self.retry_times} 次")
 

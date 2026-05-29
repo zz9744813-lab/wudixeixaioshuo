@@ -12,6 +12,7 @@ from app.models.chapter import Chapter, ChapterStatus
 from app.models.project import Project
 from app.models.task import GenerationStep, GenerationTask, TaskStatus
 from app.services.mock_llm_service import mock_llm_service
+from app.utils.time_utils import utc_now
 
 
 ARTIFACTS_DIR = "F:/kelaode/quanzidong/data/artifacts"
@@ -131,11 +132,11 @@ class WritingPipelineService:
             chapter.status = ChapterStatus.COMPLETED
 
             from datetime import datetime
-            chapter.completed_at = datetime.utcnow()
+            chapter.completed_at = utc_now()
 
             if task:
                 task.status = TaskStatus.COMPLETED
-                task.finished_at = datetime.utcnow()
+                task.finished_at = utc_now()
 
             db.commit()
 

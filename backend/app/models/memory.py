@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey, JSON, Index
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class CharacterMemory(Base):
@@ -33,8 +34,8 @@ class CharacterMemory(Base):
     summary = Column(Text)  # 角色摘要
     latest_update_reason = Column(Text)  # 上次更新原因
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 索引优化查询
     __table_args__ = (
@@ -63,8 +64,8 @@ class WorldMemory(Base):
     importance_score = Column(Float, default=0.5)  # 重要性
     is_canon = Column(Integer, default=1)  # 1=正史设定，0=临时/可改
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     __table_args__ = (
         Index('idx_world_memory_project_cat', 'project_id', 'category'),
@@ -90,7 +91,7 @@ class ChapterMemory(Base):
     unresolved_questions = Column(JSON, default=list)  # 未解之谜
     foreshadow_updates = Column(JSON, default=list)    # 伏笔更新
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     __table_args__ = (
         Index('idx_chapter_memory_project_idx', 'project_id', 'chapter_index'),
@@ -114,8 +115,8 @@ class RelationshipMemory(Base):
     history = Column(JSON, default=list)  # 关系变化历史
     last_changed_chapter = Column(Integer)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     __table_args__ = (
         Index('idx_rel_memory_project_chars', 'project_id', 'character_a', 'character_b'),
@@ -133,4 +134,4 @@ class MemoryQueryLog(Base):
     query_type = Column(String(50))  # character/world/chapter/relationship
     query_params = Column(JSON, default=dict)  # 查询参数
     results_count = Column(Integer)  # 返回结果数
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)

@@ -31,6 +31,7 @@ from app.routers import (
     techniques,
     worker,
 )
+from app.services.openai_llm_service import llm_manager
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
     init_db()
     yield
     # 关闭时清理资源
+    await llm_manager.close_all()
 
 
 app = FastAPI(
@@ -49,10 +51,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 配置
+import os
+
+# CORS 配置 - 从环境变量读取，默认允许本地开发
+CORS_ORIGINS = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

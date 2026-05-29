@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class Foreshadow(Base):
@@ -47,8 +48,8 @@ class Foreshadow(Base):
     reader_expectation = Column(Float, default=0.5)  # 读者期待程度 0-1
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 索引优化
     __table_args__ = (
@@ -79,7 +80,7 @@ class ForeshadowPlan(Base):
     is_executed = Column(Integer, default=0)  # 是否已执行
     execution_result = Column(JSON, default=dict)  # 执行结果
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
 
 class ForeshadowReview(Base):
@@ -101,4 +102,4 @@ class ForeshadowReview(Base):
     foreshadow_score = Column(Float, default=0.0)
     suggestions = Column(JSON, default=list)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)

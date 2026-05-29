@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models.model_config import ModelProvider, ModelRole
 from app.services.openai_llm_service import OpenAILLMService
 from app.services.secret_service import encrypt_api_key, decrypt_api_key, mask_api_key
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -137,7 +138,7 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
 
         # 更新提供商状态
         from datetime import datetime
-        provider.last_tested_at = datetime.utcnow()
+        provider.last_tested_at = utc_now()
         provider.last_test_result = "success"
         db.commit()
 
@@ -158,7 +159,7 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
 
     except Exception as e:
         from datetime import datetime
-        provider.last_tested_at = datetime.utcnow()
+        provider.last_tested_at = utc_now()
         provider.last_test_result = "failed"
         db.commit()
 

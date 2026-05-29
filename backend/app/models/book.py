@@ -2,13 +2,19 @@
 Book Models - 书籍/拆书学习模型
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
+from app.utils.time_utils import utc_now
 from enum import Enum as PyEnum
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+
+
+def utc_now():
+    """获取当前 UTC 时间"""
+    return datetime.now(timezone.utc)
 
 
 class BookStatus(str, PyEnum):
@@ -59,8 +65,8 @@ class Book(Base):
     analysis_report = Column(Text)  # 分析报告摘要
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     analyzed_at = Column(DateTime)
 
     # 关系
@@ -92,7 +98,7 @@ class BookChapter(Base):
     hooks = Column(JSON)  # 钩子分析
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # 关系
     book = relationship("Book", back_populates="chapters")

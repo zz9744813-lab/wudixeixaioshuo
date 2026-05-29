@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.task import GenerationTask, GenerationStep, TaskStatus, TaskType
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -150,7 +151,7 @@ async def cancel_task(task_id: int, db: Session = Depends(get_db)):
 
     task.status = TaskStatus.CANCELLED
     from datetime import datetime
-    task.finished_at = datetime.utcnow()
+    task.finished_at = utc_now()
     db.commit()
 
     return {"message": "任务已取消", "id": task.id}

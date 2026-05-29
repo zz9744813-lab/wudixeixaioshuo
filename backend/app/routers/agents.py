@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.task import GenerationStep, GenerationTask, TaskStatus
 from app.services.openai_llm_service import llm_manager
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -239,11 +240,16 @@ async def generate_chapter(request: GenerateChapterRequest, db: Session = Depend
     chapter.status = ChapterStatus.COMPLETED
     chapter.final_content = chapter.draft_content
     chapter.final_word_count = len(chapter.final_content)
-    from datetime import datetime
-    chapter.completed_at = datetime.utcnow()
+    from datetime import datetime, timezone
+
+
+def utc_now():
+    """获取当前 UTC 时间（兼容 Python 3.12+）"""
+    return datetime.now(timezone.utc)
+    chapter.completed_at = utc_now()
 
     task.status = TaskStatus.COMPLETED
-    task.finished_at = datetime.utcnow()
+    task.finished_at = utc_now()
 
     db.commit()
 

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
 
 from app.models.foreshadow import Foreshadow, ForeshadowPlan, ForeshadowReview
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ class ForeshadowService:
             if hasattr(foreshadow, key):
                 setattr(foreshadow, key, value)
 
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
         self.db.commit()
         self.db.refresh(foreshadow)
         return foreshadow
@@ -116,7 +117,7 @@ class ForeshadowService:
         foreshadow.status = "planted"
         foreshadow.setup_chapter = setup_chapter
         foreshadow.setup_content = setup_content
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
 
         self.db.commit()
         logger.info(f"[Foreshadow] 伏笔已埋设: {foreshadow.title} @ 第{setup_chapter}章")
@@ -139,10 +140,10 @@ class ForeshadowService:
         notes.append({
             "chapter": chapter_index,
             "note": development_note,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         })
         foreshadow.development_notes = notes
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
 
         self.db.commit()
         logger.info(f"[Foreshadow] 伏笔已推进: {foreshadow.title} @ 第{chapter_index}章")
@@ -158,7 +159,7 @@ class ForeshadowService:
             return None
 
         foreshadow.status = "ready_to_payoff"
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
 
         self.db.commit()
         logger.info(f"[Foreshadow] 伏笔准备回收: {foreshadow.title}")
@@ -178,7 +179,7 @@ class ForeshadowService:
         foreshadow.status = "paid_off"
         foreshadow.actual_payoff_chapter = payoff_chapter
         foreshadow.payoff_content = payoff_content
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
 
         self.db.commit()
         logger.info(f"[Foreshadow] 伏笔已回收: {foreshadow.title} @ 第{payoff_chapter}章")
@@ -195,7 +196,7 @@ class ForeshadowService:
             return None
 
         foreshadow.status = "abandoned"
-        foreshadow.updated_at = datetime.utcnow()
+        foreshadow.updated_at = utc_now()
 
         self.db.commit()
         logger.info(f"[Foreshadow] 伏笔已废弃: {foreshadow.title}, reason={reason}")

@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class FeedbackSource(str, PyEnum):
@@ -44,7 +45,7 @@ class Feedback(Base):
     is_applied = Column(Integer, default=0)  # 是否已应用
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     processed_at = Column(DateTime)
 
 
@@ -63,5 +64,5 @@ class UserPreference(Base):
     source_feedback_id = Column(Integer, ForeignKey("feedback.id"))
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)

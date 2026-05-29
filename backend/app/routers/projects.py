@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.project import NovelBible, Project, ProjectStatus
 from app.models.technique import ProjectPlaybook
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -189,7 +190,7 @@ async def start_project(project_id: int, db: Session = Depends(get_db)):
 
     project.status = ProjectStatus.ACTIVE
     from datetime import datetime
-    project.started_at = datetime.utcnow()
+    project.started_at = utc_now()
     db.commit()
 
     return {"message": "项目已启动", "id": project.id, "status": project.status}

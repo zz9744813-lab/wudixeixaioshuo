@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.project import Project
 from app.models.task import GenerationTask, TaskStatus, TaskPriority, TaskType
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ class TaskQueueService:
 
         for task in tasks:
             task.status = TaskStatus.CANCELLED
-            task.finished_at = datetime.utcnow()
+            task.finished_at = utc_now()
 
         self.db.commit()
         return len(tasks) > 0
@@ -122,7 +123,7 @@ class TaskQueueService:
         total = pending + running + paused + completed + failed
 
         # 获取今日统计
-        today = datetime.utcnow().date()
+        today = utc_now().date()
         today_completed = self.db.query(GenerationTask).filter(
             GenerationTask.status == TaskStatus.COMPLETED,
             GenerationTask.finished_at >= today

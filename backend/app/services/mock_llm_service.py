@@ -3,8 +3,8 @@ Mock LLM Service - 模拟 LLM 服务
 用于在没有真实 API 的情况下测试完整流程
 """
 
+import asyncio
 import random
-import time
 from typing import AsyncGenerator, Optional
 
 
@@ -49,7 +49,7 @@ class MockLLMService:
         """
         # 模拟延迟 (0.5-2 秒)
         delay = random.uniform(0.5, 2.0)
-        time.sleep(delay)
+        await asyncio.sleep(delay)
 
         # 根据角色获取响应
         response_generator = self.mock_responses.get(role, self._mock_default_response)
@@ -90,7 +90,7 @@ class MockLLMService:
         words = content.split()
         for word in words:
             yield word + " "
-            time.sleep(0.05)
+            await asyncio.sleep(0.05)
 
     def _mock_planner_response(self, prompt: str) -> str:
         """Planner Agent 模拟响应"""

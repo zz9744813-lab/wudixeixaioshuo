@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class ModelProvider(Base):
@@ -42,8 +43,8 @@ class ModelProvider(Base):
     rate_limit = Column(Integer)  # 每分钟请求数限制
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     last_tested_at = Column(DateTime)
     last_test_result = Column(String(50))  # success / failed
 
@@ -71,8 +72,8 @@ class ModelRole(Base):
     priority = Column(Integer, default=1)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 关系
     provider = relationship("ModelProvider", back_populates="roles")
@@ -112,4 +113,4 @@ class ModelCallLog(Base):
     response_summary = Column(Text)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)

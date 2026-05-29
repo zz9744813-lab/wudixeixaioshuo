@@ -16,6 +16,7 @@ services:
       - UPLOAD_DIR=/app/data/uploads
       - ARTIFACTS_DIR=/app/data/artifacts
       - LOG_LEVEL=info
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]

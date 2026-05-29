@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class ReviewProfile(Base):
@@ -37,8 +38,8 @@ class ReviewProfile(Base):
     strictness = Column(Integer, default=5)  # 1-10
     max_review_rounds = Column(Integer, default=2)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
 class ReviewResult(Base):
@@ -85,7 +86,7 @@ class ReviewResult(Base):
     raw_output = Column(Text)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # 索引
     __table_args__ = (
@@ -123,4 +124,4 @@ class FinalReview(Base):
     rewrite_focus = Column(JSON, default=list)  # 改写重点
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)

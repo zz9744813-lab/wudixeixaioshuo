@@ -16,6 +16,7 @@ from app.models.memory import (
 )
 from app.models.chapter import Chapter
 from app.models.project import Project
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +106,7 @@ class MemoryService:
         current_state.update(state_updates)
         memory.dynamic_state = current_state
         memory.latest_update_reason = reason
-        memory.updated_at = datetime.utcnow()
+        memory.updated_at = utc_now()
 
         self.db.commit()
         self.db.refresh(memory)
@@ -213,7 +214,7 @@ class MemoryService:
             existing.relationship_changes = relationship_changes or []
             existing.unresolved_questions = unresolved_questions or []
             existing.foreshadow_updates = foreshadow_updates or []
-            existing.updated_at = datetime.utcnow()
+            existing.updated_at = utc_now()
             self.db.commit()
             self.db.refresh(existing)
             logger.info(f"[Memory] 更新章节记忆: chapter {chapter_index}")
@@ -360,7 +361,7 @@ class MemoryService:
         if chapter_index:
             rel.last_changed_chapter = chapter_index
 
-        rel.updated_at = datetime.utcnow()
+        rel.updated_at = utc_now()
         self.db.commit()
         self.db.refresh(rel)
         return rel

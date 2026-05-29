@@ -11,6 +11,7 @@ from app.models.book import Book
 from app.models.chapter import Chapter
 from app.models.project import Project
 from app.models.task import GenerationTask, TaskStatus
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -31,7 +32,7 @@ async def get_dashboard_stats(db: Session = Depends(get_db)):
 
     # 今日统计
     from datetime import datetime, timedelta
-    today = datetime.utcnow().date()
+    today = utc_now().date()
     today_start = datetime.combine(today, datetime.min.time())
 
     today_chapters = db.query(Chapter).filter(

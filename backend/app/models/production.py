@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class ProductionPolicy(Base):
@@ -40,8 +41,8 @@ class ProductionPolicy(Base):
     active_hours = Column(JSON, default=list)  # 活跃时间段 [[9, 12], [14, 18]]
     priority = Column(Integer, default=2)  # 优先级 1-5
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
 class ProductionLog(Base):
@@ -67,7 +68,7 @@ class ProductionLog(Base):
     message = Column(Text)
     details = Column(JSON, default=dict)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # 索引
     __table_args__ = (
@@ -99,8 +100,8 @@ class ProductionStats(Base):
     word_goal_achievement = Column(Float, default=0.0)  # 0-1
     chapter_goal_achievement = Column(Float, default=0.0)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 唯一约束
     __table_args__ = (

@@ -23,6 +23,7 @@ from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 from app.services.memory_service import MemoryService
 from app.services.memory_update_agent import MemoryUpdateAgent
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -195,7 +196,7 @@ class WritingWorker:
         try:
             # 更新任务状态
             gen_task.status = TaskStatus.RUNNING
-            gen_task.started_at = datetime.utcnow()
+            gen_task.started_at = utc_now()
             chapter.status = ChapterStatus.DRAFTING
             db.commit()
 
@@ -204,13 +205,13 @@ class WritingWorker:
 
             if result["success"]:
                 gen_task.status = TaskStatus.COMPLETED
-                gen_task.finished_at = datetime.utcnow()
+                gen_task.finished_at = utc_now()
                 chapter.status = ChapterStatus.COMPLETED
                 # 最终稿保存到 Chapter.final_content
                 chapter.final_content = result.get("final_content", "")
                 chapter.final_word_count = len(result.get("final_content", ""))
                 chapter.total_score = result.get("final_score", 0)
-                chapter.completed_at = datetime.utcnow()
+                chapter.completed_at = utc_now()
                 db.commit()
 
                 # P4: 章节完成后更新记忆系统
@@ -713,7 +714,7 @@ class WritingWorker:
 
         if new_rules:
             playbook.rules.extend(new_rules)
-            playbook.updated_at = datetime.utcnow()
+            playbook.updated_at = utc_now()
             db.commit()
             logger.info(f"已更新 Playbook，新增 {len(new_rules)} 条规则")
 
@@ -786,10 +787,10 @@ class WritingWorker:
 8. 要避免的错误模式（列出具体预防措施）
 9. 需要回顾的前文伏笔（基于记忆上下文）"""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="planner", temperature=0.7)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -807,7 +808,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Planner 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -890,10 +891,10 @@ class WritingWorker:
 
 请直接输出章节正文内容："""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="draft", temperature=0.8)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -911,7 +912,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Draft 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -952,10 +953,10 @@ class WritingWorker:
 3. 问题列表（如有）
 4. 改进建议"""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="critic", temperature=0.3)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -979,7 +980,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Critic 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -1015,10 +1016,10 @@ class WritingWorker:
 - 提高可读性和流畅度
 - 章节字数保持在2000-5000字之间"""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="rewrite", temperature=0.7)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -1036,7 +1037,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Rewrite 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -1080,10 +1081,10 @@ class WritingWorker:
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="continuity", temperature=0.3)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -1105,7 +1106,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Continuity 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -1134,10 +1135,10 @@ class WritingWorker:
 2. 改进空间
 3. 可复用的技巧（3-5个技巧卡片）"""
 
-        started_at = datetime.utcnow()
+        started_at = utc_now()
         try:
             response = await llm_manager.generate(prompt=prompt, role="learning", temperature=0.5)
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
             if "duration_seconds" not in response:
@@ -1154,7 +1155,7 @@ class WritingWorker:
             }
         except Exception as e:
             logger.error(f"Learning 执行失败: {e}")
-            finished_at = datetime.utcnow()
+            finished_at = utc_now()
             # 保存失败步骤
             error_response = {
                 "content": "",
@@ -1180,8 +1181,8 @@ class WritingWorker:
         step_index = (last_step.step_index + 1) if last_step else 1
 
         # 获取时间信息
-        started_at = response.get("started_at", datetime.utcnow())
-        finished_at = response.get("finished_at", datetime.utcnow())
+        started_at = response.get("started_at", utc_now())
+        finished_at = response.get("finished_at", utc_now())
         duration = response.get("duration_seconds", 0)
 
         # 创建 GenerationStep

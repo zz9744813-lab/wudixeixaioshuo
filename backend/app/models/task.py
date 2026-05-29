@@ -9,6 +9,7 @@ from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, Strin
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.utils.time_utils import utc_now
 
 
 class TaskType(str, PyEnum):
@@ -71,7 +72,7 @@ class GenerationTask(Base):
     retry_count = Column(Integer, default=0)
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     started_at = Column(DateTime)
     finished_at = Column(DateTime)
 
@@ -121,7 +122,7 @@ class GenerationStep(Base):
     artifact_path = Column(String(500))
 
     # 时间戳
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
 
     # 关系
     task = relationship("GenerationTask", back_populates="steps")

@@ -13,6 +13,7 @@ from app.models.memory import CharacterMemory, WorldMemory, ChapterMemory, Relat
 from app.models.task import GenerationTask, GenerationStep
 from app.services.memory_service import MemoryService
 from app.services.openai_llm_service import llm_manager
+from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,7 @@ class MemoryUpdateAgent:
                 existing.relationship_changes = memory_data.get("relationship_changes", [])
                 existing.unresolved_questions = memory_data.get("unresolved_questions", [])
                 existing.foreshadow_updates = memory_data.get("foreshadow_updates", [])
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = utc_now()
                 memory_service.db.commit()
                 memory_service.db.refresh(existing)
                 logger.info(f"[MemoryUpdate] 更新章节记忆: chapter {chapter_index}")
@@ -219,7 +220,7 @@ class MemoryUpdateAgent:
             if existing:
                 existing.short_summary = f"第{chapter_index}章: {chapter_title}"
                 existing.detailed_summary = final_content[:2000] if final_content else ""
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = utc_now()
                 memory_service.db.commit()
                 memory_service.db.refresh(existing)
                 logger.info(f"[MemoryUpdate] 更新基础章节记忆: chapter {chapter_index}")
