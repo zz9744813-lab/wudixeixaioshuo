@@ -30,6 +30,7 @@ from app.routers import (
     production,
     projects,
     prompts,
+    review,
     reviews,
     skills,
     tasks,
@@ -204,6 +205,12 @@ app.include_router(
     prompts.router,
     prefix="/api/prompts",
     tags=["Prompts"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    review.router,
+    prefix="/api/review",
+    tags=["Review"],
     dependencies=[Depends(require_api_key)],
 )
 
