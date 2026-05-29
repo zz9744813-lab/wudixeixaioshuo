@@ -62,6 +62,9 @@ jobs:
       - name: Check build artifacts
         run: ls -la build/
 
+      - name: Check frontend API usage
+        run: npm run test:api-usage
+
   e2e:
     runs-on: ubuntu-latest
     needs: [backend]
@@ -87,3 +90,34 @@ jobs:
           APP_API_KEY: test-api-key
           APP_SECRET_KEY: test-secret-key
           APP_ENV: test
+
+  docker-health:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start docker compose
+        run: |
+          APP_API_KEY=test-api-key-for-ci \
+          APP_SECRET_KEY=test-secret-key-for-ci \
+          docker compose up -d --build
+
+      - name: Wait for API health
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/api/health/; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "⏳ Waiting for health check... ($i/30)"
+            sleep 2
+          done
+          echo "❌ Health check failed"
+          docker compose logs
+          exit 1
+
+      - name: Shutdown
+        if: always()
+        run: docker compose down -v

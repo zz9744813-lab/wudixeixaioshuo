@@ -1,13 +1,17 @@
 /**
  * EventStream Service - SSE 实时事件流客户端
- * 用于接收 Worker 和 Agent 的实时进度推送
+ * 使用 @microsoft/fetch-event-source 支持自定义 headers（鉴权）
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
+import { API_BASE_URL } from './api';
+
+const getApiKey = () =>
+  process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
 
 class EventStreamService {
   constructor() {
-    this.eventSource = null;
+    this.abortController = null;
     this.listeners = new Map();
     this.isConnected = false;
     this.reconnectAttempts = 0;
@@ -16,109 +20,85 @@ class EventStreamService {
   }
 
   /**
-   * 获取API Key
-   */
-  _getApiKey() {
-    // 优先从环境变量获取，其次从localStorage获取
-    return process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
-  }
-
-  /**
    * 连接到 SSE 事件流
    */
   connect() {
-    if (this.eventSource) {
+    if (this.abortController) {
       console.log('[EventStream] 已连接，跳过重复连接');
       return;
     }
 
-    const apiKey = this._getApiKey();
+    const apiKey = getApiKey();
     if (!apiKey) {
       console.error('[EventStream] 未找到API Key，无法连接SSE');
       this._emit('connection.status', { status: 'error', error: 'Missing API Key' });
       return;
     }
 
-    // SSE不支持自定义header，通过URL参数传递api_key
-    const streamUrl = `${API_BASE_URL}/api/events/stream?api_key=${encodeURIComponent(apiKey)}`;
-    console.log('[EventStream] 正在连接到:', streamUrl.replace(apiKey, '***'));
+    console.log('[EventStream] 正在连接到:', `${API_BASE_URL}/events/stream`);
 
-    try {
-      this.eventSource = new EventSource(streamUrl);
+    this.abortController = new AbortController();
 
-      this.eventSource.onopen = () => {
+    fetchEventSource(`${API_BASE_URL}/events/stream`, {
+      signal: this.abortController.signal,
+      headers: {
+        'X-API-Key': apiKey,
+        'Accept': 'text/event-stream',
+      },
+      onopen: async (response) => {
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('SSE connect failed: 401 Unauthorized');
+          }
+          throw new Error(`SSE connect failed: ${response.status}`);
+        }
         console.log('[EventStream] 连接已建立');
         this.isConnected = true;
         this.reconnectAttempts = 0;
         this._emit('connection.status', { status: 'connected' });
-      };
-
-      // 使用具名事件监听 (SSE 命名事件)
-      const eventTypes = [
-        'worker.status',
-        'task.started',
-        'task.completed',
-        'task.failed',
-        'agent.step.started',
-        'agent.step.completed',
-        'agent.step.failed'
-      ];
-
-      eventTypes.forEach((type) => {
-        this.eventSource.addEventListener(type, (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log(`[EventStream] 收到 ${type}:`, data);
-            this._emit(type, data);
-            this._emit('*', { type, data });
-          } catch (err) {
-            console.error(`[EventStream] 解析 ${type} 失败:`, err, event.data);
-          }
-        });
-      });
-
-      // onmessage 作为兜底，处理非命名消息
-      this.eventSource.onmessage = (event) => {
-        console.log('[EventStream] 收到未命名消息:', event.data);
+      },
+      onmessage: (event) => {
         try {
           const data = JSON.parse(event.data);
-          this._handleEvent(data);
+          console.log(`[EventStream] 收到 ${event.event || 'message'}:`, data);
+          this._handleEvent(data, event.event);
         } catch (err) {
           console.error('[EventStream] 解析消息失败:', err, event.data);
         }
-      };
-
-      this.eventSource.onerror = (error) => {
-        console.error('[EventStream] 连接错误:', error);
+      },
+      onclose: () => {
+        console.log('[EventStream] 连接关闭');
         this.isConnected = false;
-
-        // 检查是否是401错误（EventSource不暴露状态码，只能通过onmessage处理）
-        // 重连会触发新的请求，如果Key无效会再次失败
-        this._emit('connection.status', { status: 'error', error });
+        this._emit('connection.status', { status: 'disconnected' });
         this._attemptReconnect();
-      };
-    } catch (err) {
-      console.error('[EventStream] 创建连接失败:', err);
-      this._attemptReconnect();
-    }
+      },
+      onerror: (err) => {
+        console.error('[EventStream] 连接错误:', err);
+        this.isConnected = false;
+        this._emit('connection.status', { status: 'error', error: err.message });
+        // 不在这里重连，由 onclose 处理
+        throw err; // 必须抛出错误才能触发重连
+      },
+    });
   }
 
   /**
    * 断开 SSE 连接
    */
   disconnect() {
-    if (this.eventSource) {
+    if (this.abortController) {
       console.log('[EventStream] 断开连接');
-      this.eventSource.close();
-      this.eventSource = null;
-      this.isConnected = false;
-      this._emit('connection.status', { status: 'disconnected' });
+      this.abortController.abort();
+      this.abortController = null;
     }
+    this.isConnected = false;
+    this.reconnectAttempts = 0;
+    this._emit('connection.status', { status: 'disconnected' });
   }
 
   /**
    * 订阅事件
-   * @param {string} eventType - 事件类型 (如: 'agent.step.started', 'task.completed')
+   * @param {string} eventType - 事件类型
    * @param {function} callback - 回调函数
    * @returns {function} 取消订阅函数
    */
@@ -128,7 +108,6 @@ class EventStreamService {
     }
     this.listeners.get(eventType).add(callback);
 
-    // 返回取消订阅函数
     return () => {
       const callbacks = this.listeners.get(eventType);
       if (callbacks) {
@@ -139,8 +118,6 @@ class EventStreamService {
 
   /**
    * 订阅所有事件 (通配符)
-   * @param {function} callback - 回调函数
-   * @returns {function} 取消订阅函数
    */
   subscribeAll(callback) {
     return this.subscribe('*', callback);
@@ -148,8 +125,6 @@ class EventStreamService {
 
   /**
    * 订阅 Agent 步骤事件
-   * @param {function} callback - 回调函数
-   * @returns {function} 取消订阅函数
    */
   subscribeAgentSteps(callback) {
     const unsubStarted = this.subscribe('agent.step.started', callback);
@@ -165,8 +140,6 @@ class EventStreamService {
 
   /**
    * 订阅任务事件
-   * @param {function} callback - 回调函数
-   * @returns {function} 取消订阅函数
    */
   subscribeTaskEvents(callback) {
     const unsubStarted = this.subscribe('task.started', callback);
@@ -182,8 +155,6 @@ class EventStreamService {
 
   /**
    * 订阅 Worker 状态事件
-   * @param {function} callback - 回调函数
-   * @returns {function} 取消订阅函数
    */
   subscribeWorkerStatus(callback) {
     return this.subscribe('worker.status', callback);
@@ -192,17 +163,15 @@ class EventStreamService {
   /**
    * 内部: 处理收到的事件
    */
-  _handleEvent(event) {
-    const { type, data } = event;
-
+  _handleEvent(data, eventType) {
     // 触发特定类型监听器
-    const specificListeners = this.listeners.get(type);
+    const specificListeners = this.listeners.get(eventType);
     if (specificListeners) {
       specificListeners.forEach(callback => {
         try {
-          callback(data, type);
+          callback(data, eventType);
         } catch (err) {
-          console.error(`[EventStream] 回调执行失败 (${type}):`, err);
+          console.error(`[EventStream] 回调执行失败 (${eventType}):`, err);
         }
       });
     }
@@ -212,7 +181,7 @@ class EventStreamService {
     if (wildcardListeners) {
       wildcardListeners.forEach(callback => {
         try {
-          callback(data, type);
+          callback(data, eventType);
         } catch (err) {
           console.error('[EventStream] 通配符回调执行失败:', err);
         }
@@ -255,7 +224,7 @@ class EventStreamService {
 
     setTimeout(() => {
       if (!this.isConnected) {
-        this.eventSource = null;
+        this.abortController = null;
         this.connect();
       }
     }, delay);

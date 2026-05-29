@@ -1,7 +1,9 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-const API_KEY = process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+
+const getApiKey = () =>
+  process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
 
 // 创建 axios 实例
 const api = axios.create({
@@ -15,7 +17,7 @@ const api = axios.create({
 // 请求拦截器 - 自动注入 X-API-Key
 api.interceptors.request.use(
   (config) => {
-    const key = API_KEY || localStorage.getItem('APP_API_KEY');
+    const key = getApiKey();
     if (key) {
       config.headers['X-API-Key'] = key;
     }
@@ -32,8 +34,6 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       console.error('🔒 未授权: API Key 无效或缺失');
-      // 可以在这里触发登录弹窗或跳转到配置页面
-      // window.location.href = '/settings';
     }
     if (error.response?.status === 413) {
       console.error('📦 文件过大');
@@ -49,4 +49,4 @@ export const put = (url, data = {}, config = {}) => api.put(url, data, config);
 export const del = (url, config = {}) => api.delete(url, config);
 
 // 导出原始axios实例供特殊需求
-export { API_BASE_URL, api as default };
+export default api;

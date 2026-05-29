@@ -1,6 +1,7 @@
 """
 Task Service - 任务系统核心服务
 支持：任务领取、锁、心跳、僵尸恢复、重试退避
+核心优化：使用单条 UPDATE ... RETURNING 实现真正原子 claim
 """
 
 import logging
@@ -32,58 +33,77 @@ class TaskService:
         """生成唯一的 Worker ID"""
         return f"worker-{uuid.uuid4().hex[:8]}"
 
-    # ========== P2-2: 任务 Claim ==========
+    # ========== P2-2: 真原子任务 Claim ==========
 
     def claim_task(self) -> Optional[GenerationTask]:
         """
-        原子领取任务
+        真正原子领取任务 - 使用单条 UPDATE ... RETURNING
 
         只领取满足以下条件的任务：
         - status = PENDING
         - next_run_at <= now
         - attempts < max_attempts
 
-        领取时设置：
+        领取时原子性设置：
         - status = RUNNING
         - locked_by = 当前 worker_id
         - locked_at = now
         - heartbeat_at = now
         - attempts += 1
         - started_at = now
+
+        Returns:
+            领取到的任务，如果没有可领取任务则返回 None
         """
         now = utc_now()
 
         try:
-            # 使用原生 SQL 实现原子 claim
-            # SQLite 不支持 FOR UPDATE SKIP LOCKED，用短事务模拟
-
-            # 1. 查询可领取的任务
-            task = self.db.query(GenerationTask).filter(
-                and_(
-                    GenerationTask.status == TaskStatus.PENDING,
-                    GenerationTask.next_run_at <= now,
-                    GenerationTask.attempts < GenerationTask.max_attempts,
+            # 使用单条 UPDATE ... RETURNING 实现真正的原子 claim
+            # 这是 SQLite 3.35+ 支持的语法
+            result = self.db.execute(text("""
+                UPDATE generation_tasks
+                SET
+                    status = :running_status,
+                    locked_by = :worker_id,
+                    locked_at = :now,
+                    heartbeat_at = :now,
+                    attempts = attempts + 1,
+                    started_at = :now
+                WHERE id = (
+                    SELECT id FROM generation_tasks
+                    WHERE status = :pending_status
+                        AND next_run_at <= :now
+                        AND attempts < max_attempts
+                    ORDER BY priority DESC, created_at ASC
+                    LIMIT 1
                 )
-            ).order_by(
-                GenerationTask.priority.desc(),
-                GenerationTask.created_at.asc()
-            ).with_for_update().first()
+                AND status = :pending_status
+                RETURNING id
+            """), {
+                "running_status": TaskStatus.RUNNING.value,
+                "pending_status": TaskStatus.PENDING.value,
+                "worker_id": self.worker_id,
+                "now": now.isoformat(),
+            })
 
-            if not task:
+            # 获取返回的任务 ID
+            row = result.fetchone()
+            if not row:
                 return None
 
-            # 2. 更新任务状态（claim）
-            task.status = TaskStatus.RUNNING
-            task.locked_by = self.worker_id
-            task.locked_at = now
-            task.heartbeat_at = now
-            task.attempts += 1
-            task.started_at = now
+            task_id = row[0]
 
+            # 提交事务
             self.db.commit()
-            self.db.refresh(task)
 
-            logger.info(f"[TaskService] Worker {self.worker_id} 领取任务 {task.id} (第{task.attempts}次尝试)")
+            # 重新查询完整的任务对象
+            task = self.db.query(GenerationTask).filter(
+                GenerationTask.id == task_id
+            ).first()
+
+            if task:
+                logger.info(f"[TaskService] Worker {self.worker_id} 领取任务 {task.id} (第{task.attempts}次尝试)")
+
             return task
 
         except Exception as e:

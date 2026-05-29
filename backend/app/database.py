@@ -1,6 +1,6 @@
 """
 Database Configuration
-数据库配置
+数据库配置 - Alembic 接管迁移，生产环境禁用自动建表
 """
 
 import os
@@ -52,9 +52,19 @@ def _enable_sqlite_foreign_keys():
 
 def _ensure_model_call_log_columns():
     """
-    确保 model_call_logs 表有所有必需的列
-    用于已有数据库的自动迁移
+    [已废弃] 确保 model_call_logs 表有所有必需的列
+    已由 Alembic 迁移接管，此函数将在未来版本移除
     """
+    # 生产环境完全禁用自动迁移
+    env = (settings.APP_ENV or "").lower()
+    if env in {"production", "prod", "staging"}:
+        print("[Database] 生产环境：跳过自动迁移检查，请使用 alembic upgrade head")
+        return
+
+    # 非生产环境且启用自动建表时才检查
+    if not settings.APP_AUTO_CREATE_TABLES:
+        return
+
     if "sqlite" not in DATABASE_URL:
         return  # 仅SQLite支持PRAGMA
 
@@ -88,7 +98,7 @@ def _ensure_model_call_log_columns():
 
 
 def init_db():
-    """初始化数据库，创建所有表"""
+    """初始化数据库"""
     # 导入所有模型以确保表被创建
     from app.models import (
         book,
@@ -105,11 +115,25 @@ def init_db():
     # 启用 SQLite 外键
     _enable_sqlite_foreign_keys()
 
-    # 自动迁移：确保老数据库有所有列
-    _ensure_model_call_log_columns()
+    env = (settings.APP_ENV or "").lower()
 
-    Base.metadata.create_all(bind=engine)
-    print(f"[Database] 数据库已初始化: {DATABASE_URL}")
+    # 生产环境：完全禁用 create_all，强制使用 Alembic
+    if env in {"production", "prod", "staging"}:
+        print("[Database] 生产环境：跳过 create_all，请运行: alembic upgrade head")
+        # 仅启用外键，不做任何 schema 变更
+        _enable_sqlite_foreign_keys()
+        return
+
+    # 开发环境：检查是否启用自动建表
+    if settings.APP_AUTO_CREATE_TABLES:
+        print("[Database] 开发环境：自动创建表（APP_AUTO_CREATE_TABLES=true）")
+        # 自动迁移：确保老数据库有所有列
+        _ensure_model_call_log_columns()
+        Base.metadata.create_all(bind=engine)
+        print(f"[Database] 数据库表已创建: {DATABASE_URL}")
+    else:
+        print("[Database] 开发环境：跳过 create_all（APP_AUTO_CREATE_TABLES=false）")
+        print("[Database] 请运行: alembic upgrade head")
 
     # 初始化默认Prompt模板
     try:

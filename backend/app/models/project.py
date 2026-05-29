@@ -88,7 +88,12 @@ class Project(Base):
     completed_at = Column(DateTime)
 
     # 关系
-    bible = relationship("NovelBible", back_populates="project", uselist=False)
+    bible = relationship(
+        "NovelBible",
+        back_populates="project",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     chapters = relationship(
         "Chapter",
         back_populates="project",
@@ -133,7 +138,11 @@ class NovelBible(Base):
     __tablename__ = "novel_bibles"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), unique=True)
+    project_id = Column(
+        Integer,
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        unique=True,
+    )
 
     # 世界观设定
     world_setting = Column(Text)  # 世界观详细描述

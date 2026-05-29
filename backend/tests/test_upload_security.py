@@ -10,11 +10,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 
+def auth_headers():
+    """返回测试用的认证头"""
+    return {"X-API-Key": "test-api-key-for-ci"}
+
+
 class TestFileUploadSecurity:
     """文件上传安全测试 - 严格验证"""
 
-    def test_upload_allowed_extension_success(self, client, api_headers):
-        """上传允许的文件类型应成功"""
+    def test_upload_allowed_extension_success(self, client):
+        """上传允许的文件类型应成功 - 必须200"""
         content = b"This is a test file content"
         files = {
             "file": ("test.txt", io.BytesIO(content), "text/plain")
@@ -23,111 +28,127 @@ class TestFileUploadSecurity:
             "/api/books/upload",
             files=files,
             data={"title": "Test Book"},
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        # 401表示鉴权通过，但其他问题（如数据库等）
-        assert response.status_code in [200, 401]
+        # 严格等于200，不允许401或其他状态
+        assert response.status_code == 200, f"期望200，实际{response.status_code}"
+        data = response.json()
+        assert data["stored_filename"].endswith(".txt")
+        # 验证文件名被安全处理（无路径穿越）
+        assert ".." not in data["stored_filename"]
+        assert "/" not in data["stored_filename"]
+        assert "\\" not in data["stored_filename"]
 
-    def test_upload_illegal_extension_rejected(self, client, api_headers):
-        """上传非法扩展名应被拒绝 - .exe"""
+    def test_upload_illegal_extension_rejected(self, client):
+        """上传非法扩展名应被拒绝 - .exe，必须400"""
         files = {
             "file": ("malware.exe", io.BytesIO(b"fake content"), "application/x-msdownload")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        # 应该被拒绝
-        assert response.status_code in [400, 415]
+        # 严格等于400，不允许401或其他状态
+        assert response.status_code == 400, f"期望400，实际{response.status_code}"
 
-    def test_upload_php_extension_rejected(self, client, api_headers):
-        """上传PHP等可执行文件应被拒绝"""
+    def test_upload_php_extension_rejected(self, client):
+        """上传PHP等可执行文件应被拒绝 - 必须400"""
         files = {
             "file": ("shell.php", io.BytesIO(b"<?php system($_GET['cmd']); ?>"), "application/x-php")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        assert response.status_code in [400, 415]
+        assert response.status_code == 400, f"期望400，实际{response.status_code}"
 
-    def test_upload_jsp_extension_rejected(self, client, api_headers):
-        """上传JSP文件应被拒绝"""
+    def test_upload_jsp_extension_rejected(self, client):
+        """上传JSP文件应被拒绝 - 必须400"""
         files = {
             "file": ("shell.jsp", io.BytesIO(b"<% Runtime.getRuntime().exec(request.getParameter(\"cmd\")); %>"), "application/jsp")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        assert response.status_code in [400, 415]
+        assert response.status_code == 400, f"期望400，实际{response.status_code}"
 
-    def test_upload_path_traversal_filename(self, client, api_headers):
-        """路径穿越文件名不应覆盖服务器文件"""
+    def test_upload_path_traversal_filename_sanitized(self, client):
+        """路径穿越文件名必须被安全处理为UUID格式 - 上传成功且文件名安全"""
         files = {
-            "file": ("../../app/main.py", io.BytesIO(b"fake content"), "text/plain")
+            "file": ("../../app/main.py.txt", io.BytesIO(b"fake content"), "text/plain")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        # 鉴权通过即可，文件名安全处理在服务端
-        assert response.status_code in [200, 400, 401]
+        # 允许的文件类型，上传应该成功
+        assert response.status_code == 200, f"期望200，实际{response.status_code}"
+        data = response.json()
+        # 验证服务端正确处理了路径穿越（转为安全文件名）
+        assert data["stored_filename"].endswith(".txt")
+        assert ".." not in data["stored_filename"]
+        assert "/" not in data["stored_filename"]
+        assert "\\" not in data["stored_filename"]
 
-    def test_upload_null_byte_injection(self, client, api_headers):
-        """上传文件名包含null字节应被拒绝"""
+    def test_upload_null_byte_injection_rejected(self, client):
+        """上传文件名包含null字节应被拒绝 - 必须400"""
         files = {
             "file": ("test.txt\x00.exe", io.BytesIO(b"fake content"), "text/plain")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        assert response.status_code in [400, 401]
+        assert response.status_code == 400, f"期望400，实际{response.status_code}"
 
-    def test_upload_double_extension_attack(self, client, api_headers):
-        """双扩展名攻击应被正确处理"""
+    def test_upload_double_extension_attack_rejected(self, client):
+        """双扩展名攻击应被拒绝 - 必须400"""
         files = {
             "file": ("shell.txt.exe", io.BytesIO(b"fake content"), "text/plain")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
         # 应被拒绝，因为完整扩展名是.txt.exe不在白名单中
-        assert response.status_code in [400, 415]
+        assert response.status_code == 400, f"期望400，实际{response.status_code}"
 
-    def test_upload_case_insensitive_extension(self, client, api_headers):
-        """扩展名大小写不敏感测试 - .TXT应被拒绝"""
+    def test_upload_case_insensitive_extension_allowed(self, client):
+        """扩展名大小写不敏感测试 - .TXT应被视为.txt并允许"""
         files = {
             "file": ("test.TXT", io.BytesIO(b"fake content"), "text/plain")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        # 如果服务器正确处理大小写，应拒绝或正常处理
-        assert response.status_code in [200, 400, 415, 401]
+        # .TXT 应该被正确处理为 .txt 并允许上传
+        assert response.status_code == 200, f"期望200，实际{response.status_code}"
+        data = response.json()
+        assert data["stored_filename"].endswith(".txt")
 
-    def test_upload_mime_type_bypass(self, client, api_headers):
-        """MIME类型欺骗不应绕过扩展名检查"""
+    def test_upload_mime_type_bypass_allowed(self, client):
+        """MIME类型欺骗但扩展名合法应允许 - 只看扩展名不看MIME"""
         files = {
             "file": ("shell.txt", io.BytesIO(b"fake content"), "application/x-msdownload")
         }
         response = client.post(
             "/api/books/upload",
             files=files,
-            headers={"X-API-Key": "test-api-key-for-ci"}
+            headers=auth_headers(),
         )
-        # MIME类型不应影响，只看扩展名
-        assert response.status_code in [200, 401]
+        # MIME类型不应影响，扩展名.txt是合法的，应该成功
+        assert response.status_code == 200, f"期望200，实际{response.status_code}"
+        data = response.json()
+        assert data["stored_filename"].endswith(".txt")
 
 
 class TestFileUploadUtils:

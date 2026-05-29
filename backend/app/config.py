@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import model_validator, Field
 from pydantic_settings import BaseSettings
 
 
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     APP_ENV: str = "development"
     APP_DEBUG: bool = False
 
-    # 安全
+    # 安全 - 生产环境必须配置
     APP_API_KEY: str = ""  # 必须配置，生产环境不能为空
     APP_SECRET_KEY: str = ""  # 用于加密等
 
@@ -36,18 +37,33 @@ class Settings(BaseSettings):
     # 时区
     DEFAULT_TIMEZONE: str = "UTC"
 
+    # 开发环境自动创建表（生产环境禁用）
+    APP_AUTO_CREATE_TABLES: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
 
-    def validate_fail_fast(self):
-        """Fail-Fast: 生产环境必须配置APP_API_KEY"""
-        if self.APP_ENV == "production" and not self.APP_API_KEY:
-            raise RuntimeError(
-                "🚨 [BE-001] 生产环境必须设置 APP_API_KEY！\n"
-                "请设置环境变量: export APP_API_KEY=your-secure-key\n"
-                "或创建 .env 文件并配置 APP_API_KEY"
-            )
+    @model_validator(mode="after")
+    def validate_required_secrets(self):
+        """
+        Fail-Fast: 生产/预发环境必须配置 APP_API_KEY 和 APP_SECRET_KEY
+        """
+        env = (self.APP_ENV or "").lower()
+        if env in {"production", "prod", "staging"}:
+            missing = []
+            if not self.APP_API_KEY:
+                missing.append("APP_API_KEY")
+            if not self.APP_SECRET_KEY:
+                missing.append("APP_SECRET_KEY")
+            if missing:
+                raise ValueError(
+                    f"🚨 [BE-001] 生产环境必须设置 {', '.join(missing)}！\n"
+                    f"当前环境: {self.APP_ENV}\n"
+                    f"请设置环境变量: export {' '.join(f'{k}=your-secure-key' for k in missing)}\n"
+                    f"或创建 .env 文件并配置"
+                )
+        return self
 
 
 @lru_cache()
@@ -65,9 +81,6 @@ def get_settings() -> Settings:
         upload_path = Path(__file__).parent.parent / "data" / "uploads"
         upload_path.mkdir(parents=True, exist_ok=True)
         settings.UPLOAD_DIR = str(upload_path)
-
-    # 生产环境Fail-Fast检查
-    settings.validate_fail_fast()
 
     return settings
 
