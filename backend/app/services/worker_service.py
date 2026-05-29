@@ -23,6 +23,7 @@ from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 from app.services.memory_service import MemoryService
 from app.services.memory_update_agent import MemoryUpdateAgent
+from app.services.prompt_template_service import PromptTemplateService
 from app.services.event_bus import event_bus
 from app.utils.time_utils import utc_now
 
@@ -836,7 +837,7 @@ class WritingWorker:
         return new_rules
 
     async def _run_planner(self, db, gen_task, chapter, bible_data: dict) -> dict:
-        """执行 Planner Agent - 使用技巧库 + 记忆上下文"""
+        """执行 Planner Agent - 使用Prompt模板 + 技巧库 + 记忆上下文"""
         # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
@@ -858,7 +859,24 @@ class WritingWorker:
             logger.warning(f"记忆上下文组装失败: {e}")
             memory_context = "（记忆系统暂不可用）"
 
-        prompt = f"""请为以下章节进行详细规划：
+        # 使用Prompt模板渲染
+        template_service = PromptTemplateService(db)
+        variables = {
+            "chapter_title": chapter.title,
+            "chapter_index": chapter.chapter_index,
+            "world_setting": bible_data.get('world_setting', '无'),
+            "characters": json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2),
+            "main_plot": bible_data.get('main_plot', '无'),
+            "chapter_outline": json.dumps(bible_data.get('chapter_outline', []), ensure_ascii=False, indent=2),
+            "memory_context": memory_context,
+            "tech_instructions": tech_instructions,
+            "failure_warnings": failure_warnings,
+            "playbook_rules": chr(10).join(playbook.get('rules', ['无'])),
+            "style_boundaries": playbook.get('style_boundaries', '无'),
+            "tone_guidelines": playbook.get('tone_guidelines', '无'),
+        }
+
+        fallback_prompt = f"""请为以下章节进行详细规划：
 
 章节标题: {chapter.title}
 章节序号: {chapter.chapter_index}
@@ -872,35 +890,14 @@ class WritingWorker:
 主线剧情:
 {bible_data.get('main_plot', '无')}
 
-章纲:
-{json.dumps(bible_data.get('chapter_outline', []), ensure_ascii=False, indent=2)}
+请输出章节规划："""
 
-## 相关记忆上下文
-{memory_context}
-
-{tech_instructions}
-
-{failure_warnings}
-
-写作手册规则:
-{chr(10).join(playbook.get('rules', ['无']))}
-
-风格约束:
-{playbook.get('style_boundaries', '无')}
-
-语气指导:
-{playbook.get('tone_guidelines', '无')}
-
-请输出：
-1. 本章目标
-2. 冲突设计（外部冲突、内部冲突）
-3. 人物安排（参考记忆上下文中的人物状态）
-4. 章节钩子（开头钩子、结尾钩子）
-5. 情绪节奏设计
-6. 关键剧情点（3-5个）
-7. 要使用的技巧卡（列出具体技巧名称）
-8. 要避免的错误模式（列出具体预防措施）
-9. 需要回顾的前文伏笔（基于记忆上下文）"""
+        prompt = template_service.render(
+            role="planner",
+            variables=variables,
+            fallback=fallback_prompt,
+            project_id=gen_task.project_id,
+        )
 
         started_at = utc_now()
         try:
@@ -945,7 +942,7 @@ class WritingWorker:
             return {"success": False, "error": str(e)}
 
     async def _run_draft(self, db, gen_task, chapter, bible_data: dict, chapter_plan: dict) -> dict:
-        """执行 Draft Agent - 使用技巧库 + 记忆上下文"""
+        """执行 Draft Agent - 使用Prompt模板 + 技巧库 + 记忆上下文"""
         # 获取项目技巧卡、写作手册和失败模式
         techniques = self._get_project_techniques(db, gen_task.project_id)
         playbook = self._get_project_playbook(db, gen_task.project_id)
@@ -967,7 +964,25 @@ class WritingWorker:
             logger.warning(f"记忆上下文组装失败: {e}")
             memory_context = "（记忆系统暂不可用）"
 
-        prompt = f"""请根据以下规划起草章节内容：
+        # 使用Prompt模板渲染
+        template_service = PromptTemplateService(db)
+        variables = {
+            "chapter_title": chapter.title,
+            "chapter_index": chapter.chapter_index,
+            "chapter_plan": json.dumps(chapter_plan, ensure_ascii=False, indent=2),
+            "memory_context": memory_context,
+            "world_setting": bible_data.get('world_setting', ''),
+            "characters": json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2),
+            "style_boundaries": json.dumps(bible_data.get('style_boundaries', []), ensure_ascii=False, indent=2),
+            "tech_instructions": tech_instructions,
+            "failure_warnings": failure_warnings,
+            "playbook_rules": chr(10).join(playbook.get('rules', ['无'])),
+            "style_boundaries_text": playbook.get('style_boundaries', '无'),
+            "tone_guidelines": playbook.get('tone_guidelines', '无'),
+            "forbidden_items": json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False),
+        }
+
+        fallback_prompt = f"""请根据以下规划起草章节内容：
 
 章节标题: {chapter.title}
 章节序号: {chapter.chapter_index}
@@ -975,42 +990,14 @@ class WritingWorker:
 章节规划:
 {json.dumps(chapter_plan, ensure_ascii=False, indent=2)}
 
-## 相关记忆上下文（必读）
-{memory_context}
+"""
 
-世界观设定:
-{bible_data.get('world_setting', '')}
-
-人物设定:
-{json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2)}
-
-风格边界:
-{json.dumps(bible_data.get('style_boundaries', []), ensure_ascii=False, indent=2)}
-
-{tech_instructions}
-
-{failure_warnings}
-
-写作手册规则:
-{chr(10).join(playbook.get('rules', ['无']))}
-
-风格约束:
-{playbook.get('style_boundaries', '无')}
-
-语气指导:
-{playbook.get('tone_guidelines', '无')}
-
-写作要求：
-- 使用中文写作
-- 注意节奏控制
-- 对话自然，符合人物当前状态（参考记忆上下文）
-- 场景描写生动
-- 必须遵守上述技巧卡的使用指令
-- 必须避免上述错误模式
-- 必须尊重记忆上下文中的人物状态和关系变化
-- 避免使用禁止设定: {json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False)}
-
-请直接输出章节正文内容："""
+        prompt = template_service.render(
+            role="draft",
+            variables=variables,
+            fallback=fallback_prompt,
+            project_id=gen_task.project_id,
+        )
 
         started_at = utc_now()
         try:
@@ -1192,8 +1179,19 @@ class WritingWorker:
             return {"success": False, "error": str(e)}
 
     async def _run_continuity(self, db, gen_task, chapter, content: str, bible_data: dict, memory_context: str = "") -> dict:
-        """执行 Continuity Agent"""
-        prompt = f"""请检查以下章节的连续性：
+        """执行 Continuity Agent - 使用Prompt模板"""
+        # 使用Prompt模板渲染
+        template_service = PromptTemplateService(db)
+        variables = {
+            "chapter_title": chapter.title,
+            "chapter_index": chapter.chapter_index,
+            "content_preview": content[:3000],
+            "characters": json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2),
+            "foreshadowing": json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False, indent=2),
+            "memory_context": memory_context,
+        }
+
+        fallback_prompt = f"""请检查以下章节的连续性：
 
 章节标题: {chapter.title}
 章节序号: {chapter.chapter_index}
@@ -1201,24 +1199,16 @@ class WritingWorker:
 章节内容:
 {content[:3000]}
 
-人物设定:
-{json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2)}
-
-伏笔列表:
-{json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False, indent=2)}
-
-## 相关记忆上下文
-{memory_context}
-
-请检查：
-1. 人设一致性（对照记忆上下文中的人物状态）
-2. 设定一致性（对照世界观记忆）
-3. 时间线连续性（对照最近章节摘要）
-4. 伏笔回收情况
-5. 与记忆上下文的一致性
-6. 潜在问题
+请检查人设一致性、设定一致性、时间线连续性、伏笔回收情况。
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
+
+        prompt = template_service.render(
+            role="continuity",
+            variables=variables,
+            fallback=fallback_prompt,
+            project_id=gen_task.project_id,
+        )
 
         started_at = utc_now()
         try:
