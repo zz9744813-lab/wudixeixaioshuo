@@ -17,10 +17,15 @@
 ```bash
 # 1. 确保已安装 Docker 和 Docker Compose
 
-# 2. 启动服务
+# 2. 配置环境变量（重要！）
+cp .env.example .env
+# 编辑 .env 文件，设置 APP_SECRET_KEY（用于加密 API Key）
+# 生成密钥: openssl rand -hex 32
+
+# 3. 启动服务
 docker-compose up --build
 
-# 3. 访问
+# 4. 访问
 # 前端: http://localhost:3000
 # 后端 API: http://localhost:8000
 # API 文档: http://localhost:8000/docs
@@ -250,6 +255,10 @@ novel-agent-workbench/
 ### 环境变量
 
 ```bash
+# 安全密钥（必填）- 用于加密存储 LLM API Key
+# 生产环境必须设置强随机密钥，生成: openssl rand -hex 32
+APP_SECRET_KEY=your-secret-key-here
+
 # 后端
 DATABASE_URL=sqlite:///data/novel_agent.db
 UPLOAD_DIR=/app/data/uploads
