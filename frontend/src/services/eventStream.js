@@ -3,7 +3,7 @@
  * 用于接收 Worker 和 Agent 的实时进度推送
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '';
 
 class EventStreamService {
   constructor() {
@@ -16,6 +16,14 @@ class EventStreamService {
   }
 
   /**
+   * 获取API Key
+   */
+  _getApiKey() {
+    // 优先从环境变量获取，其次从localStorage获取
+    return process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
+  }
+
+  /**
    * 连接到 SSE 事件流
    */
   connect() {
@@ -24,8 +32,16 @@ class EventStreamService {
       return;
     }
 
-    const streamUrl = `${API_BASE_URL}/api/events/stream`;
-    console.log('[EventStream] 正在连接到:', streamUrl);
+    const apiKey = this._getApiKey();
+    if (!apiKey) {
+      console.error('[EventStream] 未找到API Key，无法连接SSE');
+      this._emit('connection.status', { status: 'error', error: 'Missing API Key' });
+      return;
+    }
+
+    // SSE不支持自定义header，通过URL参数传递api_key
+    const streamUrl = `${API_BASE_URL}/api/events/stream?api_key=${encodeURIComponent(apiKey)}`;
+    console.log('[EventStream] 正在连接到:', streamUrl.replace(apiKey, '***'));
 
     try {
       this.eventSource = new EventSource(streamUrl);
@@ -75,6 +91,9 @@ class EventStreamService {
       this.eventSource.onerror = (error) => {
         console.error('[EventStream] 连接错误:', error);
         this.isConnected = false;
+
+        // 检查是否是401错误（EventSource不暴露状态码，只能通过onmessage处理）
+        // 重连会触发新的请求，如果Key无效会再次失败
         this._emit('connection.status', { status: 'error', error });
         this._attemptReconnect();
       };
