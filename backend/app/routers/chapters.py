@@ -3,7 +3,7 @@ Chapters Router - 章节路由
 处理章节生成流水线
 """
 
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -236,7 +236,7 @@ async def get_pipeline_status(
 async def get_chapter_content(
     project_id: int,
     chapter_id: int,
-    version: str = "final",
+    version: Literal["final", "draft"] = "final",
     db: Session = Depends(get_db)
 ):
     """获取章节内容"""

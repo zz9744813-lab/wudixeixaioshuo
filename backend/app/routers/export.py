@@ -67,9 +67,24 @@ async def export_project(
 async def download_export(filename: str):
     """下载导出文件"""
     from pathlib import Path
+    import re
+
+    # 安全检查：防止路径遍历攻击
+    # 只允许字母数字、下划线、连字符和点
+    if not re.match(r'^[\w\-\.]+$', filename):
+        raise HTTPException(status_code=400, detail="非法文件名")
 
     export_dir = Path("exports")
     filepath = export_dir / filename
+
+    # 确保解析后的路径仍在 exports 目录内
+    try:
+        resolved_path = filepath.resolve()
+        resolved_export_dir = export_dir.resolve()
+        if not str(resolved_path).startswith(str(resolved_export_dir)):
+            raise HTTPException(status_code=400, detail="非法文件路径")
+    except (OSError, ValueError):
+        raise HTTPException(status_code=400, detail="非法文件路径")
 
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -114,6 +129,12 @@ async def delete_export(
     db: Session = Depends(get_db)
 ):
     """删除导出文件"""
+    import re
+
+    # 安全检查：防止路径遍历攻击
+    if not re.match(r'^[\w\-\.]+$', filename):
+        raise HTTPException(status_code=400, detail="非法文件名")
+
     service = ExportService(db)
     success = service.delete_export(filename)
 
