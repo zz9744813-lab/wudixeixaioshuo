@@ -107,3 +107,35 @@ class TestBudgetCheckLogic:
         # 因为检查使用的是 current_cost < daily_budget
         assert "within_budget" in budget_info
         assert "daily_budget" in budget_info
+
+
+class TestConfigFailFast:
+    """配置Fail-Fast测试"""
+
+    def test_production_requires_api_key(self):
+        """生产环境必须设置APP_API_KEY"""
+        from app.config import Settings
+
+        # 创建生产环境配置，不设置API Key
+        with pytest.raises(RuntimeError) as exc_info:
+            settings = Settings(APP_ENV="production", APP_API_KEY="")
+            settings.validate_fail_fast()
+
+        assert "BE-001" in str(exc_info.value)
+        assert "APP_API_KEY" in str(exc_info.value)
+
+    def test_development_allows_empty_api_key(self):
+        """开发环境允许不设置API Key"""
+        from app.config import Settings
+
+        # 开发环境不应该抛出异常
+        settings = Settings(APP_ENV="development", APP_API_KEY="")
+        settings.validate_fail_fast()  # 不应该抛出异常
+
+    def test_production_with_api_key_passes(self):
+        """生产环境设置API Key后通过"""
+        from app.config import Settings
+
+        # 生产环境配置了API Key应该通过
+        settings = Settings(APP_ENV="production", APP_API_KEY="test-secret-key")
+        settings.validate_fail_fast()  # 不应该抛出异常

@@ -40,6 +40,15 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+    def validate_fail_fast(self):
+        """Fail-Fast: 生产环境必须配置APP_API_KEY"""
+        if self.APP_ENV == "production" and not self.APP_API_KEY:
+            raise RuntimeError(
+                "🚨 [BE-001] 生产环境必须设置 APP_API_KEY！\n"
+                "请设置环境变量: export APP_API_KEY=your-secure-key\n"
+                "或创建 .env 文件并配置 APP_API_KEY"
+            )
+
 
 @lru_cache()
 def get_settings() -> Settings:
@@ -56,6 +65,9 @@ def get_settings() -> Settings:
         upload_path = Path(__file__).parent.parent / "data" / "uploads"
         upload_path.mkdir(parents=True, exist_ok=True)
         settings.UPLOAD_DIR = str(upload_path)
+
+    # 生产环境Fail-Fast检查
+    settings.validate_fail_fast()
 
     return settings
 
