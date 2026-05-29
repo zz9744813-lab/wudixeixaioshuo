@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.database import engine, init_db
 from app.deps.auth import require_api_key
+from app.middleware import setup_exception_handlers, LoggingMiddleware
 from app.routers import (
     agents,
     bible,
@@ -37,12 +38,14 @@ from app.routers import (
     worker,
 )
 from app.services.openai_llm_service import llm_manager
+from app.utils.logging import setup_logging
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化数据库
+    # 启动时初始化
+    setup_logging()
     init_db()
     yield
     # 关闭时清理资源
@@ -55,6 +58,12 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# 设置全局异常处理器
+setup_exception_handlers(app)
+
+# 添加日志中间件
+app.add_middleware(LoggingMiddleware)
 
 # CORS 配置 - 从配置中心读取
 CORS_ORIGINS = settings.CORS_ORIGINS.split(",")
