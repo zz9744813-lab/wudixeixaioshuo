@@ -200,7 +200,26 @@ class MemoryService:
         unresolved_questions: list = None,
         foreshadow_updates: list = None
     ) -> ChapterMemory:
-        """创建章节记忆"""
+        """创建或更新章节记忆"""
+        # 检查是否已存在
+        existing = self.get_chapter_memory(chapter_id)
+        if existing:
+            # 更新现有记录
+            existing.short_summary = short_summary
+            existing.detailed_summary = detailed_summary
+            existing.key_events = key_events or []
+            existing.character_changes = character_changes or []
+            existing.world_updates = world_updates or []
+            existing.relationship_changes = relationship_changes or []
+            existing.unresolved_questions = unresolved_questions or []
+            existing.foreshadow_updates = foreshadow_updates or []
+            existing.updated_at = datetime.utcnow()
+            self.db.commit()
+            self.db.refresh(existing)
+            logger.info(f"[Memory] 更新章节记忆: chapter {chapter_index}")
+            return existing
+
+        # 创建新记录
         memory = ChapterMemory(
             project_id=project_id,
             chapter_id=chapter_id,
