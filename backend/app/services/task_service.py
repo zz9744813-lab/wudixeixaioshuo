@@ -156,17 +156,20 @@ class TaskService:
                     f"(Worker: {task.locked_by}, 心跳: {task.heartbeat_at})"
                 )
 
-                # 重置为 PENDING
-                task.status = TaskStatus.PENDING
-                task.locked_by = None
-                task.locked_at = None
-                task.heartbeat_at = None
+                # 增加尝试次数（因为任务已经claim过）
+                task.attempts += 1
 
-                # 记录错误信息
+                # 判断是否超过最大尝试次数
                 if task.attempts >= task.max_attempts:
                     task.status = TaskStatus.FAILED
                     task.error_message = f"任务超时，Worker {task.locked_by} 失去响应"
                     task.finished_at = now
+                else:
+                    # 重置为 PENDING
+                    task.status = TaskStatus.PENDING
+                    task.locked_by = None
+                    task.locked_at = None
+                    task.heartbeat_at = None
 
                 recovered_count += 1
 
@@ -193,6 +196,7 @@ class TaskService:
         """
         处理任务失败
 
+        - 增加 attempts 计数
         - 如果可重试且 attempts < max_attempts：
           - status = PENDING
           - next_run_at = now + backoff
@@ -221,6 +225,7 @@ class TaskService:
                 return False
 
             task.error_message = error_message
+            task.attempts += 1  # 增加尝试次数
 
             # 判断是否可以重试
             if is_retryable and task.attempts < task.max_attempts:
