@@ -345,6 +345,7 @@ class LLMServiceManager:
             db_session: 数据库会话
         """
         from app.models.model_config import ModelProvider, ModelRole
+        from app.services.secret_service import decrypt_api_key
 
         self._db = db_session
 
@@ -375,7 +376,7 @@ class LLMServiceManager:
                 provider = role_config.provider
                 self._services[role] = OpenAILLMService(
                     base_url=provider.base_url,
-                    api_key=provider.api_key_encrypted or "",
+                    api_key=decrypt_api_key(provider.api_key_encrypted),
                     model_name=role_config.model_name,
                     timeout=provider.timeout_seconds or 120,
                     retry_times=provider.retry_times or 3,
@@ -384,7 +385,7 @@ class LLMServiceManager:
                 # 使用默认提供商
                 self._services[role] = OpenAILLMService(
                     base_url=default_provider.base_url,
-                    api_key=default_provider.api_key_encrypted or "",
+                    api_key=decrypt_api_key(default_provider.api_key_encrypted),
                     model_name=default_provider.default_model,
                     timeout=default_provider.timeout_seconds or 120,
                     retry_times=default_provider.retry_times or 3,

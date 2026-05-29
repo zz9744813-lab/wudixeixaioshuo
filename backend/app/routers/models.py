@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.model_config import ModelProvider, ModelRole
 from app.services.openai_llm_service import OpenAILLMService
+from app.services.secret_service import encrypt_api_key, decrypt_api_key, mask_api_key
 
 router = APIRouter()
 
@@ -59,9 +60,9 @@ async def list_providers(db: Session = Depends(get_db)):
 @router.post("/providers")
 async def create_provider(provider: ProviderCreate, db: Session = Depends(get_db)):
     """创建模型提供商"""
-    # 加密 API Key (简单处理，实际应使用更强的加密)
-    api_key_encrypted = provider.api_key if provider.api_key else None
-    api_key_mask = f"sk-****{provider.api_key[-4:]}" if provider.api_key else None
+    # 加密 API Key
+    api_key_encrypted = encrypt_api_key(provider.api_key) if provider.api_key else None
+    api_key_mask = mask_api_key(provider.api_key)
 
     db_provider = ModelProvider(
         name=provider.name,
@@ -118,7 +119,7 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
         # 创建临时服务实例进行测试
         llm_service = OpenAILLMService(
             base_url=provider.base_url,
-            api_key=provider.api_key_encrypted or "",
+            api_key=decrypt_api_key(provider.api_key_encrypted),
             model_name=provider.default_model,
             timeout=provider.timeout_seconds or 120,
             retry_times=1,  # 测试时只重试1次
@@ -234,13 +235,14 @@ async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
     一键创建提供商并为所有角色配置默认模型
     """
     # 创建提供商
-    api_key_mask = f"sk-****{config.api_key[-4:]}" if config.api_key else None
+    api_key_encrypted = encrypt_api_key(config.api_key)
+    api_key_mask = mask_api_key(config.api_key)
 
     provider = ModelProvider(
         name=config.name,
         provider_type=config.provider_type,
         base_url=config.base_url,
-        api_key_encrypted=config.api_key,
+        api_key_encrypted=api_key_encrypted,
         api_key_mask=api_key_mask,
         default_model=config.default_model,
         is_enabled=1,
