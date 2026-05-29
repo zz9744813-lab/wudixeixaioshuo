@@ -177,7 +177,7 @@ npm start
 ## 技术栈
 
 - **后端**: Python 3.11, FastAPI, SQLAlchemy, SQLite
-- **前端**: React 18, CSS Modules, Design Tokens, Lucide Icons
+- **前端**: React 18, 全局 CSS + Design Tokens, Lucide Icons
 - **部署**: Docker, Docker Compose
 
 ## 前端架构
