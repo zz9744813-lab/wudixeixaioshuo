@@ -49,9 +49,19 @@ def init_db():
         feedback,
         model_config,
         project,
+        prompt_template,
         task,
         technique,
     )
 
     Base.metadata.create_all(bind=engine)
     print(f"[Database] 数据库已初始化: {DATABASE_URL}")
+
+    # 初始化默认Prompt模板
+    try:
+        db = SessionLocal()
+        from app.services.default_prompt_templates import seed_default_prompt_templates
+        seed_default_prompt_templates(db)
+        db.close()
+    except Exception as e:
+        print(f"[Database] 默认模板初始化失败: {e}")
