@@ -25,6 +25,7 @@ from app.services.evolution_service import EvolutionService
 from app.services.memory_service import MemoryService
 from app.services.memory_update_agent import MemoryUpdateAgent
 from app.services.prompt_template_service import PromptTemplateService
+from app.services.daily_usage_stats_service import DailyUsageStatsService
 from app.services.event_bus import event_bus
 from app.utils.time_utils import utc_now
 
@@ -207,8 +208,8 @@ class WritingWorker:
                 )
                 return
 
-            # 检查预算限制
-            if not self._check_budget(project):
+            # 检查预算限制 (P2-5: 使用数据库持久化统计)
+            if not self._check_budget(db, project):
                 logger.info("已达到每日预算限制，暂停写作")
                 await self.pause()
                 return
@@ -1615,21 +1616,27 @@ class WritingWorker:
                 breakdown[key] = int(match.group(1))
         return breakdown
 
-    def _check_budget(self, project: Project) -> bool:
-        """检查预算限制"""
-        if not project.config:
-            return True
+    def _check_budget(self, db: Session, project: Project) -> bool:
+        """
+        P2-5: 检查预算限制 - 使用 DailyUsageStatsService
 
-        daily_word_goal = project.config.get("daily_word_goal", 10000)
-        if self.daily_stats["words_written"] >= daily_word_goal:
+        从内存统计改为数据库持久化统计
+        """
+        # P2-5: 使用 DailyUsageStatsService 检查预算
+        if DailyUsageStatsService.should_stop_for_budget(db, project.id):
+            budget_info = DailyUsageStatsService(db).check_budget(project.id)
+            logger.warning(
+                f"项目 {project.id} 预算已超支: "
+                f"当前 ${budget_info.get('current_cost', 0)} / "
+                f"上限 ${budget_info.get('daily_budget', 0)}"
+            )
             return False
 
-        token_budget = project.config.get("daily_token_budget", 100000)
-        if self.daily_stats["tokens_used"] >= token_budget:
-            return False
-
-        cost_budget = project.config.get("daily_cost_budget", 10.0)
-        if self.daily_stats["cost"] >= cost_budget:
+        # 检查字数目标
+        daily_word_goal = project.daily_word_goal or 10000
+        today_stats = DailyUsageStatsService(db).get_today_stats(project_id=project.id)
+        if today_stats.get("word_count", 0) >= daily_word_goal:
+            logger.info(f"项目 {project.id} 已达到每日字数目标: {daily_word_goal}")
             return False
 
         return True

@@ -494,14 +494,20 @@ class LLMServiceManager:
         **kwargs
     ) -> Dict[str, Any]:
         """
-        使用指定角色生成响应
+        使用指定角色生成响应 (P2-4: 日志独立提交版)
+
+        P2-4 关键改进：
+        - LLM 调用日志使用独立 session 提交
+        - 不跟随业务事务 rollback
+        - 成功和失败都记录
+        - 即使章节生成失败并回滚，调用日志仍然存在
 
         Args:
             prompt: 提示词
             role: 角色名称
             temperature: 温度参数
             max_tokens: 最大 token 数
-            db: 数据库会话（用于记录调用日志）
+            db: 数据库会话（仅用于读取，日志独立提交）
             request_type: 请求类型
             project_id: 项目ID
             **kwargs: 其他参数
@@ -515,6 +521,9 @@ class LLMServiceManager:
         started_at = utc_now()
         service = self.get_service(role)
 
+        # P2-4: 创建独立的日志服务（不依赖业务 db session）
+        log_service = ModelCallLogService()
+
         try:
             response = await service.generate(
                 prompt=prompt,
@@ -524,44 +533,42 @@ class LLMServiceManager:
             )
             finished_at = utc_now()
 
-            # 记录调用日志
-            if db is not None:
-                ModelCallLogService(db).create_log(
-                    provider_id=response.get("provider_id"),
-                    project_id=project_id,
-                    role=role,
-                    model_name=response.get("model", ""),
-                    request_type=request_type,
-                    input_tokens=response.get("input_tokens", 0),
-                    output_tokens=response.get("output_tokens", 0),
-                    total_tokens=response.get("total_tokens", 0),
-                    estimated_cost=response.get("cost", 0.0),
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    status="success",
-                    prompt=prompt,
-                    response=response.get("content", ""),
-                )
+            # P2-4: 独立提交日志（不跟随业务事务）
+            log_service.create_log(
+                provider_id=response.get("provider_id"),
+                project_id=project_id,
+                role=role,
+                model_name=response.get("model", ""),
+                request_type=request_type,
+                input_tokens=response.get("input_tokens", 0),
+                output_tokens=response.get("output_tokens", 0),
+                total_tokens=response.get("total_tokens", 0),
+                estimated_cost=response.get("cost", 0.0),
+                started_at=started_at,
+                finished_at=finished_at,
+                status="success",
+                prompt=prompt,
+                response=response.get("content", ""),
+            )
 
             return response
 
         except Exception as e:
             finished_at = utc_now()
 
-            # 记录失败日志
-            if db is not None:
-                ModelCallLogService(db).create_log(
-                    provider_id=getattr(service, "provider_id", None),
-                    project_id=project_id,
-                    role=role,
-                    model_name=getattr(service, "model_name", "unknown"),
-                    request_type=request_type,
-                    started_at=started_at,
-                    finished_at=finished_at,
-                    status="failed",
-                    error_message=str(e)[:1000],
-                    prompt=prompt,
-                )
+            # P2-4: 失败也独立记录日志
+            log_service.create_log(
+                provider_id=getattr(service, "provider_id", None),
+                project_id=project_id,
+                role=role,
+                model_name=getattr(service, "model_name", "unknown"),
+                request_type=request_type,
+                started_at=started_at,
+                finished_at=finished_at,
+                status="failed",
+                error_message=str(e)[:1000],
+                prompt=prompt,
+            )
 
             raise
 
