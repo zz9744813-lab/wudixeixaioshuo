@@ -3,6 +3,7 @@
 """
 
 from app.models.book import Book, BookChapter
+from app.models.book_analysis import BookAnalysisProfile, ProjectStyleProfile
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
 from app.models.evolution import EvolutionLog, EvolutionRun, VersionHistory
 from app.models.feedback import Feedback, UserPreference
@@ -43,6 +44,9 @@ __all__ = [
     "NovelBible",
     "Book",
     "BookChapter",
+    # Book Analysis models (B3)
+    "BookAnalysisProfile",
+    "ProjectStyleProfile",
     "Chapter",
     "ChapterStatus",
     "ChapterVersion",

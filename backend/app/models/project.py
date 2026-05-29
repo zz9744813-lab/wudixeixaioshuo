@@ -131,6 +131,12 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    # 风格档案 - 结构指纹/爽点曲线
+    style_profiles = relationship(
+        "ProjectStyleProfile",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
 
 
 class NovelBible(Base):
