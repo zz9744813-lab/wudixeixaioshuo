@@ -5,11 +5,13 @@ Novel Agent System - Main Application
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.config import settings
 from app.database import engine, init_db
+from app.deps.auth import require_api_key
 from app.routers import (
     agents,
     bible,
@@ -54,13 +56,8 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-import os
-
-# CORS 配置 - 从环境变量读取，默认允许本地开发
-CORS_ORIGINS = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173"
-).split(",")
+# CORS 配置 - 从配置中心读取
+CORS_ORIGINS = settings.CORS_ORIGINS.split(",")
 
 app.add_middleware(
     CORSMiddleware,
@@ -70,29 +67,136 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册路由
+# 注册路由 - 健康检查无需鉴权
 app.include_router(health.router, prefix="/api/health", tags=["Health"])
-app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
-app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
-app.include_router(chapters.router, prefix="/api", tags=["Chapters"])
-app.include_router(books.router, prefix="/api/books", tags=["Books"])
-app.include_router(techniques.router, prefix="/api/techniques", tags=["Techniques"])
-app.include_router(skills.router, prefix="/api/skills", tags=["Skills"])  # P4 Phase 2
-app.include_router(foreshadows.router, prefix="/api/foreshadows", tags=["Foreshadows"])
-app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
-app.include_router(production.router, prefix="/api/production", tags=["Production"])  # P4 Phase 3
-app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
-app.include_router(agents.router, prefix="/api/agents", tags=["Agents"])
-app.include_router(models.router, prefix="/api/models", tags=["Models"])
-app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
-app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"])
-app.include_router(bible.router, prefix="/api", tags=["Bible"])
-app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
-app.include_router(memory.router, prefix="/api/memory", tags=["Memory"])
-app.include_router(export.router, prefix="/api/export", tags=["Export"])
-app.include_router(usage.router, prefix="/api/usage", tags=["Usage"])
-app.include_router(events.router, prefix="/api/events", tags=["Events"])
-app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"])
+
+# 业务路由需要鉴权
+app.include_router(
+    dashboard.router,
+    prefix="/api/dashboard",
+    tags=["Dashboard"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    projects.router,
+    prefix="/api/projects",
+    tags=["Projects"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    chapters.router,
+    prefix="/api",
+    tags=["Chapters"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    books.router,
+    prefix="/api/books",
+    tags=["Books"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    techniques.router,
+    prefix="/api/techniques",
+    tags=["Techniques"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    skills.router,
+    prefix="/api/skills",
+    tags=["Skills"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    foreshadows.router,
+    prefix="/api/foreshadows",
+    tags=["Foreshadows"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    reviews.router,
+    prefix="/api/reviews",
+    tags=["Reviews"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    production.router,
+    prefix="/api/production",
+    tags=["Production"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    tasks.router,
+    prefix="/api/tasks",
+    tags=["Tasks"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    agents.router,
+    prefix="/api/agents",
+    tags=["Agents"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    models.router,
+    prefix="/api/models",
+    tags=["Models"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    feedback.router,
+    prefix="/api/feedback",
+    tags=["Feedback"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    evolution.router,
+    prefix="/api/evolution",
+    tags=["Evolution"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    bible.router,
+    prefix="/api",
+    tags=["Bible"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    worker.router,
+    prefix="/api/worker",
+    tags=["Worker"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    memory.router,
+    prefix="/api/memory",
+    tags=["Memory"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    export.router,
+    prefix="/api/export",
+    tags=["Export"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    usage.router,
+    prefix="/api/usage",
+    tags=["Usage"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    events.router,
+    prefix="/api/events",
+    tags=["Events"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    prompts.router,
+    prefix="/api/prompts",
+    tags=["Prompts"],
+    dependencies=[Depends(require_api_key)],
+)
 
 
 @app.get("/")

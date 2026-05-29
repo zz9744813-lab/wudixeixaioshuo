@@ -89,9 +89,22 @@ class Project(Base):
 
     # 关系
     bible = relationship("NovelBible", back_populates="project", uselist=False)
-    chapters = relationship("Chapter", back_populates="project", order_by="Chapter.chapter_index")
-    tasks = relationship("GenerationTask", back_populates="project")
-    prompt_templates = relationship("PromptTemplate", back_populates="project")
+    chapters = relationship(
+        "Chapter",
+        back_populates="project",
+        order_by="Chapter.chapter_index",
+        cascade="all, delete-orphan",
+    )
+    tasks = relationship(
+        "GenerationTask",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    prompt_templates = relationship(
+        "PromptTemplate",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
 
 
 class NovelBible(Base):

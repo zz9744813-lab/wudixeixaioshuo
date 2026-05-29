@@ -10,11 +10,11 @@ from typing import Optional
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 数据库配置 - 使用相对路径，支持环境变量覆盖
-import os
+from app.config import settings
 
+# 数据库配置 - 从配置中心读取
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "novel_agent.db")
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DEFAULT_DB_PATH}")
+DATABASE_URL = settings.DATABASE_URL or f"sqlite:///{DEFAULT_DB_PATH}"
 
 # 创建引擎
 engine = create_engine(
@@ -37,6 +37,17 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def _enable_sqlite_foreign_keys():
+    """SQLite 启用外键约束"""
+    if "sqlite" in DATABASE_URL:
+        @event.listens_for(engine, "connect")
+        def _enable_foreign_keys(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+        print("[Database] SQLite 外键约束已启用")
 
 
 def _ensure_model_call_log_columns():
@@ -90,6 +101,9 @@ def init_db():
         task,
         technique,
     )
+
+    # 启用 SQLite 外键
+    _enable_sqlite_foreign_keys()
 
     # 自动迁移：确保老数据库有所有列
     _ensure_model_call_log_columns()

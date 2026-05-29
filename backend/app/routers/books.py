@@ -5,25 +5,26 @@ Books Router - 书籍/拆书路由
 import json
 import os
 import re
-import shutil
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.database import get_db
 from app.models.book import Book, BookChapter, BookStatus, SourceType
-from app.services.openai_llm_service import llm_manager
-
 from app.models.technique import TechniqueCard, TechniqueCategory
+from app.services.openai_llm_service import llm_manager
+from app.utils.file_upload import save_upload_file_safely
 from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
-# 使用相对路径
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "uploads")
+# 从配置中心读取上传目录
+UPLOAD_DIR = settings.UPLOAD_DIR
 
 
 # Pydantic 模型
@@ -86,56 +87,61 @@ async def upload_book(
     genre: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """上传书籍文件"""
-    # 确保上传目录存在
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-    # 保存文件
-    file_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-
-    # 检测文件类型
-    ext = os.path.splitext(file.filename)[1].lower()
-    source_type_map = {
-        ".txt": SourceType.TXT,
-        ".md": SourceType.MD,
-        ".epub": SourceType.EPUB,
-        ".docx": SourceType.DOCX,
-        ".pdf": SourceType.PDF,
-    }
-    source_type = source_type_map.get(ext, SourceType.TXT)
-
-    # 读取文件内容统计
-    content_preview = ""
-    total_words = 0
+    """上传书籍文件 - 安全版本"""
     try:
-        content_preview = read_file_content(file_path, source_type, max_chars=1000)
-        total_words = len(content_preview)  # 粗略估计
+        # 使用安全的文件保存函数
+        file_info = await save_upload_file_safely(
+            file=file,
+            upload_dir=UPLOAD_DIR,
+        )
+
+        # 检测文件类型
+        ext = file_info["extension"]
+        source_type_map = {
+            ".txt": SourceType.TXT,
+            ".md": SourceType.MD,
+            ".epub": SourceType.EPUB,
+            ".docx": SourceType.DOCX,
+            ".pdf": SourceType.PDF,
+        }
+        source_type = source_type_map.get(ext, SourceType.TXT)
+
+        # 读取文件内容统计
+        content_preview = ""
+        total_words = 0
+        try:
+            content_preview = read_file_content(file_info["absolute_path"], source_type, max_chars=1000)
+            total_words = len(content_preview)  # 粗略估计
+        except Exception as e:
+            print(f"读取文件预览失败: {e}")
+
+        # 创建书籍记录
+        book = Book(
+            title=title or file_info["original_filename"],
+            genre=genre,
+            source_type=source_type,
+            file_path=file_info["absolute_path"],
+            status=BookStatus.IMPORTED,
+            total_words=total_words,
+        )
+        db.add(book)
+        db.commit()
+        db.refresh(book)
+
+        return {
+            "message": "书籍上传成功",
+            "id": book.id,
+            "title": book.title,
+            "stored_filename": file_info["stored_filename"],
+            "size_bytes": file_info["size_bytes"],
+            "total_words": total_words,
+            "content_preview": content_preview[:500] + "..." if len(content_preview) > 500 else content_preview,
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"读取文件预览失败: {e}")
-
-    # 创建书籍记录
-    book = Book(
-        title=title or os.path.splitext(file.filename)[0],
-        genre=genre,
-        source_type=source_type,
-        file_path=file_path,
-        status=BookStatus.IMPORTED,
-        total_words=total_words,
-    )
-    db.add(book)
-    db.commit()
-    db.refresh(book)
-
-    return {
-        "message": "书籍上传成功",
-        "id": book.id,
-        "title": book.title,
-        "file_path": book.file_path,
-        "total_words": total_words,
-        "content_preview": content_preview[:500] + "..." if len(content_preview) > 500 else content_preview,
-    }
+        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
 
 
 @router.post("/")

@@ -3,6 +3,7 @@ Health Router - 健康检查路由
 """
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -14,8 +15,8 @@ router = APIRouter()
 async def health_check(db: Session = Depends(get_db)):
     """健康检查端点"""
     try:
-        # 测试数据库连接
-        db.execute("SELECT 1")
+        # 测试数据库连接 - SQLAlchemy 2.x 必须使用 text()
+        db.execute(text("SELECT 1"))
         db_status = "connected"
     except Exception as e:
         db_status = f"error: {str(e)}"
