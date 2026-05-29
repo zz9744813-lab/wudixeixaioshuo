@@ -33,8 +33,7 @@ import {
   TrendingUp,
   Add,
 } from '@mui/icons-material';
-
-const API_BASE = 'http://localhost:8000';
+import api from '../services/api';
 
 const severityColors = {
   low: 'success',
@@ -71,18 +70,14 @@ function FeedbackCenter() {
     setLoading(true);
     try {
       const [fbRes, statsRes, issuesRes] = await Promise.all([
-        fetch(`${API_BASE}/api/feedback/?limit=50`),
-        fetch(`${API_BASE}/api/feedback/stats/overview`),
-        fetch(`${API_BASE}/api/feedback/issues/common?limit=10`),
+        api.get('/feedback/?limit=50'),
+        api.get('/feedback/stats/overview'),
+        api.get('/feedback/issues/common?limit=10'),
       ]);
 
-      const fbData = await fbRes.json();
-      const statsData = await statsRes.json();
-      const issuesData = await issuesRes.json();
-
-      setFeedbacks(fbData.items || []);
-      setStats(statsData);
-      setIssues(issuesData.issues || []);
+      setFeedbacks(fbRes.data.items || []);
+      setStats(statsRes.data);
+      setIssues(issuesRes.data.issues || []);
     } catch (err) {
       setError('获取数据失败: ' + err.message);
     }
@@ -95,37 +90,23 @@ function FeedbackCenter() {
 
   const handleSubmitFeedback = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/feedback/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newFeedback),
-      });
-
-      if (res.ok) {
-        setDialogOpen(false);
-        setNewFeedback({ ...newFeedback, content: '' });
-        fetchData();
-      } else {
-        const err = await res.json();
-        setError(err.detail || '提交失败');
-      }
+      await api.post('/feedback/', newFeedback);
+      setDialogOpen(false);
+      setNewFeedback({ ...newFeedback, content: '' });
+      fetchData();
     } catch (err) {
-      setError('提交失败: ' + err.message);
+      setError(err.response?.data?.detail || '提交失败');
     }
   };
 
   const handleResolve = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/feedback/${id}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resolution: '已手动解决' }),
-      });
-
-      if (res.ok) {
-        fetchData();
-      }
+      await api.post(`/feedback/${id}/resolve`, { resolution: '已手动解决' });
+      fetchData();
     } catch (err) {
+      setError('操作失败: ' + err.message);
+    }
+  };
       setError('解决失败: ' + err.message);
     }
   };

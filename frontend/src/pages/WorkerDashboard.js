@@ -30,8 +30,7 @@ import {
   TrendingUp,
   Schedule,
 } from '@mui/icons-material';
-
-const API_BASE = 'http://localhost:8000';
+import api from '../services/api';
 
 const statusMap = {
   idle: { label: '空闲', color: 'default' },
@@ -50,12 +49,12 @@ function WorkerDashboard() {
   const fetchStatus = async () => {
     try {
       const [workerRes, queueRes] = await Promise.all([
-        fetch(`${API_BASE}/api/worker/stats`),
-        fetch(`${API_BASE}/api/worker/queue/status`),
+        api.get('/worker/stats'),
+        api.get('/worker/queue/status'),
       ]);
 
-      const workerData = await workerRes.json();
-      const queueData = await queueRes.json();
+      const workerData = workerRes.data;
+      const queueData = queueRes.data;
 
       setWorkerStatus(workerData.worker);
       setQueueStatus(queueData);
@@ -73,12 +72,8 @@ function WorkerDashboard() {
   const controlWorker = async (action) => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/worker/control`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      const data = await res.json();
+      const res = await api.post('/worker/control', { action });
+      const data = res.data;
       setWorkerStatus((prev) => ({ ...prev, status: data.status }));
     } catch (err) {
       setError('操作失败: ' + err.message);
@@ -89,7 +84,7 @@ function WorkerDashboard() {
 
   const resetStats = async () => {
     try {
-      await fetch(`${API_BASE}/api/worker/reset-stats`, { method: 'POST' });
+      await api.post('/worker/reset-stats');
       fetchStatus();
     } catch (err) {
       setError('重置失败: ' + err.message);
