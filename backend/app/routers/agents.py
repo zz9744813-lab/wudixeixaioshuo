@@ -25,7 +25,7 @@ class GenerateChapterRequest(BaseModel):
 async def get_agent_status(db: Session = Depends(get_db)):
     """获取 Agent 运行状态"""
     # 初始化 LLM 管理器
-    llm_manager.init_from_db(db)
+    await llm_manager.init_from_db(db)
 
     running_tasks = db.query(GenerationTask).filter(
         GenerationTask.status == TaskStatus.RUNNING
@@ -63,7 +63,7 @@ async def get_agent_status(db: Session = Depends(get_db)):
 async def generate_chapter(request: GenerateChapterRequest, db: Session = Depends(get_db)):
     """生成章节（演示完整流程）"""
     # 初始化 LLM 管理器
-    llm_manager.init_from_db(db)
+    await llm_manager.init_from_db(db)
 
     # 创建章节
     chapter = Chapter(

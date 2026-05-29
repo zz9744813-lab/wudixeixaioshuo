@@ -77,3 +77,8 @@ projects/
 *.key
 *.pem
 secrets/
+
+# Claude
+.claude/
+test*.txt
+*_test_output.txt

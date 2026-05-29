@@ -337,13 +337,44 @@ class LLMServiceManager:
         self._services: Dict[str, OpenAILLMService] = {}
         self._mock_service = None
         self._db = None
+        self._initialized = False
+        self._config_signature = None
 
-    def init_from_db(self, db_session):
+    def _build_config_signature(self, providers, roles) -> str:
+        """构建配置签名，用于检测配置是否变化"""
+        import hashlib
+        import json
+
+        config = {
+            "providers": [
+                {
+                    "id": p.id,
+                    "base_url": p.base_url,
+                    "api_key_encrypted": p.api_key_encrypted,
+                    "default_model": p.default_model,
+                    "timeout_seconds": p.timeout_seconds,
+                    "retry_times": p.retry_times,
+                }
+                for p in providers
+            ],
+            "roles": [
+                {
+                    "role": r.role,
+                    "provider_id": r.provider_id,
+                    "model_name": r.model_name,
+                }
+                for r in roles
+            ]
+        }
+        return hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest()[:32]
+
+    async def init_from_db(self, db_session, force: bool = False):
         """
         从数据库初始化服务配置
 
         Args:
             db_session: 数据库会话
+            force: 是否强制重新初始化
         """
         from app.models.model_config import ModelProvider, ModelRole
         from app.services.secret_service import decrypt_api_key
@@ -355,8 +386,25 @@ class LLMServiceManager:
             ModelProvider.is_enabled == 1
         ).all()
 
+        # 获取角色映射
+        roles = db_session.query(ModelRole).filter(
+            ModelRole.provider_id.in_([p.id for p in providers]) if providers else []
+        ).all()
+
+        # 构建配置签名
+        signature = self._build_config_signature(providers, roles)
+
+        # 检查是否需要重新初始化
+        if self._initialized and not force and signature == self._config_signature:
+            return
+
+        # 关闭现有连接
+        await self.close_all()
+
         if not providers:
             # 没有配置，使用 Mock 服务
+            self._initialized = True
+            self._config_signature = signature
             return
 
         # 获取默认提供商
@@ -365,13 +413,13 @@ class LLMServiceManager:
             providers[0]  # 如果没有默认，使用第一个
         )
 
-        # 获取角色映射
+        # 创建服务实例
         for role in self.SUPPORTED_ROLES:
             # 查找角色的特定配置
-            role_config = db_session.query(ModelRole).filter(
-                ModelRole.role == role,
-                ModelRole.provider_id.in_([p.id for p in providers])
-            ).first()
+            role_config = next(
+                (r for r in roles if r.role == role),
+                None
+            )
 
             if role_config:
                 provider = role_config.provider
@@ -391,6 +439,9 @@ class LLMServiceManager:
                     timeout=default_provider.timeout_seconds or 120,
                     retry_times=default_provider.retry_times or 3,
                 )
+
+        self._initialized = True
+        self._config_signature = signature
 
     def get_service(self, role: str = "default") -> BaseLLMService:
         """

@@ -219,7 +219,7 @@ async def split_book(book_id: int, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="无法读取文件内容")
 
         # 2. 使用 LLM 分析章节结构
-        llm_manager.init_from_db(db)
+        await llm_manager.init_from_db(db)
 
         # 先分析整体结构
         structure_prompt = f"""请分析以下小说文本的章节结构。
@@ -299,7 +299,7 @@ async def analyze_book(book_id: int, db: Session = Depends(get_db)):
 
     try:
         # 初始化 LLM
-        llm_manager.init_from_db(db)
+        await llm_manager.init_from_db(db)
 
         # 获取前5章内容作为样本
         sample_chapters = db.query(BookChapter).filter(
@@ -630,7 +630,7 @@ async def extract_techniques(book_id: int, db: Session = Depends(get_db)):
 
         llm_result = None
         try:
-            llm_manager.init_from_db(db)
+            await llm_manager.init_from_db(db)
             llm_result = await llm_manager.generate(
                 prompt=prompt,
                 role="study",

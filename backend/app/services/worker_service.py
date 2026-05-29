@@ -122,10 +122,7 @@ class WritingWorker:
         """处理下一个 GenerationTask"""
         db = SessionLocal()
         try:
-            # 初始化 LLM
-            llm_manager.init_from_db(db)
-
-            # 查找待处理的任务 - 按优先级排序
+            # 先查 task，没有任务直接返回
             gen_task = db.query(GenerationTask).filter(
                 GenerationTask.status == TaskStatus.PENDING
             ).order_by(
@@ -135,6 +132,9 @@ class WritingWorker:
 
             if not gen_task:
                 return
+
+            # 有任务才初始化 LLM
+            await llm_manager.init_from_db(db)
 
             # 获取关联的章节和项目
             chapter = db.query(Chapter).filter(
