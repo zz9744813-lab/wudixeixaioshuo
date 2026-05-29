@@ -19,6 +19,7 @@ from app.models.memory import CharacterMemory, ChapterMemory, WorldMemory
 from app.models.project import Project, NovelBible
 from app.models.task import GenerationTask, GenerationStep, TaskStatus, TaskPriority, TaskType
 from app.models.technique import TechniqueCard, ProjectPlaybook, FailurePattern
+from app.services.task_service import TaskService
 from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 from app.services.memory_service import MemoryService
@@ -40,10 +41,11 @@ class WorkerStatus(str, Enum):
 
 class WritingWorker:
     """
-    24小时自动写作 Worker
+    24小时自动写作 Worker (P2-2: 任务系统版)
 
     功能：
-    - 扫描 GenerationTask 队列
+    - 使用 TaskService 原子领取任务（claim）
+    - 支持任务锁、心跳、僵尸恢复
     - 执行完整写作流水线 (Planner → Draft → Critic → Rewrite → Continuity)
     - Darwin 进化：评估 → 改进 → 测试 → keep/rollback
     - 自动触发下一任务
@@ -64,6 +66,8 @@ class WritingWorker:
         self.evolution_service = EvolutionService()
         # P4: MemoryUpdateAgent 在使用时创建
         self.memory_update_agent = None
+        self.task_service: Optional[TaskService] = None
+        self._heartbeat_task: Optional[asyncio.Task] = None
 
     async def start(self):
         """启动 Worker"""
@@ -74,7 +78,15 @@ class WritingWorker:
         self.status = WorkerStatus.RUNNING
         self._stop_event.clear()
         self.daily_stats["start_time"] = datetime.now()
+
+        # P2-2: Worker 启动时恢复僵尸任务
+        self._recover_zombies_on_startup()
+
         self._task = asyncio.create_task(self._run_loop())
+
+        # P2-2: 启动心跳任务
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         logger.info("Worker 已启动")
         await event_bus.publish("worker.status", {
             "status": "running",
@@ -89,6 +101,12 @@ class WritingWorker:
             self._task.cancel()
             try:
                 await self._task
+            except asyncio.CancelledError:
+                pass
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
             except asyncio.CancelledError:
                 pass
         self.current_task = None
@@ -110,8 +128,35 @@ class WritingWorker:
             self.status = WorkerStatus.RUNNING
             logger.info("Worker 已恢复")
 
+    def _recover_zombies_on_startup(self):
+        """P2-2: Worker 启动时恢复僵尸任务"""
+        db = SessionLocal()
+        try:
+            recovered = TaskService.recover_zombies_on_startup(db)
+            if recovered > 0:
+                logger.info(f"Worker 启动时恢复了 {recovered} 个僵尸任务")
+        finally:
+            db.close()
+
+    async def _heartbeat_loop(self):
+        """P2-2: 心跳循环 - 每30秒更新一次"""
+        while not self._stop_event.is_set():
+            try:
+                if self.current_task and self.task_service:
+                    task_id = self.current_task.get("task_id")
+                    if task_id:
+                        self.task_service.update_heartbeat(task_id)
+                await asyncio.wait_for(
+                    self._stop_event.wait(),
+                    timeout=30.0  # 每30秒心跳一次
+                )
+            except asyncio.TimeoutError:
+                continue
+            except Exception as e:
+                logger.error(f"心跳更新失败: {e}")
+
     async def _run_loop(self):
-        """主循环 - 扫描 GenerationTask"""
+        """主循环 - 使用 TaskService 领取任务"""
         while not self._stop_event.is_set():
             try:
                 if self.status == WorkerStatus.RUNNING:
@@ -129,16 +174,13 @@ class WritingWorker:
                 await asyncio.sleep(10)
 
     async def _process_next_task(self):
-        """处理下一个 GenerationTask"""
+        """P2-2: 使用 TaskService 原子领取和处理任务"""
         db = SessionLocal()
+        self.task_service = TaskService(db)
+
         try:
-            # 先查 task，没有任务直接返回
-            gen_task = db.query(GenerationTask).filter(
-                GenerationTask.status == TaskStatus.PENDING
-            ).order_by(
-                GenerationTask.priority.desc(),
-                GenerationTask.created_at.asc()
-            ).first()
+            # P2-2: 原子领取任务
+            gen_task = self.task_service.claim_task_safe()
 
             if not gen_task:
                 return
@@ -157,9 +199,12 @@ class WritingWorker:
 
             if not chapter or not project:
                 logger.error(f"任务 {gen_task.id} 关联的章节或项目不存在")
-                gen_task.status = TaskStatus.FAILED
-                gen_task.error_message = "关联的章节或项目不存在"
-                db.commit()
+                # P2-3: 标记为失败（不可重试）
+                self.task_service.handle_task_failure(
+                    gen_task.id,
+                    "关联的章节或项目不存在",
+                    is_retryable=False
+                )
                 return
 
             # 检查预算限制
@@ -178,7 +223,8 @@ class WritingWorker:
                 "start_time": datetime.now().isoformat(),
             }
 
-            logger.info(f"开始处理任务 {gen_task.id}: {chapter.title}")
+            logger.info(f"开始处理任务 {gen_task.id}: {chapter.title} "
+                       f"(Worker: {self.task_service.worker_id})")
 
             # 发布任务开始事件
             await event_bus.publish("task.started", {
@@ -191,8 +237,9 @@ class WritingWorker:
             # 执行任务
             result = await self._execute_task(db, gen_task, chapter, project)
 
-            # 发布任务完成/失败事件
+            # P2-3: 处理任务结果
             if result["success"]:
+                self.task_service.handle_task_success(gen_task.id)
                 await event_bus.publish("task.completed", {
                     "task_id": gen_task.id,
                     "chapter_id": chapter.id,
@@ -200,9 +247,17 @@ class WritingWorker:
                     "final_score": result.get("final_score", 0),
                 })
             else:
+                # 判断是否可重试
+                is_retryable = self._is_error_retryable(result.get("error", ""))
+                self.task_service.handle_task_failure(
+                    gen_task.id,
+                    result.get("error", "未知错误"),
+                    is_retryable=is_retryable
+                )
                 await event_bus.publish("task.failed", {
                     "task_id": gen_task.id,
                     "error": result.get("error", "未知错误"),
+                    "retryable": is_retryable,
                 })
 
             # 更新统计
@@ -216,6 +271,26 @@ class WritingWorker:
 
         finally:
             db.close()
+            self.task_service = None
+
+    def _is_error_retryable(self, error: str) -> bool:
+        """P2-3: 判断错误是否可重试"""
+        # 不可重试的错误（配置问题、权限问题等）
+        non_retryable_patterns = [
+            "API key",
+            "认证失败",
+            "权限不足",
+            "不存在",
+            "配置错误",
+        ]
+
+        error_lower = error.lower()
+        for pattern in non_retryable_patterns:
+            if pattern.lower() in error_lower:
+                return False
+
+        # 默认可重试（网络超时、限流等）
+        return True
 
     async def _execute_task(
         self,

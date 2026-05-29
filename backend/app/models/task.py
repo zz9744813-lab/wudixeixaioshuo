@@ -43,12 +43,12 @@ class TaskPriority(int, PyEnum):
 
 
 class GenerationTask(Base):
-    """生成任务表"""
+    """生成任务表 - 支持任务系统：claim、锁、心跳、重试"""
     __tablename__ = "generation_tasks"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"))
-    chapter_id = Column(Integer, ForeignKey("chapters.id"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"))
 
     task_type = Column(String(30), nullable=False)
     status = Column(String(30), default=TaskStatus.PENDING)
@@ -64,12 +64,27 @@ class GenerationTask(Base):
 
     # 成本
     estimated_cost = Column(Float)
-    actual_cost = Column(Float)
+    actual_cost = Column(Float, default=0.0)
     token_used = Column(Integer, default=0)
 
     # 错误信息
     error_message = Column(Text)
-    retry_count = Column(Integer, default=0)
+
+    # === P2-2: 任务系统字段 ===
+    # 尝试次数
+    attempts = Column(Integer, default=0)  # 当前尝试次数
+    max_attempts = Column(Integer, default=3)  # 最大尝试次数
+
+    # 任务锁定
+    locked_by = Column(String(100))  # 锁定Worker的ID
+    locked_at = Column(DateTime)  # 锁定时间
+    heartbeat_at = Column(DateTime)  # 最后心跳时间
+
+    # 调度
+    next_run_at = Column(DateTime, default=utc_now)  # 下次运行时间
+
+    # 重试退避
+    retry_count = Column(Integer, default=0)  # 重试次数（保留兼容）
 
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
@@ -79,7 +94,7 @@ class GenerationTask(Base):
     # 关系
     project = relationship("Project", back_populates="tasks")
     chapter = relationship("Chapter", back_populates="tasks")
-    steps = relationship("GenerationStep", back_populates="task", order_by="GenerationStep.step_index")
+    steps = relationship("GenerationStep", back_populates="task", order_by="GenerationStep.step_index", cascade="all, delete-orphan")
 
 
 class GenerationStep(Base):
