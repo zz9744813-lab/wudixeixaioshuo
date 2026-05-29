@@ -5,6 +5,15 @@
 from app.models.book import Book, BookChapter
 from app.models.book_analysis import BookAnalysisProfile, ProjectStyleProfile
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
+from app.models.consistency import (
+    ConsistencyRule,
+    ConsistencyCheckResult,
+    ConsistencyIssue,
+    ConsistencyCheckType,
+    ConsistencyIssueSeverity,
+    CharacterConsistencyLog,
+    TimelineEvent,
+)
 from app.models.evolution import EvolutionLog, EvolutionRun, VersionHistory
 from app.models.feedback import Feedback, UserPreference
 from app.models.memory import (
@@ -47,6 +56,14 @@ __all__ = [
     # Book Analysis models (B3)
     "BookAnalysisProfile",
     "ProjectStyleProfile",
+    # Consistency models (B4)
+    "ConsistencyRule",
+    "ConsistencyCheckResult",
+    "ConsistencyIssue",
+    "ConsistencyCheckType",
+    "ConsistencyIssueSeverity",
+    "CharacterConsistencyLog",
+    "TimelineEvent",
     "Chapter",
     "ChapterStatus",
     "ChapterVersion",

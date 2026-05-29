@@ -758,23 +758,36 @@ class PipelineService:
     async def _run_critic(
         self, task_info: Dict, content: str, bible_data: Dict
     ) -> Dict:
-        """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注"""
+        """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注 + 一致性检查"""
         db = SessionLocal()
         try:
             # 获取模板服务
             template_service = PromptTemplateService(db)
 
+            # 生成一致性检查prompt片段 (B4)
+            consistency_prompt = ""
+            try:
+                from app.services.consistency_service import ConsistencyService
+                consistency_service = ConsistencyService(db)
+                consistency_prompt = consistency_service.generate_consistency_prompt(
+                    task_info["project_id"],
+                    task_info["chapter_id"]
+                )
+            except Exception as e:
+                logger.warning(f"生成一致性检查prompt失败: {e}")
+
             # 准备变量
             variables = {
                 "chapter_title": task_info['chapter_title'],
                 "content": content,
+                "consistency_requirements": consistency_prompt,
             }
 
             # 使用模板或 fallback
             prompt = template_service.render(
                 role="critic",
                 variables=variables,
-                fallback=self._build_critic_rubric_prompt(task_info['chapter_title'], content),
+                fallback=self._build_critic_rubric_prompt(task_info['chapter_title'], content, consistency_prompt),
                 project_id=task_info["project_id"],
             )
 
@@ -853,14 +866,15 @@ class PipelineService:
         finally:
             db.close()
 
-    def _build_critic_rubric_prompt(self, chapter_title: str, content: str) -> str:
+    def _build_critic_rubric_prompt(self, chapter_title: str, content: str, consistency_prompt: str = "") -> str:
         """构建 Critic Rubric Prompt（当模板不可用时使用）"""
+        consistency_section = f"\n\n## 一致性检查要求 (B4)\n{consistency_prompt}\n" if consistency_prompt else ""
         return f"""请对以下章节进行严格的多维度审稿评分。
 
 章节标题: {chapter_title}
 
 章节内容:
-{content[:8000]}
+{content[:8000]}{consistency_section}
 
 请严格按照以下九维 Rubric 进行评分，每维度必须引用原文证据。
 

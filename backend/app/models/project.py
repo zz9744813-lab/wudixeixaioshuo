@@ -137,6 +137,12 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    # 一致性检查规则 (B4)
+    consistency_rules = relationship(
+        "ConsistencyRule",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
 
 
 class NovelBible(Base):
