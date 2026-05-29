@@ -49,6 +49,9 @@ class CharacterUpdate(BaseModel):
 class OutlineGenerate(BaseModel):
     volume_count: int = 3
     chapters_per_volume: int = 30
+    target_words_per_chapter: int = None
+    genre: str = None
+    style_profile_id: int = None
 
 
 class ChapterOutlineUpdate(BaseModel):
@@ -249,18 +252,30 @@ async def generate_outline(
     data: OutlineGenerate,
     db: Session = Depends(get_db)
 ):
-    """生成大纲"""
+    """生成大纲 - 支持三层 Arc 结构"""
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
 
+    # 获取风格档（如果提供了）
+    style_profile = None
+    if data.style_profile_id:
+        # 后续可以从数据库加载风格档
+        pass
+
+    # 生成大纲
     outline = await BibleService.generate_outline(
-        project, data.volume_count, data.chapters_per_volume
+        project=project,
+        volume_count=data.volume_count,
+        chapters_per_volume=data.chapters_per_volume,
+        target_words_per_chapter=data.target_words_per_chapter,
+        genre=data.genre,
+        style_profile=style_profile
     )
 
-    # 保存到 bible
+    # 保存到 bible - 包含 book_arc 和 volume 结构
     BibleService.update_bible(db, project_id, {
-        "main_plot": outline["main_plot"],
+        "main_plot": outline["book_arc"],  # book_arc 作为主剧情
         "volume_outline": outline["volumes"],
         "chapter_outline": [
             chapter for volume in outline["volumes"] for chapter in volume["chapters"]
@@ -269,7 +284,9 @@ async def generate_outline(
 
     return {
         "project_id": project_id,
-        "outline": outline,
+        "book_arc": outline["book_arc"],
+        "volumes": outline["volumes"],
+        "total_chapters": outline["total_chapters"],
         "message": "大纲已生成",
     }
 
