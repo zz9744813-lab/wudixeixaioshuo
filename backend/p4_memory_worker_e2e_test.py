@@ -134,8 +134,19 @@ class P4MemoryWorkerE2ETest:
         # 如果是 Mock 模式，替换 LLM 服务
         if self.use_mock:
             from app.services import openai_llm_service
-            self._original_llm_manager = openai_llm_service.llm_manager
-            openai_llm_service.llm_manager = MockLLMService()
+            import app.services.worker_service as worker_service
+            import app.services.memory_update_agent as memory_update_agent
+
+            self._original_openai_llm_manager = openai_llm_service.llm_manager
+            self._original_worker_llm_manager = worker_service.llm_manager
+            self._original_memory_llm_manager = memory_update_agent.llm_manager
+
+            self._mock_llm_manager = MockLLMService()
+
+            openai_llm_service.llm_manager = self._mock_llm_manager
+            worker_service.llm_manager = self._mock_llm_manager
+            memory_update_agent.llm_manager = self._mock_llm_manager
+
             print("✓ Mock LLM 模式已启用")
 
         print("✓ 数据库初始化完成")
@@ -144,7 +155,12 @@ class P4MemoryWorkerE2ETest:
         """测试清理"""
         if self.use_mock:
             from app.services import openai_llm_service
-            openai_llm_service.llm_manager = self._original_llm_manager
+            import app.services.worker_service as worker_service
+            import app.services.memory_update_agent as memory_update_agent
+
+            openai_llm_service.llm_manager = self._original_openai_llm_manager
+            worker_service.llm_manager = self._original_worker_llm_manager
+            memory_update_agent.llm_manager = self._original_memory_llm_manager
 
         if self.db:
             self.db.close()
@@ -380,6 +396,9 @@ class P4MemoryWorkerE2ETest:
         # 验证包含其他必要元素
         has_bible = "世界观" in prompt or "Bible" in prompt
         print(f"  - 包含世界观/Bible: {has_bible}")
+
+        # 必须 assert
+        assert has_bible, "Planner Prompt 必须包含 Bible/世界观"
 
         return True
 
