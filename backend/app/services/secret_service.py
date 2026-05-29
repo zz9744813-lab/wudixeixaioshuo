@@ -46,14 +46,22 @@ def decrypt_api_key(value: Optional[str]) -> str:
     if not value:
         return ""
 
+    # 先检查是否是明文（不以 Fernet 的 gAAAA 开头）
+    # Fernet token 格式：gAAAA...
+    if not value.startswith("gAAAA"):
+        # 可能是旧版明文数据
+        logger.warning("检测到旧版明文 API Key，请重新保存模型配置以完成加密迁移。")
+        return value
+
+    # 需要解密
     fernet = _get_fernet()
 
     try:
         return fernet.decrypt(value.encode("utf-8")).decode("utf-8")
     except InvalidToken:
-        # 兼容旧版明文数据，避免已有配置直接不可用。
-        logger.warning("检测到旧版明文 API Key，请重新保存模型配置以完成加密迁移。")
-        return value
+        # 解密失败，可能是损坏的数据
+        logger.error("API Key 解密失败，数据可能已损坏。")
+        raise ValueError("API Key 解密失败，请重新配置模型提供商。")
 
 
 def mask_api_key(api_key: Optional[str]) -> Optional[str]:
