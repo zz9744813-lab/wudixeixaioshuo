@@ -18,6 +18,7 @@ from app.routers import (
     bible,
     books,
     chapters,
+    cover,
     dashboard,
     events,
     evolution,
@@ -211,6 +212,12 @@ app.include_router(
     review.router,
     prefix="/api/review",
     tags=["Review"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    cover.router,
+    prefix="/api/covers",
+    tags=["Covers"],
     dependencies=[Depends(require_api_key)],
 )
 
