@@ -5,6 +5,7 @@ Book Analysis Service - 书籍分析服务
 
 import json
 import logging
+import statistics
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -137,20 +138,32 @@ class BookAnalysisService:
             logger.warning(f"没有提供样章数据，使用默认结构: book_id={book_id}")
             return profile
 
-        # 计算统计数据
-        word_counts = [ch.get("word_count", 3000) for ch in sample_chapters]
-        hooks = [ch for ch in sample_chapters if ch.get("has_hook", False)]
-        cliffhangers = [ch for ch in sample_chapters if ch.get("is_cliffhanger", False)]
-        satisfactions = [ch.get("satisfaction_score", 5.0) for ch in sample_chapters if ch.get("satisfaction_score")]
-        emotions = [ch.get("emotion_intensity", 5.0) for ch in sample_chapters if ch.get("emotion_intensity")]
+        # 计算统计数据 - 单次遍历收集所有数据
+        word_counts = []
+        hooks = []
+        cliffhangers = []
+        satisfactions = []
+        emotions = []
+
+        for ch in sample_chapters:
+            word_counts.append(ch.get("word_count", 3000))
+            if ch.get("has_hook", False):
+                hooks.append(ch)
+            if ch.get("is_cliffhanger", False):
+                cliffhangers.append(ch)
+            if ch.get("satisfaction_score") is not None:
+                satisfactions.append(ch.get("satisfaction_score", 5.0))
+            if ch.get("emotion_intensity") is not None:
+                emotions.append(ch.get("emotion_intensity", 5.0))
 
         # 计算爽点峰值位置
         satisfaction_peaks = []
         if satisfactions:
             avg_sat = sum(satisfactions) / len(satisfactions)
+            PEAK_DETECTION_THRESHOLD = 1.3  # 峰值检测阈值：高于平均30%
             for i, ch in enumerate(sample_chapters):
-                sat = ch.get("satisfaction_score", 0)
-                if sat > avg_sat * 1.3:  # 高于平均30%视为峰值
+                sat = ch.get("satisfaction_score")
+                if sat and sat > avg_sat * PEAK_DETECTION_THRESHOLD:
                     satisfaction_peaks.append({
                         "chapter_index": ch.get("chapter_index", i),
                         "intensity": sat,
@@ -161,7 +174,7 @@ class BookAnalysisService:
         profile.total_chapters = len(sample_chapters)
         profile.total_words = sum(word_counts)
         profile.avg_chapter_words = sum(word_counts) / len(word_counts) if word_counts else 3000
-        profile.chapter_word_std = self._calculate_std(word_counts) if len(word_counts) > 1 else 500
+        profile.chapter_word_std = statistics.pstdev(word_counts) if len(word_counts) > 1 else 500
         profile.hook_rate = len(hooks) / len(sample_chapters) if sample_chapters else 0.7
         profile.cliffhanger_rate = len(cliffhangers) / len(sample_chapters) if sample_chapters else 0.3
         profile.payoff_cadence_chapters = self._calculate_payoff_cadence(satisfaction_peaks)
@@ -184,14 +197,6 @@ class BookAnalysisService:
         self.db.refresh(profile)
         logger.info(f"完成书籍结构分析: book_id={book_id}, 章节数={len(sample_chapters)}")
         return profile
-
-    def _calculate_std(self, values: List[float]) -> float:
-        """计算标准差"""
-        if len(values) < 2:
-            return 0.0
-        mean = sum(values) / len(values)
-        variance = sum((x - mean) ** 2 for x in values) / len(values)
-        return variance ** 0.5
 
     def _calculate_payoff_cadence(self, peaks: List[Dict]) -> float:
         """计算爽点间隔"""
@@ -393,19 +398,34 @@ class BookAnalysisService:
     def _generate_cliffhanger_triggers(
         self,
         payoff_cadence: float,
-        satisfaction_peaks: List[Dict]
+        satisfaction_peaks: List[Dict],
+        max_chapters: int = 100
     ) -> List[int]:
-        """生成断章触发章节"""
+        """生成断章触发章节
+
+        Args:
+            payoff_cadence: 爽点间隔（章节数）
+            satisfaction_peaks: 爽点峰值列表
+            max_chapters: 最大章节数（限制生成的范围，防止过小payoff_cadence产生过多条目）
+        """
         if satisfaction_peaks:
             return [p["chapter_index"] for p in satisfaction_peaks]
-        # 默认每N章一个断章
-        return list(range(int(payoff_cadence), 1000, int(payoff_cadence)))
 
-    def _deep_merge(self, base: Dict, override: Dict):
-        """深度合并字典"""
+        if payoff_cadence <= 0:
+            return []
+
+        cadence_int = max(1, int(payoff_cadence))
+        # 限制生成的范围，避免过小payoff_cadence产生过多条目
+        return list(range(cadence_int, max_chapters + 1, cadence_int))
+
+    def _deep_merge(self, base: Dict, override: Dict, max_depth: int = 10, current_depth: int = 0):
+        """深度合并字典 - 带递归保护"""
+        if current_depth >= max_depth:
+            raise ValueError(f"Deep merge exceeded maximum depth of {max_depth}")
+
         for key, value in override.items():
             if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                self._deep_merge(base[key], value)
+                self._deep_merge(base[key], value, max_depth, current_depth + 1)
             else:
                 base[key] = value
 

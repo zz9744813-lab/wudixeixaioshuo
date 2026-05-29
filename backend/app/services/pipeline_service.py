@@ -8,6 +8,7 @@ WORKER-002: 抽离写作流水线，实现短事务架构
 - 不维护内存状态，所有统计通过 DailyUsageStatsService 持久化
 """
 
+import asyncio
 import json
 import logging
 from typing import Optional, Dict, Any
@@ -138,19 +139,20 @@ class PipelineService:
         total_tokens = 0
         total_cost = 0.0
 
-        # 获取 Bible 数据（独立 session）
-        bible_data = await self._get_bible_data(task_info["project_id"])
-
-        # 获取记忆上下文（独立 session）
-        memory_context = await self._get_memory_context(
+        # 并行获取 Bible 数据、记忆上下文、风格档案上下文
+        # 三个操作相互独立，可以并行执行以减少等待时间
+        bible_task = self._get_bible_data(task_info["project_id"])
+        memory_task = self._get_memory_context(
+            task_info["project_id"],
+            task_info["chapter_index"]
+        )
+        style_task = self._get_style_profile_context(
             task_info["project_id"],
             task_info["chapter_index"]
         )
 
-        # 获取风格档案上下文（独立 session）- B3: 结构指纹注入
-        style_profile_context = await self._get_style_profile_context(
-            task_info["project_id"],
-            task_info["chapter_index"]
+        bible_data, memory_context, style_profile_context = await asyncio.gather(
+            bible_task, memory_task, style_task
         )
 
         # ===== Step 1: Planner =====
@@ -340,7 +342,7 @@ class PipelineService:
     # ===== 各 Agent 执行方法 =====
 
     async def _run_planner(
-        self, task_info: Dict, bible_data: Dict, memory_context: str, style_profile_context: Dict = None
+        self, task_info: Dict, bible_data: Dict, memory_context: str, style_profile_context: Optional[Dict] = None
     ) -> Dict:
         """执行 Planner Agent"""
         db = SessionLocal()
@@ -405,7 +407,7 @@ class PipelineService:
             db.close()
 
     async def _run_draft(
-        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str, style_profile_context: Dict = None
+        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str, style_profile_context: Optional[Dict] = None
     ) -> Dict:
         """执行 Draft Agent - 支持目标字数和长章分段生成"""
         db = SessionLocal()
@@ -1864,44 +1866,61 @@ class PipelineService:
         next_peak = ((chapter_index // cadence_int) + 1) * cadence_int
         return next_peak - chapter_index
 
+    def _extract_style_sections(self, style_context: Dict) -> Dict[str, Any]:
+        """提取风格档案的各个部分，供格式化方法使用"""
+        if not style_context or not style_context.get("has_style_profile"):
+            return {}
+
+        return {
+            "target_words": style_context.get("target_words", {}),
+            "hook_rules": style_context.get("hook_rules", {}),
+            "satisfaction_curve": style_context.get("satisfaction_curve", {}),
+            "pacing_template": style_context.get("pacing_template", {}),
+            "emotion_guidelines": style_context.get("emotion_guidelines", {}),
+            "cliffhanger_rules": style_context.get("cliffhanger_rules", {}),
+            "is_peak_chapter": style_context.get("is_peak_chapter", False),
+            "chapters_to_peak": style_context.get("chapters_to_peak", 5),
+        }
+
     def _format_style_profile_for_planner(self, style_context: Dict) -> str:
         """格式化风格档案为 Planner Prompt"""
-        if not style_context or not style_context.get("has_style_profile"):
+        sections_data = self._extract_style_sections(style_context)
+        if not sections_data:
             return ""
 
         sections = ["\n## 风格档案约束"]
 
         # 字数目标
-        target_words = style_context.get("target_words", {})
+        target_words = sections_data["target_words"]
         if target_words:
             sections.append(f"\n**字数控制**: 目标{target_words.get('optimal', 3000)}字，"
                            f"范围{target_words.get('min', 2500)}-{target_words.get('max', 3500)}字")
 
         # Hook规则
-        hook_rules = style_context.get("hook_rules", {})
+        hook_rules = sections_data["hook_rules"]
         if hook_rules.get("opening_hook"):
             sections.append(f"\n**开篇要求**: 必须使用{hook_rules.get('hook_intensity', 'moderate')}强度的钩子")
             hook_types = hook_rules.get("hook_types", ["冲突", "悬念", "反常"])
             sections.append(f"**钩子类型**: {', '.join(hook_types)}")
 
         # 爽点曲线
-        satisfaction = style_context.get("satisfaction_curve", {})
+        satisfaction = sections_data["satisfaction_curve"]
         if satisfaction:
-            if style_context.get("is_peak_chapter"):
+            if sections_data["is_peak_chapter"]:
                 sections.append(f"\n**⚠️ 本章为爽点章节**: 必须安排高强度情绪回报")
                 sections.append(f"**爽点强度**: {satisfaction.get('peak_intensity', 8.0)}/10")
             else:
-                sections.append(f"\n**爽点曲线**: 距离下一个爽点还有{style_context.get('chapters_to_peak', 5)}章")
+                sections.append(f"\n**爽点曲线**: 距离下一个爽点还有{sections_data['chapters_to_peak']}章")
                 sections.append(f"**当前阶段**: 铺垫期，注意情绪积累")
 
         # 节奏模板
-        pacing = style_context.get("pacing_template", {})
+        pacing = sections_data["pacing_template"]
         if pacing:
             sections.append(f"\n**节奏要求**: {pacing.get('opening_pace', 'medium')}开局，"
                            f"高潮密度{pacing.get('climax_density', 'medium')}")
 
         # 情绪指导
-        emotion = style_context.get("emotion_guidelines", {})
+        emotion = sections_data["emotion_guidelines"]
         if emotion:
             variation = emotion.get("variation_range", [3.0, 8.0])
             sections.append(f"\n**情绪基线**: {emotion.get('baseline', 5.0)}/10，"
@@ -1912,45 +1931,46 @@ class PipelineService:
 
     def _format_style_profile_for_draft(self, style_context: Dict) -> str:
         """格式化风格档案为 Draft Prompt"""
-        if not style_context or not style_context.get("has_style_profile"):
+        sections_data = self._extract_style_sections(style_context)
+        if not sections_data:
             return ""
 
         sections = ["\n## 风格档案写作指导"]
 
         # 字数控制
-        target_words = style_context.get("target_words", {})
+        target_words = sections_data["target_words"]
         if target_words:
             sections.append(f"\n**字数目标**: {target_words.get('optimal', 3000)}字")
             sections.append(f"**字数范围**: {target_words.get('min', 2500)}-{target_words.get('max', 3500)}字")
 
         # Hook要求
-        hook_rules = style_context.get("hook_rules", {})
+        hook_rules = sections_data["hook_rules"]
         if hook_rules.get("opening_hook"):
             sections.append(f"\n**开篇钩子**: 必须在开头200字内建立{hook_rules.get('hook_intensity', 'moderate')}强度钩子")
 
         # 爽点写作
-        if style_context.get("is_peak_chapter"):
+        if sections_data["is_peak_chapter"]:
             sections.append(f"\n**⚠️ 爽点章节写作要求**:")
             sections.append("- 本章必须达到情绪高潮")
             sections.append("- 冲突必须得到阶段性解决")
             sections.append("- 主角必须获得实质性回报")
             sections.append("- 结尾可留适度悬念")
         else:
-            chapters_to_peak = style_context.get("chapters_to_peak", 5)
+            chapters_to_peak = sections_data["chapters_to_peak"]
             sections.append(f"\n**铺垫期写作要求**:")
             sections.append(f"- 距离爽点还有{chapters_to_peak}章，注意情绪积累")
             sections.append("- 埋下爽点所需的伏笔")
             sections.append("- 适度压制，为高潮蓄力")
 
         # 断章规则
-        cliffhanger = style_context.get("cliffhanger_rules", {})
+        cliffhanger = sections_data["cliffhanger_rules"]
         if cliffhanger:
             freq = cliffhanger.get("frequency", 0.3)
             if freq > 0.5:
                 sections.append(f"\n**断章要求**: 本章建议以悬念/冲突/转折结尾")
 
         # 节奏执行
-        pacing = style_context.get("pacing_template", {})
+        pacing = sections_data["pacing_template"]
         if pacing:
             sections.append(f"\n**节奏执行**: {pacing.get('opening_pace', 'medium')}开局，"
                            f"逐步加速，{pacing.get('resolution_brevity', 'concise')}收尾")
