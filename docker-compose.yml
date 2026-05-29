@@ -16,7 +16,7 @@ services:
       - UPLOAD_DIR=/app/data/uploads
       - ARTIFACTS_DIR=/app/data/artifacts
       - LOG_LEVEL=info
-      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      - CORS_ORIGINS=http://localhost:3005,http://127.0.0.1:3000
       - APP_SECRET_KEY=${APP_SECRET_KEY}
       - APP_API_KEY=${APP_API_KEY}
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
       dockerfile: docker/Dockerfile.frontend
     container_name: novel-agent-frontend
     ports:
-      - "3000:3000"
+      - "3005:3000"
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

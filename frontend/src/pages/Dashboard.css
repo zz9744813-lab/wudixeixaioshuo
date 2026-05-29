@@ -13,12 +13,12 @@
 .page-header h1 {
   margin: 0 0 10px 0;
   font-size: 28px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .page-header p {
   margin: 0;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .days-selector {
@@ -29,7 +29,7 @@
 
 .days-selector select {
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
 }
@@ -42,10 +42,10 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   align-items: center;
@@ -68,14 +68,14 @@
 .stat-content h3 {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text);
   margin-bottom: 8px;
 }
 
@@ -83,7 +83,7 @@
   display: flex;
   gap: 12px;
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .stat-detail .active {
@@ -92,7 +92,7 @@
 }
 
 .stat-detail .running {
-  color: #3b82f6;
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -103,17 +103,17 @@
 }
 
 .usage-section {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .usage-section h2 {
   margin: 0 0 20px 0;
   font-size: 20px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .data-table {
@@ -125,17 +125,17 @@
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 
 .data-table th {
   font-weight: 600;
-  color: #666;
-  background: #f8f9fa;
+  color: var(--text-secondary);
+  background: var(--bg-app);
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-app);
 }
 
 /* Prompt Templates Styles */
@@ -152,7 +152,7 @@
 
 .role-filter {
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 14px;
 }
@@ -164,10 +164,10 @@
 }
 
 .template-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
   border: 2px solid transparent;
   transition: all 0.2s;
 }
@@ -188,7 +188,7 @@
 }
 
 .role-badge {
-  background: #3b82f6;
+  background: var(--accent);
   color: white;
   padding: 4px 10px;
   border-radius: 20px;
@@ -198,7 +198,7 @@
 
 .version-badge {
   background: #f3f4f6;
-  color: #666;
+  color: var(--text-secondary);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 12px;
@@ -216,17 +216,17 @@
 .template-card h3 {
   margin: 0 0 8px 0;
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .template-card .description {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 12px;
 }
 
 .template-meta {
-  color: #888;
+  color: var(--text-muted);
   font-size: 12px;
   margin-bottom: 16px;
 }
@@ -237,7 +237,7 @@
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: var(--accent);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -248,12 +248,12 @@
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #666;
+  color: var(--text-secondary);
   border: none;
   padding: 10px 20px;
   border-radius: 8px;
@@ -263,12 +263,12 @@
 }
 
 .btn-secondary:hover {
-  background: #e5e7eb;
+  background: var(--border);
 }
 
 .btn-small {
   background: #f3f4f6;
-  color: #666;
+  color: var(--text-secondary);
   border: none;
   padding: 6px 12px;
   border-radius: 6px;
@@ -278,7 +278,7 @@
 }
 
 .btn-small:hover {
-  background: #e5e7eb;
+  background: var(--border);
 }
 
 /* Modal Styles */
@@ -296,7 +296,7 @@
 }
 
 .modal {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px;
   padding: 24px;
   width: 90%;
@@ -312,7 +312,7 @@
 .modal h2 {
   margin: 0 0 20px 0;
   font-size: 20px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .form-group {
@@ -324,7 +324,7 @@
   margin-bottom: 6px;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .form-group input,
@@ -332,7 +332,7 @@
 .form-group textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   box-sizing: border-box;
@@ -363,7 +363,7 @@
 }
 
 .preview-content {
-  background: #f8f9fa;
+  background: var(--bg-app);
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 16px;
@@ -372,19 +372,19 @@
 .preview-content h4 {
   margin: 0 0 12px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .variables-preview,
 .prompt-preview {
-  background: white;
+  background: var(--bg-surface);
   padding: 12px;
   border-radius: 6px;
   font-family: monospace;
   font-size: 12px;
   overflow-x: auto;
   margin-bottom: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
 }
 
 .prompt-preview {
@@ -394,7 +394,7 @@
 }
 
 .preview-source {
-  color: #888;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -403,7 +403,7 @@
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .dashboard-sections {
@@ -413,16 +413,16 @@
 }
 
 .section {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .section h2 {
   margin: 0 0 20px 0;
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .quick-actions {
@@ -435,16 +435,16 @@
   display: flex;
   align-items: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-app);
   border-radius: 8px;
-  color: #1a1a2e;
+  color: var(--text);
   transition: all 0.2s;
   border: 1px solid transparent;
 }
 
 .action-card:hover {
   background: #e8f4f8;
-  border-color: #3b82f6;
+  border-color: var(--accent);
 }
 
 .action-icon {
@@ -461,7 +461,7 @@
   display: flex;
   align-items: center;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .activity-item:last-child {
@@ -489,22 +489,22 @@
 .activity-status {
   flex: 1;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .activity-time {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .empty {
-  color: #999;
+  color: var(--text-muted);
   text-align: center;
   padding: 40px;
 }
 
 .empty {
-  color: #999;
+  color: var(--text-muted);
   text-align: center;
   padding: 40px;
 }

@@ -8,7 +8,7 @@
   margin: 0 0 24px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .alert {
@@ -32,23 +32,23 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .stat-card h3 {
   margin: 0 0 12px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .stat-value.success {
@@ -60,10 +60,10 @@
 }
 
 .section-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
   margin-bottom: 24px;
 }
 
@@ -77,7 +77,7 @@
 .section-header h2 {
   margin: 0;
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .btn {
@@ -95,12 +95,12 @@
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: var(--accent);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .btn-primary:disabled {
@@ -110,8 +110,8 @@
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #374151;
-  border-color: #d1d5db;
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
 }
 
 .btn-sm {
@@ -127,7 +127,7 @@
   font-size: 12px;
   font-weight: 500;
   background: #f3f4f6;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .badge-success {
@@ -147,13 +147,13 @@
 
 .badge-muted {
   background: #f3f4f6;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .empty-text {
   text-align: center;
   padding: 40px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .data-table {
@@ -165,15 +165,15 @@
 .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 
 .data-table th {
   font-weight: 600;
-  color: #666;
-  background: #f8f9fa;
+  color: var(--text-secondary);
+  background: var(--bg-app);
 }
 
 .data-table tr:hover {
-  background: #f8f9fa;
+  background: var(--bg-app);
 }

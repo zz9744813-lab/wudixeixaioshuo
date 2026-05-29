@@ -8,7 +8,7 @@
   margin: 0 0 24px 0;
   font-size: 24px;
   font-weight: 600;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .alert {
@@ -28,7 +28,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab {
@@ -36,7 +36,7 @@
   border: none;
   background: none;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -44,12 +44,12 @@
 }
 
 .tab:hover {
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .tab.active {
-  color: #3b82f6;
-  border-bottom-color: #3b82f6;
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .stats-grid {
@@ -60,23 +60,23 @@
 }
 
 .stat-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
 }
 
 .stat-card h3 {
   margin: 0 0 12px 0;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .stat-value.success {
@@ -88,10 +88,10 @@
 }
 
 .section-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--shadow-sm);
   margin-bottom: 24px;
 }
 
@@ -109,7 +109,7 @@
 .section-header h2 {
   margin: 0;
   font-size: 18px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .btn {
@@ -127,18 +127,18 @@
 }
 
 .btn-primary {
-  background: #3b82f6;
+  background: var(--accent);
   color: white;
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: var(--accent);
 }
 
 .btn-secondary {
   background: #f3f4f6;
-  color: #374151;
-  border-color: #d1d5db;
+  color: var(--text-secondary);
+  border-color: var(--border-strong);
 }
 
 .btn-sm {
@@ -154,12 +154,12 @@
   font-size: 12px;
   font-weight: 500;
   background: #f3f4f6;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .badge-primary {
   background: #eff6ff;
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .badge-success {
@@ -186,14 +186,14 @@
 .score-item {
   text-align: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--bg-app);
   border-radius: 8px;
 }
 
 .score-label {
   display: block;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -222,7 +222,7 @@
 
 .feedback-item {
   padding: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 8px;
   background: #fafafa;
 }
@@ -237,12 +237,12 @@
 .feedback-content {
   margin: 0 0 8px 0;
   font-size: 14px;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .feedback-time {
   font-size: 12px;
-  color: #888;
+  color: var(--text-muted);
 }
 
 .issues-list {
@@ -256,11 +256,11 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
 }
 
 .text-muted {
-  color: #888;
+  color: var(--text-muted);
   font-size: 12px;
 }
 
@@ -280,7 +280,7 @@
 }
 
 .modal {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 16px;
   padding: 24px;
   width: 100%;
@@ -292,7 +292,7 @@
 .modal h2 {
   margin: 0 0 20px 0;
   font-size: 20px;
-  color: #1a1a2e;
+  color: var(--text);
 }
 
 .form-group {
@@ -304,7 +304,7 @@
   margin-bottom: 6px;
   font-size: 14px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .form-group input,
@@ -312,7 +312,7 @@
 .form-group textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 14px;
   box-sizing: border-box;
