@@ -366,6 +366,101 @@ class MemoryService:
         self.db.refresh(rel)
         return rel
 
+    def get_previous_chapter_ending(
+        self,
+        project_id: int,
+        current_chapter_index: int,
+        ending_length: int = 500
+    ) -> Dict[str, Any]:
+        """
+        获取上一章的结尾内容和相关信息（TASK-C3）
+
+        Returns:
+            {
+                "ending_excerpt": "最后500字正文",
+                "ending_summary": "结尾摘要",
+                "open_hooks": ["待解悬念1", "待解悬念2"],
+                "handoff_notes": "交接备注"
+            }
+        """
+        result = {
+            "ending_excerpt": "",
+            "ending_summary": "",
+            "open_hooks": [],
+            "handoff_notes": ""
+        }
+
+        if current_chapter_index <= 1:
+            # 第一章没有上一章
+            return result
+
+        # 获取上一章
+        prev_chapter = self.db.query(Chapter).filter(
+            Chapter.project_id == project_id,
+            Chapter.chapter_index == current_chapter_index - 1
+        ).first()
+
+        if not prev_chapter:
+            return result
+
+        # 获取上一章的记忆
+        prev_memory = self.get_chapter_memory(prev_chapter.id)
+
+        # 1. 提取结尾正文
+        if prev_chapter.final_content:
+            content = prev_chapter.final_content
+            # 取最后 N 个字符
+            result["ending_excerpt"] = content[-ending_length:] if len(content) > ending_length else content
+
+        # 2. 从章节记忆中获取结尾摘要和待解悬念
+        if prev_memory:
+            result["ending_summary"] = prev_memory.short_summary or ""
+            result["open_hooks"] = prev_memory.unresolved_questions or []
+
+        # 3. 构建交接备注
+        handoff_parts = []
+        if result["ending_excerpt"]:
+            handoff_parts.append(f"上一章结尾: {result['ending_excerpt'][:100]}...")
+        if result["open_hooks"]:
+            handoff_parts.append(f"待解悬念: {', '.join(result['open_hooks'][:3])}")
+
+        result["handoff_notes"] = "\n".join(handoff_parts)
+
+        return result
+
+    def update_chapter_ending_info(
+        self,
+        chapter_id: int,
+        ending_excerpt: str = None,
+        ending_summary: str = None,
+        open_hooks: list = None
+    ) -> Optional[ChapterMemory]:
+        """
+        更新章节结尾信息（TASK-C3）
+        """
+        memory = self.get_chapter_memory(chapter_id)
+        if not memory:
+            return None
+
+        # 更新结尾信息（存储在 metadata 或现有字段中）
+        # 使用 existing fields as JSON-compatible storage
+        meta = memory.meta or {}
+
+        if ending_excerpt:
+            meta["ending_excerpt"] = ending_excerpt
+        if ending_summary:
+            meta["ending_summary"] = ending_summary
+        if open_hooks:
+            meta["open_hooks"] = open_hooks
+
+        memory.meta = meta
+        memory.updated_at = utc_now()
+
+        self.db.commit()
+        self.db.refresh(memory)
+        logger.info(f"[Memory] 更新章节结尾信息: chapter_id={chapter_id}")
+        return memory
+
     # ========== Context Assembly ==========
 
     def assemble_context_for_chapter(

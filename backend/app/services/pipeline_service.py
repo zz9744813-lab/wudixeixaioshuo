@@ -1208,9 +1208,17 @@ class PipelineService:
     async def _run_continuity(
         self, task_info: Dict, content: str, bible_data: Dict, memory_context: str
     ) -> Dict:
-        """执行 Continuity Agent"""
+        """执行 Continuity Agent - TASK-C3: 增加上一章衔接检查"""
         db = SessionLocal()
         try:
+            # TASK-C3: 获取上一章结尾用于检查
+            memory_service = MemoryService(db)
+            previous_ending = memory_service.get_previous_chapter_ending(
+                project_id=task_info["project_id"],
+                current_chapter_index=task_info["chapter_index"],
+                ending_length=300
+            )
+
             template_service = PromptTemplateService(db)
             variables = {
                 "chapter_title": task_info["chapter_title"],
@@ -1219,11 +1227,14 @@ class PipelineService:
                 "characters": json.dumps(bible_data.get("characters", []), ensure_ascii=False),
                 "foreshadowing": json.dumps(bible_data.get("foreshadowing", []), ensure_ascii=False),
                 "memory_context": memory_context,
+                "previous_ending": previous_ending.get("ending_excerpt", ""),
+                "open_hooks": json.dumps(previous_ending.get("open_hooks", []), ensure_ascii=False),
             }
 
             fallback = f"""请检查以下章节的连续性：
 
 章节标题: {task_info['chapter_title']}
+章节序号: {task_info['chapter_index']}
 
 章节内容:
 {content[:3000]}
@@ -1234,10 +1245,22 @@ class PipelineService:
 伏笔列表:
 {json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False)}
 
+{f"上一章结尾:\n{previous_ending.get('ending_excerpt', '')}\n\n待解悬念: {previous_ending.get('open_hooks', [])}\n" if task_info['chapter_index'] > 1 else ""}
+
 记忆上下文:
 {memory_context}
 
-请检查：1.人设一致性 2.设定一致性 3.时间线连续性 4.伏笔回收 5.与前文连续性 6.潜在问题
+请检查：
+1. 人设一致性
+2. 设定一致性
+3. 时间线连续性
+4. 伏笔回收
+5. 与前文连续性
+{f"6. 本章开头是否承接上一章结尾（重要）" if task_info['chapter_index'] > 1 else ""}
+7. 潜在问题
+
+{f"特别检查：本章开头是否自然承接上一章结尾？是否回应了待解悬念？" if task_info['chapter_index'] > 1 else ""}
+
 如检查通过，请说明"通过"。"""
 
             prompt = template_service.render(
@@ -1247,7 +1270,6 @@ class PipelineService:
                 project_id=task_info["project_id"],
             )
 
-            started_at = utc_now()
             response = await llm_manager.generate(
                 prompt=prompt,
                 role="continuity",
@@ -1259,6 +1281,11 @@ class PipelineService:
 
             content_text = response.get("content", "")
             score = 90 if "通过" in content_text else 75
+
+            # TASK-C3: 如果本章不是第一章，检查是否承接上一章
+            if task_info["chapter_index"] > 1:
+                if "承接" in content_text and ("不" in content_text or "未" in content_text or "问题" in content_text):
+                    score = max(60, score - 15)  # 承接有问题扣分
 
             self._save_step(db, task_info, "Continuity", prompt, response, score=score)
 
@@ -1409,15 +1436,48 @@ class PipelineService:
             db.close()
 
     async def _get_memory_context(self, project_id: int, chapter_index: int) -> str:
-        """获取记忆上下文（独立 session）"""
+        """获取记忆上下文（独立 session）- TASK-C3: 增加上一章结尾"""
         db = SessionLocal()
         try:
             memory_service = MemoryService(db)
+
+            # 1. 获取基础上下文
             context_data = memory_service.assemble_context_for_chapter(
                 project_id=project_id,
                 chapter_index=chapter_index
             )
-            return memory_service.format_context_for_prompt(context_data)
+
+            # 2. TASK-C3: 获取上一章结尾
+            previous_ending = memory_service.get_previous_chapter_ending(
+                project_id=project_id,
+                current_chapter_index=chapter_index,
+                ending_length=500
+            )
+
+            # 3. 格式化上下文
+            base_context = memory_service.format_context_for_prompt(context_data)
+
+            # 4. 添加上一章结尾信息
+            if chapter_index > 1 and previous_ending.get("ending_excerpt"):
+                ending_section = f"""
+## 上一章结尾（必须自然承接）
+
+上一章最后内容：
+{previous_ending['ending_excerpt']}
+
+待解悬念：
+{chr(10).join(['- ' + hook for hook in previous_ending.get('open_hooks', [])]) if previous_ending.get('open_hooks') else '（无明确悬念）'}
+
+承接要求：
+- 本章开头必须自然承接上一章结尾，不允许像新故事一样重新开场
+- 必须回应或延续上一章留下的悬念
+- 人物情绪和状态要与上一章结尾保持一致
+
+"""
+                base_context = ending_section + base_context
+
+            return base_context
+
         except Exception as e:
             logger.warning(f"记忆上下文获取失败: {e}")
             return "（记忆系统暂不可用）"
@@ -1650,10 +1710,25 @@ class PipelineService:
 请输出：1.本章目标 2.冲突设计 3.人物安排 4.章节钩子 5.情绪节奏 6.关键剧情点 7.使用技巧 8.避免错误 9.回顾伏笔"""
 
     def _build_draft_fallback(self, variables: Dict) -> str:
-        """构建 Draft 的 fallback prompt"""
+        """构建 Draft 的 fallback prompt - TASK-C3: 增加上一章结尾"""
         target_words = variables.get('target_words', 2500)
         min_words = variables.get('min_words', int(target_words * 0.85))
         max_words = variables.get('max_words', int(target_words * 1.1))
+        chapter_index = variables.get('chapter_index', 1)
+
+        # TASK-C3: 上一章承接部分
+        previous_chapter_section = ""
+        if chapter_index > 1:
+            previous_chapter_section = """
+## 上一章结尾（必须自然承接）
+上一章留下的待解悬念和结尾状态必须在本章开头得到回应。
+
+承接要求：
+- 本章开头必须自然承接上一章结尾，不允许像新故事一样重新开场
+- 必须回应或延续上一章留下的悬念
+- 人物情绪和状态要与上一章结尾保持一致
+
+"""
 
         return f"""请根据以下规划起草章节内容。
 
@@ -1663,8 +1738,9 @@ class PipelineService:
 - 如果内容不足，不允许用总结式结尾凑数，必须扩展冲突、动作、对话或心理变化
 - 禁止使用"总之"、"综上所述"等总结性词语草草收尾
 
+{previous_chapter_section}
 章节标题: {variables['chapter_title']}
-章节序号: {variables['chapter_index']}
+章节序号: {chapter_index}
 
 章节规划:
 {variables['chapter_plan']}
@@ -1683,7 +1759,7 @@ class PipelineService:
 写作手册规则:
 {variables['playbook_rules']}
 
-写作要求：使用中文，注意节奏，对话自然，场景生动，遵守技巧卡指令。必须达到字数要求。
+写作要求：使用中文，注意节奏，对话自然，场景生动，遵守技巧卡指令。必须达到字数要求。{f" 必须承接上一章结尾。" if chapter_index > 1 else ""}
 
 请直接输出章节正文内容："""
 

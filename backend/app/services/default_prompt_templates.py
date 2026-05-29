@@ -109,10 +109,13 @@ DRAFT_TEMPLATE = """请根据以下规划起草章节内容。
 
 
 # Continuity 默认模板
-CONTINUITY_TEMPLATE = """请检查以下章节的连续性：
+CONTINUITY_TEMPLATE = """请检查以下章节的连续性。
 
 章节标题: {chapter_title}
 章节序号: {chapter_index}
+
+{f"上一章结尾（本章必须承接）：\n{previous_ending}\n\n" if previous_ending else ""}
+{f"待解悬念（本章必须回应或延续）：\n{open_hooks}\n\n" if open_hooks else ""}
 
 章节内容:
 {content_preview}
@@ -132,7 +135,10 @@ CONTINUITY_TEMPLATE = """请检查以下章节的连续性：
 3. 时间线连续性（对照最近章节摘要）
 4. 伏笔回收情况
 5. 与记忆上下文的一致性
-6. 潜在问题
+{f"6. 上一章衔接：本章开头是否自然承接上一章结尾？是否回应了待解悬念？（重要）" if chapter_index > 1 else ""}
+7. 潜在问题
+
+{f"特别要求：\n- 本章开头必须自然承接上一章结尾\n- 必须回应或延续上一章留下的悬念\n- 不允许像新故事一样重新开场\n" if chapter_index > 1 else ""}
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
 
