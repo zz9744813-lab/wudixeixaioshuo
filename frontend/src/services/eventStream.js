@@ -37,13 +37,38 @@ class EventStreamService {
         this._emit('connection.status', { status: 'connected' });
       };
 
+      // 使用具名事件监听 (SSE 命名事件)
+      const eventTypes = [
+        'worker.status',
+        'task.started',
+        'task.completed',
+        'task.failed',
+        'agent.step.started',
+        'agent.step.completed',
+        'agent.step.failed'
+      ];
+
+      eventTypes.forEach((type) => {
+        this.eventSource.addEventListener(type, (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log(`[EventStream] 收到 ${type}:`, data);
+            this._emit(type, data);
+            this._emit('*', { type, data });
+          } catch (err) {
+            console.error(`[EventStream] 解析 ${type} 失败:`, err, event.data);
+          }
+        });
+      });
+
+      // onmessage 作为兜底，处理非命名消息
       this.eventSource.onmessage = (event) => {
+        console.log('[EventStream] 收到未命名消息:', event.data);
         try {
           const data = JSON.parse(event.data);
-          console.log('[EventStream] 收到事件:', data);
           this._handleEvent(data);
         } catch (err) {
-          console.error('[EventStream] 解析事件失败:', err, event.data);
+          console.error('[EventStream] 解析消息失败:', err, event.data);
         }
       };
 
