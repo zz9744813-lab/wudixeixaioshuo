@@ -15,6 +15,8 @@ function Layout({ children }) {
     { path: '/agents', label: 'Agent 控制台', icon: '' },
     { path: '/tasks', label: '任务队列', icon: '' },
     { path: '/models', label: '模型配置中心', icon: '' },
+    { path: '/usage', label: '用量/成本看板', icon: '' },
+    { path: '/prompts', label: 'Prompt 模板中心', icon: '' },
     { path: '/feedback', label: '反馈中心', icon: '' },
     { path: '/evolution', label: 'Darwin 进化', icon: '' },
     { path: '/export', label: '小说导出', icon: '' },

@@ -18,6 +18,8 @@ import EvolutionCenter from './pages/EvolutionCenter';
 import ExportPage from './pages/ExportPage';
 import Logs from './pages/Logs';
 import WorkerDashboard from './pages/WorkerDashboard';
+import UsageDashboard from './pages/UsageDashboard';
+import PromptTemplates from './pages/PromptTemplates';
 
 function App() {
   return (
@@ -39,6 +41,8 @@ function App() {
           <Route path="/worker" element={<WorkerDashboard />} />
           <Route path="/export" element={<ExportPage />} />
           <Route path="/logs" element={<Logs />} />
+          <Route path="/usage" element={<UsageDashboard />} />
+          <Route path="/prompts" element={<PromptTemplates />} />
         </Routes>
       </Layout>
     </Router>
