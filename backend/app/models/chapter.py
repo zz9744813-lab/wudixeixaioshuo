@@ -63,6 +63,7 @@ class Chapter(Base):
     project = relationship("Project", back_populates="chapters")
     tasks = relationship("GenerationTask", back_populates="chapter")
     steps = relationship("GenerationStep", back_populates="chapter")
+    chapter_memory = relationship("ChapterMemory", back_populates="chapter", uselist=False)
 
 
 class ChapterVersion(Base):

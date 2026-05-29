@@ -105,6 +105,27 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    # Memory 相关级联关系
+    character_memories = relationship(
+        "CharacterMemory",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    world_memories = relationship(
+        "WorldMemory",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    chapter_memories = relationship(
+        "ChapterMemory",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
+    relationship_memories = relationship(
+        "RelationshipMemory",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
 
 
 class NovelBible(Base):

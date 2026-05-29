@@ -15,7 +15,7 @@ class CharacterMemory(Base):
     __tablename__ = "character_memories"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
 
     name = Column(String(200), nullable=False, index=True)
     aliases = Column(JSON, default=list)  # 别名列表
@@ -37,6 +37,9 @@ class CharacterMemory(Base):
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
+    # 反向关系
+    project = relationship("Project", back_populates="character_memories")
+
     # 索引优化查询
     __table_args__ = (
         Index('idx_char_memory_project_name', 'project_id', 'name'),
@@ -49,7 +52,7 @@ class WorldMemory(Base):
     __tablename__ = "world_memories"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
 
     category = Column(String(50), index=True)  # location/organization/item/power_system/rule/history/event
     name = Column(String(200), nullable=False, index=True)
@@ -67,6 +70,9 @@ class WorldMemory(Base):
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
+    # 反向关系
+    project = relationship("Project", back_populates="world_memories")
+
     __table_args__ = (
         Index('idx_world_memory_project_cat', 'project_id', 'category'),
         Index('idx_world_memory_project_name', 'project_id', 'name'),
@@ -78,8 +84,8 @@ class ChapterMemory(Base):
     __tablename__ = "chapter_memories"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True, nullable=False)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=False)
     chapter_index = Column(Integer, index=True)
 
     short_summary = Column(Text)       # 短摘要 200-500字
@@ -93,6 +99,10 @@ class ChapterMemory(Base):
 
     created_at = Column(DateTime, default=utc_now)
 
+    # 反向关系
+    project = relationship("Project", back_populates="chapter_memories")
+    chapter = relationship("Chapter", back_populates="chapter_memory")
+
     __table_args__ = (
         Index('idx_chapter_memory_project_idx', 'project_id', 'chapter_index'),
     )
@@ -103,7 +113,7 @@ class RelationshipMemory(Base):
     __tablename__ = "relationship_memories"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True, nullable=False)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True, nullable=False)
 
     character_a = Column(String(200), index=True)
     character_b = Column(String(200), index=True)
@@ -117,6 +127,9 @@ class RelationshipMemory(Base):
 
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    # 反向关系
+    project = relationship("Project", back_populates="relationship_memories")
 
     __table_args__ = (
         Index('idx_rel_memory_project_chars', 'project_id', 'character_a', 'character_b'),
