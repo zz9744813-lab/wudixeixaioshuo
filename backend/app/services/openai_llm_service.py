@@ -490,6 +490,7 @@ class LLMServiceManager:
         max_tokens: int = 4000,
         db=None,
         request_type: str = "chat_completion",
+        project_id: Optional[int] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -502,6 +503,7 @@ class LLMServiceManager:
             max_tokens: 最大 token 数
             db: 数据库会话（用于记录调用日志）
             request_type: 请求类型
+            project_id: 项目ID
             **kwargs: 其他参数
 
         Returns:
@@ -526,6 +528,7 @@ class LLMServiceManager:
             if db is not None:
                 ModelCallLogService(db).create_log(
                     provider_id=response.get("provider_id"),
+                    project_id=project_id,
                     role=role,
                     model_name=response.get("model", ""),
                     request_type=request_type,
@@ -549,6 +552,7 @@ class LLMServiceManager:
             if db is not None:
                 ModelCallLogService(db).create_log(
                     provider_id=getattr(service, "provider_id", None),
+                    project_id=project_id,
                     role=role,
                     model_name=getattr(service, "model_name", "unknown"),
                     request_type=request_type,

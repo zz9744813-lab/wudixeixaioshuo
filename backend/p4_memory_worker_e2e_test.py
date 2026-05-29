@@ -132,6 +132,10 @@ class P4MemoryWorkerE2ETest:
         Base.metadata.create_all(bind=engine)
         self.db = TestingSessionLocal()
 
+        # Seed 默认 Prompt 模板
+        from app.services.default_prompt_templates import seed_default_prompt_templates
+        seed_default_prompt_templates(self.db)
+
         # 如果是 Mock 模式，替换 LLM 服务
         if self.use_mock:
             from app.services import openai_llm_service

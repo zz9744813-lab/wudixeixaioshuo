@@ -16,6 +16,7 @@ class ModelCallLogService:
         self,
         *,
         provider_id: Optional[int] = None,
+        project_id: Optional[int] = None,
         role: str = "default",
         model_name: str = "",
         request_type: str = "chat_completion",
@@ -39,6 +40,7 @@ class ModelCallLogService:
 
         log = ModelCallLog(
             provider_id=provider_id,
+            project_id=project_id,
             role=role,
             model_name=model_name,
             request_type=request_type,

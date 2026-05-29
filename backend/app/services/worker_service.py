@@ -890,7 +890,35 @@ class WritingWorker:
 主线剧情:
 {bible_data.get('main_plot', '无')}
 
-请输出章节规划："""
+章纲:
+{json.dumps(bible_data.get('chapter_outline', []), ensure_ascii=False, indent=2)}
+
+## 相关记忆上下文
+{memory_context}
+
+{tech_instructions}
+
+{failure_warnings}
+
+写作手册规则:
+{chr(10).join(playbook.get('rules', ['无']))}
+
+风格约束:
+{playbook.get('style_boundaries', '无')}
+
+语气指导:
+{playbook.get('tone_guidelines', '无')}
+
+请输出：
+1. 本章目标
+2. 冲突设计（外部冲突、内部冲突）
+3. 人物安排（参考记忆上下文中的人物状态）
+4. 章节钩子（开头钩子、结尾钩子）
+5. 情绪节奏设计
+6. 关键剧情点（3-5个）
+7. 要使用的技巧卡（列出具体技巧名称）
+8. 要避免的错误模式（列出具体预防措施）
+9. 需要回顾的前文伏笔（基于记忆上下文）"""
 
         prompt = template_service.render(
             role="planner",
@@ -906,7 +934,8 @@ class WritingWorker:
                 role="planner",
                 temperature=0.7,
                 db=db,
-                request_type="worker_planner"
+                request_type="worker_planner",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at
@@ -990,7 +1019,42 @@ class WritingWorker:
 章节规划:
 {json.dumps(chapter_plan, ensure_ascii=False, indent=2)}
 
-"""
+## 相关记忆上下文（必读）
+{memory_context}
+
+世界观设定:
+{bible_data.get('world_setting', '')}
+
+人物设定:
+{json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2)}
+
+风格边界:
+{json.dumps(bible_data.get('style_boundaries', []), ensure_ascii=False, indent=2)}
+
+{tech_instructions}
+
+{failure_warnings}
+
+写作手册规则:
+{chr(10).join(playbook.get('rules', ['无']))}
+
+风格约束:
+{playbook.get('style_boundaries', '无')}
+
+语气指导:
+{playbook.get('tone_guidelines', '无')}
+
+写作要求：
+- 使用中文写作
+- 注意节奏控制
+- 对话自然，符合人物当前状态（参考记忆上下文）
+- 场景描写生动
+- 必须遵守上述技巧卡的使用指令
+- 必须避免上述错误模式
+- 必须尊重记忆上下文中的人物状态和关系变化
+- 避免使用禁止设定: {json.dumps(bible_data.get('forbidden_items', []), ensure_ascii=False)}
+
+请直接输出章节正文内容："""
 
         prompt = template_service.render(
             role="draft",
@@ -1006,7 +1070,8 @@ class WritingWorker:
                 role="draft",
                 temperature=0.8,
                 db=db,
-                request_type="worker_draft"
+                request_type="worker_draft",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at
@@ -1074,7 +1139,8 @@ class WritingWorker:
                 role="critic",
                 temperature=0.3,
                 db=db,
-                request_type="worker_critic"
+                request_type="worker_critic",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at
@@ -1143,7 +1209,8 @@ class WritingWorker:
                 role="rewrite",
                 temperature=0.7,
                 db=db,
-                request_type="worker_rewrite"
+                request_type="worker_rewrite",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at
@@ -1199,7 +1266,22 @@ class WritingWorker:
 章节内容:
 {content[:3000]}
 
-请检查人设一致性、设定一致性、时间线连续性、伏笔回收情况。
+人物设定:
+{json.dumps(bible_data.get('characters', []), ensure_ascii=False, indent=2)}
+
+伏笔列表:
+{json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False, indent=2)}
+
+## 相关记忆上下文
+{memory_context}
+
+请检查：
+1. 人设一致性（对照记忆上下文中的人物状态）
+2. 设定一致性（对照世界观记忆）
+3. 时间线连续性（对照最近章节摘要）
+4. 伏笔回收情况
+5. 与记忆上下文的一致性
+6. 潜在问题
 
 请输出检查结果和建议。如检查通过，请说明"通过"。"""
 
@@ -1217,7 +1299,8 @@ class WritingWorker:
                 role="continuity",
                 temperature=0.3,
                 db=db,
-                request_type="worker_continuity"
+                request_type="worker_continuity",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at
@@ -1277,7 +1360,8 @@ class WritingWorker:
                 role="learning",
                 temperature=0.5,
                 db=db,
-                request_type="worker_learning"
+                request_type="worker_learning",
+                project_id=gen_task.project_id
             )
             finished_at = utc_now()
             response["started_at"] = started_at

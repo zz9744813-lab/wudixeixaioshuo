@@ -85,6 +85,7 @@ class ModelCallLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     provider_id = Column(Integer, ForeignKey("model_providers.id"))
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
 
     # 调用信息
     role = Column(String(50))  # 使用的角色

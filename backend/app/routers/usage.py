@@ -2,7 +2,7 @@
 Usage Router - 用量和成本统计 API
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.model_config import ModelCallLog
+from app.utils.time_utils import utc_now
 
 router = APIRouter()
 
@@ -22,12 +23,11 @@ def get_usage_summary(
     db: Session = Depends(get_db),
 ):
     """获取用量总览"""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utc_now() - timedelta(days=days)
 
     query = db.query(ModelCallLog).filter(ModelCallLog.created_at >= since)
-    if project_id:
-        # TODO: 如果 ModelCallLog 有 project_id 字段，添加过滤
-        pass
+    if project_id is not None:
+        query = query.filter(ModelCallLog.project_id == project_id)
 
     total_calls = query.count()
     success_calls = query.filter(ModelCallLog.status == "success").count()
@@ -54,20 +54,26 @@ def get_usage_summary(
 
 @router.get("/by-role")
 def get_usage_by_role(
+    project_id: Optional[int] = None,
     days: int = Query(default=7, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
     """按角色聚合用量"""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utc_now() - timedelta(days=days)
 
-    results = db.query(
+    query = db.query(
         ModelCallLog.role,
         func.count(ModelCallLog.id).label("calls"),
         func.sum(ModelCallLog.total_tokens).label("total_tokens"),
         func.sum(ModelCallLog.estimated_cost).label("estimated_cost"),
     ).filter(
         ModelCallLog.created_at >= since
-    ).group_by(
+    )
+
+    if project_id is not None:
+        query = query.filter(ModelCallLog.project_id == project_id)
+
+    results = query.group_by(
         ModelCallLog.role
     ).all()
 
@@ -84,20 +90,26 @@ def get_usage_by_role(
 
 @router.get("/by-model")
 def get_usage_by_model(
+    project_id: Optional[int] = None,
     days: int = Query(default=7, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
     """按模型聚合用量"""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utc_now() - timedelta(days=days)
 
-    results = db.query(
+    query = db.query(
         ModelCallLog.model_name,
         func.count(ModelCallLog.id).label("calls"),
         func.sum(ModelCallLog.total_tokens).label("total_tokens"),
         func.sum(ModelCallLog.estimated_cost).label("estimated_cost"),
     ).filter(
         ModelCallLog.created_at >= since
-    ).group_by(
+    )
+
+    if project_id is not None:
+        query = query.filter(ModelCallLog.project_id == project_id)
+
+    results = query.group_by(
         ModelCallLog.model_name
     ).all()
 
@@ -114,20 +126,26 @@ def get_usage_by_model(
 
 @router.get("/daily")
 def get_daily_usage(
+    project_id: Optional[int] = None,
     days: int = Query(default=7, ge=1, le=365),
     db: Session = Depends(get_db),
 ):
     """按日期趋势"""
-    since = datetime.utcnow() - timedelta(days=days)
+    since = utc_now() - timedelta(days=days)
 
-    results = db.query(
+    query = db.query(
         func.date(ModelCallLog.created_at).label("date"),
         func.count(ModelCallLog.id).label("calls"),
         func.sum(ModelCallLog.total_tokens).label("total_tokens"),
         func.sum(ModelCallLog.estimated_cost).label("estimated_cost"),
     ).filter(
         ModelCallLog.created_at >= since
-    ).group_by(
+    )
+
+    if project_id is not None:
+        query = query.filter(ModelCallLog.project_id == project_id)
+
+    results = query.group_by(
         func.date(ModelCallLog.created_at)
     ).order_by(
         func.date(ModelCallLog.created_at)

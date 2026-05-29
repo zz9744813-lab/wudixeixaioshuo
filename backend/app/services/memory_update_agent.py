@@ -142,7 +142,10 @@ class MemoryUpdateAgent:
             response = await llm_manager.generate(
                 prompt=prompt,
                 role="memory_update",
-                temperature=0.5
+                temperature=0.5,
+                db=memory_service.db,
+                request_type="worker_memory_update",
+                project_id=project_id
             )
 
             content = response.get("content", "")
