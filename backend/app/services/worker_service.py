@@ -23,6 +23,7 @@ from app.services.openai_llm_service import llm_manager
 from app.services.evolution_service import EvolutionService
 from app.services.memory_service import MemoryService
 from app.services.memory_update_agent import MemoryUpdateAgent
+from app.services.event_bus import event_bus
 from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,10 @@ class WritingWorker:
         self.daily_stats["start_time"] = datetime.now()
         self._task = asyncio.create_task(self._run_loop())
         logger.info("Worker 已启动")
+        await event_bus.publish("worker.status", {
+            "status": "running",
+            "message": "Worker 已启动"
+        })
 
     async def stop(self):
         """停止 Worker"""
@@ -93,6 +98,10 @@ class WritingWorker:
         if self.status == WorkerStatus.RUNNING:
             self.status = WorkerStatus.PAUSED
             logger.info("Worker 已暂停")
+            await event_bus.publish("worker.status", {
+                "status": "paused",
+                "message": "Worker 已暂停"
+            })
 
     async def resume(self):
         """恢复 Worker"""
@@ -170,8 +179,30 @@ class WritingWorker:
 
             logger.info(f"开始处理任务 {gen_task.id}: {chapter.title}")
 
+            # 发布任务开始事件
+            await event_bus.publish("task.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "chapter_index": chapter.chapter_index,
+                "chapter_title": chapter.title,
+            })
+
             # 执行任务
             result = await self._execute_task(db, gen_task, chapter, project)
+
+            # 发布任务完成/失败事件
+            if result["success"]:
+                await event_bus.publish("task.completed", {
+                    "task_id": gen_task.id,
+                    "chapter_id": chapter.id,
+                    "word_count": result.get("word_count", 0),
+                    "final_score": result.get("final_score", 0),
+                })
+            else:
+                await event_bus.publish("task.failed", {
+                    "task_id": gen_task.id,
+                    "error": result.get("error", "未知错误"),
+                })
 
             # 更新统计
             if result["success"]:
@@ -226,6 +257,12 @@ class WritingWorker:
                         self.memory_update_agent = MemoryUpdateAgent()
 
                     logger.info(f"[Task {gen_task.id}] 开始更新记忆系统...")
+                    await event_bus.publish("agent.step.started", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "MemoryUpdate",
+                        "step_index": 7,
+                    })
                     memory_result = await self.memory_update_agent.update_from_chapter(
                         project_id=project.id,
                         chapter_id=chapter.id,
@@ -237,6 +274,14 @@ class WritingWorker:
                         db=db
                     )
                     logger.info(f"[Task {gen_task.id}] 记忆系统更新完成")
+                    await event_bus.publish("agent.step.completed", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "MemoryUpdate",
+                        "step_index": 7,
+                        "tokens": 0,
+                        "cost": 0.0,
+                    })
 
                     # 保存 MemoryUpdate 步骤
                     memory_response = {
@@ -332,7 +377,21 @@ class WritingWorker:
         try:
             # ===== Step 1: Planner =====
             logger.info(f"[Task {gen_task.id}] Step 1: Planner")
+            await event_bus.publish("agent.step.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Planner",
+                "step_index": 1,
+            })
             planner_result = await self._run_planner(db, gen_task, chapter, bible_data)
+            await event_bus.publish("agent.step.completed", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Planner",
+                "step_index": 1,
+                "tokens": planner_result.get("tokens", 0),
+                "cost": planner_result.get("cost", 0.0),
+            })
             steps_data.append(planner_result)
             total_tokens += planner_result.get("tokens", 0)
             total_cost += planner_result.get("cost", 0.0)
@@ -346,7 +405,21 @@ class WritingWorker:
 
             # ===== Step 2: Draft =====
             logger.info(f"[Task {gen_task.id}] Step 2: Draft")
+            await event_bus.publish("agent.step.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Draft",
+                "step_index": 2,
+            })
             draft_result = await self._run_draft(db, gen_task, chapter, bible_data, chapter_plan)
+            await event_bus.publish("agent.step.completed", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Draft",
+                "step_index": 2,
+                "tokens": draft_result.get("tokens", 0),
+                "cost": draft_result.get("cost", 0.0),
+            })
             steps_data.append(draft_result)
             total_tokens += draft_result.get("tokens", 0)
             total_cost += draft_result.get("cost", 0.0)
@@ -361,7 +434,21 @@ class WritingWorker:
 
             # ===== Step 3: Critic =====
             logger.info(f"[Task {gen_task.id}] Step 3: Critic")
+            await event_bus.publish("agent.step.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Critic",
+                "step_index": 3,
+            })
             critic_result = await self._run_critic(db, gen_task, chapter, draft_content, bible_data)
+            await event_bus.publish("agent.step.completed", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Critic",
+                "step_index": 3,
+                "tokens": critic_result.get("tokens", 0),
+                "cost": critic_result.get("cost", 0.0),
+            })
             steps_data.append(critic_result)
             total_tokens += critic_result.get("tokens", 0)
             total_cost += critic_result.get("cost", 0.0)
@@ -451,9 +538,23 @@ class WritingWorker:
 
             # ===== Step 5: Continuity =====
             logger.info(f"[Task {gen_task.id}] Step 5: Continuity")
+            await event_bus.publish("agent.step.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Continuity",
+                "step_index": 5,
+            })
             continuity_result = await self._run_continuity(
                 db, gen_task, chapter, draft_content, bible_data, memory_context_for_continuity
             )
+            await event_bus.publish("agent.step.completed", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Continuity",
+                "step_index": 5,
+                "tokens": continuity_result.get("tokens", 0),
+                "cost": continuity_result.get("cost", 0.0),
+            })
             steps_data.append(continuity_result)
             total_tokens += continuity_result.get("tokens", 0)
             total_cost += continuity_result.get("cost", 0.0)
@@ -465,7 +566,21 @@ class WritingWorker:
 
             # ===== Step 6: Learning =====
             logger.info(f"[Task {gen_task.id}] Step 6: Learning")
+            await event_bus.publish("agent.step.started", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Learning",
+                "step_index": 6,
+            })
             learning_result = await self._run_learning(db, gen_task, chapter, steps_data)
+            await event_bus.publish("agent.step.completed", {
+                "task_id": gen_task.id,
+                "chapter_id": chapter.id,
+                "agent": "Learning",
+                "step_index": 6,
+                "tokens": learning_result.get("tokens", 0),
+                "cost": learning_result.get("cost", 0.0),
+            })
             steps_data.append(learning_result)
             total_tokens += learning_result.get("tokens", 0)
             total_cost += learning_result.get("cost", 0.0)
@@ -789,7 +904,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="planner", temperature=0.7)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="planner",
+                temperature=0.7,
+                db=db,
+                request_type="worker_planner"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
@@ -893,7 +1014,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="draft", temperature=0.8)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="draft",
+                temperature=0.8,
+                db=db,
+                request_type="worker_draft"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
@@ -955,7 +1082,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="critic", temperature=0.3)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="critic",
+                temperature=0.3,
+                db=db,
+                request_type="worker_critic"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
@@ -1018,7 +1151,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="rewrite", temperature=0.7)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="rewrite",
+                temperature=0.7,
+                db=db,
+                request_type="worker_rewrite"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
@@ -1083,7 +1222,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="continuity", temperature=0.3)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="continuity",
+                temperature=0.3,
+                db=db,
+                request_type="worker_continuity"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
@@ -1137,7 +1282,13 @@ class WritingWorker:
 
         started_at = utc_now()
         try:
-            response = await llm_manager.generate(prompt=prompt, role="learning", temperature=0.5)
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="learning",
+                temperature=0.5,
+                db=db,
+                request_type="worker_learning"
+            )
             finished_at = utc_now()
             response["started_at"] = started_at
             response["finished_at"] = finished_at
