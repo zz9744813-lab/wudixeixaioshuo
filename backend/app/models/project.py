@@ -91,6 +91,7 @@ class Project(Base):
     bible = relationship("NovelBible", back_populates="project", uselist=False)
     chapters = relationship("Chapter", back_populates="project", order_by="Chapter.chapter_index")
     tasks = relationship("GenerationTask", back_populates="project")
+    prompt_templates = relationship("PromptTemplate", back_populates="project")
 
 
 class NovelBible(Base):

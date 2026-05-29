@@ -14,7 +14,9 @@ class MockLLMService:
     模拟真实 LLM 的行为，包括延迟、token 计数、错误等
     """
 
-    def __init__(self):
+    def __init__(self, provider_id: int = None, provider_name: str = "mock"):
+        self.provider_id = provider_id
+        self.provider_name = provider_name
         self.mock_responses = {
             "planner": self._mock_planner_response,
             "draft": self._mock_draft_response,
@@ -67,7 +69,8 @@ class MockLLMService:
         return {
             "content": content,
             "model": "mock-gpt-3.5-turbo",
-            "provider": "mock",
+            "provider": self.provider_name,
+            "provider_id": self.provider_id,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "total_tokens": input_tokens + output_tokens,

@@ -25,6 +25,8 @@ class OpenAILLMService(BaseLLMService):
         model_name: str,
         timeout: int = 120,
         retry_times: int = 3,
+        provider_id: int = None,
+        provider_name: str = None,
     ):
         """
         初始化 OpenAI LLM 服务
@@ -35,12 +37,16 @@ class OpenAILLMService(BaseLLMService):
             model_name: 默认模型名称，如 gpt-3.5-turbo
             timeout: 请求超时时间（秒）
             retry_times: 重试次数
+            provider_id: 提供商ID（用于日志记录）
+            provider_name: 提供商名称（用于日志记录）
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.model_name = model_name
         self.timeout = timeout
         self.retry_times = retry_times
+        self.provider_id = provider_id
+        self.provider_name = provider_name
 
         # 初始化 HTTP 客户端
         self.client = httpx.AsyncClient(
@@ -143,7 +149,8 @@ class OpenAILLMService(BaseLLMService):
                 return {
                     "content": content,
                     "model": model,
-                    "provider": "openai-compatible",
+                    "provider": self.provider_name or "openai-compatible",
+                    "provider_id": self.provider_id,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
                     "total_tokens": total_tokens,
@@ -432,6 +439,8 @@ class LLMServiceManager:
                     model_name=role_config.model_name,
                     timeout=provider.timeout_seconds or 120,
                     retry_times=provider.retry_times or 3,
+                    provider_id=provider.id,
+                    provider_name=provider.name,
                 )
             elif default_provider:
                 # 使用默认提供商
@@ -441,6 +450,8 @@ class LLMServiceManager:
                     model_name=default_provider.default_model,
                     timeout=default_provider.timeout_seconds or 120,
                     retry_times=default_provider.retry_times or 3,
+                    provider_id=default_provider.id,
+                    provider_name=default_provider.name,
                 )
 
         self._initialized = True
@@ -477,6 +488,8 @@ class LLMServiceManager:
         role: str = "default",
         temperature: float = 0.7,
         max_tokens: int = 4000,
+        db=None,
+        request_type: str = "chat_completion",
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -487,18 +500,66 @@ class LLMServiceManager:
             role: 角色名称
             temperature: 温度参数
             max_tokens: 最大 token 数
+            db: 数据库会话（用于记录调用日志）
+            request_type: 请求类型
             **kwargs: 其他参数
 
         Returns:
             生成结果
         """
+        from app.utils.time_utils import utc_now
+        from app.services.model_call_log_service import ModelCallLogService
+
+        started_at = utc_now()
         service = self.get_service(role)
-        return await service.generate(
-            prompt=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs
-        )
+
+        try:
+            response = await service.generate(
+                prompt=prompt,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs
+            )
+            finished_at = utc_now()
+
+            # 记录调用日志
+            if db is not None:
+                ModelCallLogService(db).create_log(
+                    provider_id=response.get("provider_id"),
+                    role=role,
+                    model_name=response.get("model", ""),
+                    request_type=request_type,
+                    input_tokens=response.get("input_tokens", 0),
+                    output_tokens=response.get("output_tokens", 0),
+                    total_tokens=response.get("total_tokens", 0),
+                    estimated_cost=response.get("cost", 0.0),
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    status="success",
+                    prompt=prompt,
+                    response=response.get("content", ""),
+                )
+
+            return response
+
+        except Exception as e:
+            finished_at = utc_now()
+
+            # 记录失败日志
+            if db is not None:
+                ModelCallLogService(db).create_log(
+                    provider_id=getattr(service, "provider_id", None),
+                    role=role,
+                    model_name=getattr(service, "model_name", "unknown"),
+                    request_type=request_type,
+                    started_at=started_at,
+                    finished_at=finished_at,
+                    status="failed",
+                    error_message=str(e)[:1000],
+                    prompt=prompt,
+                )
+
+            raise
 
     async def health_check(self, role: str = "default") -> Dict[str, Any]:
         """

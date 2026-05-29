@@ -16,19 +16,22 @@ from app.routers import (
     books,
     chapters,
     dashboard,
+    events,
     evolution,
     export,
     feedback,
-    foreshadows,  # P4 Phase 3
+    foreshadows,
     health,
     memory,
     models,
-    production,  # P4 Phase 5
+    production,
     projects,
-    reviews,  # P4 Phase 4
-    skills,  # P4 Phase 2
+    prompts,
+    reviews,
+    skills,
     tasks,
     techniques,
+    usage,
     worker,
 )
 from app.services.openai_llm_service import llm_manager
@@ -85,8 +88,11 @@ app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"])
 app.include_router(bible.router, prefix="/api", tags=["Bible"])
 app.include_router(worker.router, prefix="/api/worker", tags=["Worker"])
-app.include_router(memory.router, prefix="/api/memory", tags=["Memory"])  # P4: 记忆系统
+app.include_router(memory.router, prefix="/api/memory", tags=["Memory"])
 app.include_router(export.router, prefix="/api/export", tags=["Export"])
+app.include_router(usage.router, prefix="/api/usage", tags=["Usage"])
+app.include_router(events.router, prefix="/api/events", tags=["Events"])
+app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"])
 
 
 @app.get("/")
