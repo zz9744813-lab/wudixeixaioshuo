@@ -299,6 +299,14 @@ class WritingWorker:
 
                 except Exception as e:
                     logger.error(f"[Task {gen_task.id}] 记忆系统更新失败: {e}")
+                    # 发布失败事件
+                    await event_bus.publish("agent.step.failed", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "MemoryUpdate",
+                        "step_index": 7,
+                        "error": str(e),
+                    })
                     # 保存失败步骤
                     error_response = {
                         "content": "",
@@ -472,6 +480,16 @@ class WritingWorker:
                 rewrite_count += 1
                 logger.info(f"[Task {gen_task.id}] Step 4: Rewrite #{rewrite_count} (score={score})")
 
+                # 发布 Rewrite 开始事件
+                await event_bus.publish("agent.step.started", {
+                    "task_id": gen_task.id,
+                    "chapter_id": chapter.id,
+                    "agent": "Rewrite",
+                    "step_index": 4,
+                    "rewrite_round": rewrite_count,
+                    "current_score": score,
+                })
+
                 # 创建新版本
                 new_version = self._get_or_create_version(db, chapter, current_version.version_number + 1)
                 new_version.plan_content = current_version.plan_content
@@ -479,18 +497,53 @@ class WritingWorker:
                 rewrite_result = await self._run_rewrite(
                     db, gen_task, chapter, draft_content, critique, bible_data
                 )
-                steps_data.append(rewrite_result)
-                total_tokens += rewrite_result.get("tokens", 0)
-                total_cost += rewrite_result.get("cost", 0.0)
 
                 if rewrite_result.get("success"):
+                    await event_bus.publish("agent.step.completed", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "Rewrite",
+                        "step_index": 4,
+                        "rewrite_round": rewrite_count,
+                        "tokens": rewrite_result.get("tokens", 0),
+                        "cost": rewrite_result.get("cost", 0.0),
+                    })
                     new_draft = rewrite_result.get("content", draft_content)
                     new_version.draft_content = new_draft
                     db.commit()
 
                     # Rewrite 后再次审稿
                     logger.info(f"[Task {gen_task.id}] Step 4b: Re-Critic after rewrite")
+                    await event_bus.publish("agent.step.started", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "Re-Critic",
+                        "step_index": 4,
+                        "rewrite_round": rewrite_count,
+                    })
                     critic_result2 = await self._run_critic(db, gen_task, chapter, new_draft, bible_data)
+
+                    if critic_result2.get("success"):
+                        await event_bus.publish("agent.step.completed", {
+                            "task_id": gen_task.id,
+                            "chapter_id": chapter.id,
+                            "agent": "Re-Critic",
+                            "step_index": 4,
+                            "rewrite_round": rewrite_count,
+                            "tokens": critic_result2.get("tokens", 0),
+                            "cost": critic_result2.get("cost", 0.0),
+                            "new_score": critic_result2.get("score", 0),
+                        })
+                    else:
+                        await event_bus.publish("agent.step.failed", {
+                            "task_id": gen_task.id,
+                            "chapter_id": chapter.id,
+                            "agent": "Re-Critic",
+                            "step_index": 4,
+                            "rewrite_round": rewrite_count,
+                            "error": critic_result2.get("error", "Re-Critic 失败"),
+                        })
+
                     steps_data.append(critic_result2)
                     total_tokens += critic_result2.get("tokens", 0)
                     total_cost += critic_result2.get("cost", 0.0)
@@ -535,7 +588,18 @@ class WritingWorker:
 
                         db.commit()
                 else:
+                    await event_bus.publish("agent.step.failed", {
+                        "task_id": gen_task.id,
+                        "chapter_id": chapter.id,
+                        "agent": "Rewrite",
+                        "step_index": 4,
+                        "rewrite_round": rewrite_count,
+                        "error": rewrite_result.get("error", "Rewrite 失败"),
+                    })
                     break
+                steps_data.append(rewrite_result)
+                total_tokens += rewrite_result.get("tokens", 0)
+                total_cost += rewrite_result.get("cost", 0.0)
 
             # ===== Step 5: Continuity =====
             logger.info(f"[Task {gen_task.id}] Step 5: Continuity")
