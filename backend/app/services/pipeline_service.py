@@ -250,7 +250,7 @@ class PipelineService:
 
         if score < 80:
             rewrite_result = await self._run_rewrite_if_needed(
-                task_info, draft_content, critique, bible_data, score, memory_context
+                task_info, draft_content, critic_result, bible_data, score, memory_context
             )
 
             if rewrite_result.get("success"):
@@ -737,78 +737,244 @@ class PipelineService:
     async def _run_critic(
         self, task_info: Dict, content: str, bible_data: Dict
     ) -> Dict:
-        """执行 Critic Agent"""
+        """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注"""
         db = SessionLocal()
         try:
-            prompt = f"""请对以下章节进行多维度审稿评分：
+            # 获取模板服务
+            template_service = PromptTemplateService(db)
 
-章节标题: {task_info['chapter_title']}
+            # 准备变量
+            variables = {
+                "chapter_title": task_info['chapter_title'],
+                "content": content,
+            }
 
-章节内容:
-{content[:5000]}
+            # 使用模板或 fallback
+            prompt = template_service.render(
+                role="critic",
+                variables=variables,
+                fallback=self._build_critic_rubric_prompt(task_info['chapter_title'], content),
+                project_id=task_info["project_id"],
+            )
 
-请从以下维度评分（每项满分100）：
-1. 剧情推进 (plot_progress)
-2. 人物一致性 (character_consistency)
-3. 节奏控制 (pacing)
-4. 章节钩子 (hook)
-5. 情绪回报 (emotional_reward)
-6. 文风稳定 (style_consistency)
-7. 连续性 (continuity)
-8. 信息清晰度 (clarity)
-9. 商业可读性 (readability)
-
-请输出：1.综合评分 2.各维度得分(JSON) 3.问题列表 4.改进建议"""
-
-            started_at = utc_now()
             response = await llm_manager.generate(
                 prompt=prompt,
                 role="critic",
                 temperature=0.3,
+                max_tokens=4000,
                 db=db,
                 request_type="worker_critic",
                 project_id=task_info["project_id"],
             )
 
             content_text = response.get("content", "")
-            score = self._extract_score(content_text)
-            score_breakdown = self._extract_score_breakdown(content_text)
 
-            self._save_step(db, task_info, "Critic", prompt, response, score=score)
+            # 解析结构化输出
+            structured_result = self._parse_critic_structured_output(content_text)
+
+            # 验证结构化输出，如果无效则重试一次
+            if not self._validate_critic_output(structured_result):
+                logger.warning("Critic 输出验证失败，尝试修复...")
+                repair_prompt = f"""之前的输出格式不正确，请严格按照要求的 JSON 格式重新输出。
+
+{prompt}
+
+错误信息：输出缺少必需的字段或格式不正确。
+
+请只输出合法的 JSON，不要添加 Markdown 标记或解释。"""
+
+                response = await llm_manager.generate(
+                    prompt=repair_prompt,
+                    role="critic",
+                    temperature=0.2,
+                    max_tokens=4000,
+                    db=db,
+                    request_type="worker_critic_repair",
+                    project_id=task_info["project_id"],
+                )
+                content_text = response.get("content", "")
+                structured_result = self._parse_critic_structured_output(content_text)
+
+            # 保存详细结果
+            self._save_step(
+                db, task_info, "Critic", prompt, response,
+                score=structured_result.get("overall_score", 0),
+                score_breakdown=structured_result.get("dimension_scores", {})
+            )
 
             return {
                 "success": True,
                 "agent": "Critic",
-                "score": score,
-                "score_breakdown": score_breakdown,
-                "critique": content_text,
+                "score": structured_result.get("overall_score", 0),
+                "score_breakdown": structured_result.get("dimension_scores", {}),
+                "anchored_comments": structured_result.get("anchored_comments", {}),
+                "line_comments": structured_result.get("line_comments", []),
+                "must_fix_items": structured_result.get("must_fix_items", []),
+                "nice_to_have_items": structured_result.get("nice_to_have_items", []),
+                "rewrite_plan": structured_result.get("rewrite_plan", []),
+                "critique": content_text,  # 保留原始文本用于调试
                 "tokens": response.get("total_tokens", 0),
                 "cost": response.get("cost", 0.0),
             }
 
         except Exception as e:
             logger.error(f"Critic 失败: {e}")
-            return {"success": False, "error": str(e)}
+            # 返回降级结果
+            return {
+                "success": True,  # 让流程继续
+                "agent": "Critic",
+                "score": 75,
+                "score_breakdown": {},
+                "must_fix_items": [],
+                "rewrite_plan": [],
+                "error": str(e),
+            }
         finally:
             db.close()
 
+    def _build_critic_rubric_prompt(self, chapter_title: str, content: str) -> str:
+        """构建 Critic Rubric Prompt（当模板不可用时使用）"""
+        return f"""请对以下章节进行严格的多维度审稿评分。
+
+章节标题: {chapter_title}
+
+章节内容:
+{content[:8000]}
+
+请严格按照以下九维 Rubric 进行评分，每维度必须引用原文证据。
+
+## 评分锚点（Rubric）
+
+### 1. 剧情推进 (plot_progress, 满分100)
+- 90: 主线显著推进，有明确的冲突升级和剧情转折
+- 70: 主线有推进，但节奏平缓或转折力度不足
+- 50: 推进有限，信息重复或原地踏步
+- 30: 无明显推进，读者无法获得新信息
+
+### 2. 节奏控制 (pacing, 满分100)
+- 90: 信息密度高，冲突推进和喘息段落张弛有度，无明显注水
+- 70: 整体流畅，但存在 1-2 处可压缩段落
+- 50: 多处重复解释或情绪停滞，影响阅读推进
+- 30: 章节缺乏推进，主要由说明、回忆、重复心理活动构成
+
+### 3. 人物一致性 (character_consistency, 满分100)
+- 90: 所有角色言行符合设定，情绪转变有充分铺垫
+- 70: 主角一致，配角偶有偏差，情绪转变略快
+- 50: 存在人设偏离或 OOC 现象
+- 30: 人物行为逻辑混乱，读者无法理解动机
+
+### 4. 对话辨识度 (dialogue_distinction, 满分100)
+- 90: 每个角色语言风格独特，即使不标注也能分辨说话人
+- 70: 主角有辨识度，配角区分度一般
+- 50: 对话风格趋同，多个角色说话方式类似
+- 30: 所有角色说话一个调，如同同一个人
+
+### 5. 爽点达成度 (payoff_delivery, 满分100)
+- 90: 爽点设计精巧，铺垫充分，释放时机精准，情绪到位
+- 70: 有爽点但铺垫不足或释放略显仓促
+- 50: 爽点平淡，缺乏高潮感，或强行塞入
+- 30: 无爽点或爽点与主线无关
+
+### 6. 章末钩子 (ending_hook, 满分100)
+- 90: 钩子强烈，引发强烈追更欲望，与下一章紧密关联
+- 70: 有悬念但力度中等，读者有一定期待
+- 50: 钩子弱或过于套路，读者兴趣不大
+- 30: 无钩子，章节结束得过于"圆满"
+
+### 7. 文风稳定性 (style_stability, 满分100)
+- 90: 全文风格统一，用词、句式、描写手法一致
+- 70: 整体统一，偶有段落风格偏离
+- 50: 前后风格明显不一致，仿佛不同作者
+- 30: 风格混乱，影响阅读体验
+
+### 8. 连续性/设定一致 (continuity, 满分100)
+- 90: 无设定冲突，伏笔呼应到位，与前文衔接流畅
+- 70: minor 设定问题但不影响理解
+- 50: 存在设定矛盾或伏笔丢失
+- 30: 严重设定冲突或逻辑错误
+
+### 9. 商业可读性 (commercial_readability, 满分100)
+- 90: 开头抓人，节奏明快，有追更动力，符合网文套路但不俗套
+- 70: 可读性良好，但缺乏亮点
+- 50: 平铺直叙，缺乏吸引力
+- 30: 晦涩难懂或过于文艺，不符合网文调性
+
+## 输出要求（严格 JSON 格式）
+
+必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释：
+
+{{
+  "overall_score": 78,
+  "dimension_scores": {{
+    "plot_progress": 80,
+    "pacing": 72,
+    "character_consistency": 75,
+    "dialogue_distinction": 62,
+    "payoff_delivery": 70,
+    "ending_hook": 85,
+    "style_stability": 77,
+    "continuity": 90,
+    "commercial_readability": 76
+  }},
+  "anchored_comments": {{
+    "pacing": "按 rubric 属于 70 档：整体流畅，但中段重复解释主角动机。"
+  }},
+  "line_comments": [
+    {{
+      "quote": "原文短句，不超过 60 字",
+      "line_number": 123,
+      "issue_type": "telling_not_showing",
+      "severity": "medium",
+      "comment": "这里直接说明情绪，建议改成动作和对话体现。",
+      "rewrite_suggestion": "建议改写方向"
+    }}
+  ],
+  "must_fix_items": [
+    "问题1: 描述...",
+    "问题2: 描述..."
+  ],
+  "nice_to_have_items": [
+    "建议1: 描述..."
+  ],
+  "rewrite_plan": [
+    "第1轮：修复设定冲突和连续性问题",
+    "第2轮：加强爽点铺垫和释放",
+    "第3轮：优化对话辨识度"
+  ]
+}}
+
+要求：
+1. 每个低于 70 分的维度必须在 anchored_comments 中解释原因，并引用 rubric 档位
+2. line_comments 至少包含 3-5 条，引用具体原文片段作为证据
+3. must_fix_items 按优先级排序，必须是具体可执行的问题
+4. rewrite_plan 必须是分轮次的改稿策略"""
+
     async def _run_rewrite_if_needed(
-        self, task_info: Dict, content: str, critique: str,
+        self, task_info: Dict, content: str, critic_result: Dict,
         bible_data: Dict, current_score: int, memory_context: str
     ) -> Dict:
-        """如果需要，执行 Rewrite"""
+        """如果需要，执行 Rewrite - 使用 must_fix_items 和 rewrite_plan"""
         steps = []
         total_tokens = 0
         total_cost = 0.0
         final_content = content
         final_score = current_score
 
+        # 提取结构化 Critic 结果
+        must_fix_items = critic_result.get("must_fix_items", [])
+        rewrite_plan = critic_result.get("rewrite_plan", [])
+        line_comments = critic_result.get("line_comments", [])
+
         rewrite_count = 0
-        max_rewrites = 2
+        max_rewrites = min(2, len(rewrite_plan)) if rewrite_plan else 2
 
         while final_score < 80 and rewrite_count < max_rewrites:
             rewrite_count += 1
             logger.info(f"[Task {task_info['task_id']}] Rewrite #{rewrite_count} (score={final_score})")
+
+            # 获取当前轮次的改稿重点
+            current_round_plan = rewrite_plan[rewrite_count - 1] if rewrite_count <= len(rewrite_plan) else f"改稿轮次 {rewrite_count}"
+            current_must_fix = must_fix_items[:3] if must_fix_items else []  # 每次处理前3个
 
             await event_bus.publish("agent.step.started", {
                 "task_id": task_info["task_id"],
@@ -816,30 +982,143 @@ class PipelineService:
                 "agent": "Rewrite",
                 "step_index": 4,
                 "rewrite_round": rewrite_count,
+                "rewrite_plan": current_round_plan,
             })
 
             db = SessionLocal()
             try:
-                prompt = f"""请根据审稿意见改写文章：
+                # 构建有针对性的 Rewrite prompt
+                prompt = self._build_rewrite_prompt(
+                    task_info['chapter_title'],
+                    final_content,
+                    current_must_fix,
+                    line_comments,
+                    current_round_plan,
+                    bible_data
+                )
 
-章节标题: {task_info['chapter_title']}
-
-原内容:
-{final_content[:5000]}
-
-审稿意见:
-{critique}
-
-请输出改写后的完整章节内容。"""
-
-                started_at = utc_now()
                 response = await llm_manager.generate(
                     prompt=prompt,
                     role="rewrite",
                     temperature=0.7,
+                    max_tokens=6000,
                     db=db,
                     request_type="worker_rewrite",
                     project_id=task_info["project_id"],
+                )
+
+                self._save_step(db, task_info, "Rewrite", prompt, response)
+
+                steps.append({
+                    "agent": "Rewrite",
+                    "rewrite_round": rewrite_count,
+                    "rewrite_plan": current_round_plan,
+                    "tokens": response.get("total_tokens", 0),
+                    "cost": response.get("cost", 0.0),
+                })
+                total_tokens += response.get("total_tokens", 0)
+                total_cost += response.get("cost", 0.0)
+
+                new_content = response.get("content", final_content)
+
+                # 重新审稿
+                await event_bus.publish("agent.step.started", {
+                    "task_id": task_info["task_id"],
+                    "chapter_id": task_info["chapter_id"],
+                    "agent": "Re-Critic",
+                    "step_index": 4,
+                    "rewrite_round": rewrite_count,
+                })
+
+                new_critic_result = await self._run_critic(task_info, new_content, bible_data)
+                new_score = new_critic_result.get("score", final_score)
+
+                steps.append({
+                    "agent": "Re-Critic",
+                    "rewrite_round": rewrite_count,
+                    "new_score": new_score,
+                    "tokens": new_critic_result.get("tokens", 0),
+                    "cost": new_critic_result.get("cost", 0.0),
+                })
+                total_tokens += new_critic_result.get("tokens", 0)
+                total_cost += new_critic_result.get("cost", 0.0)
+
+                await event_bus.publish("agent.step.completed", {
+                    "task_id": task_info["task_id"],
+                    "chapter_id": task_info["chapter_id"],
+                    "agent": "Re-Critic",
+                    "step_index": 4,
+                    "rewrite_round": rewrite_count,
+                    "new_score": new_score,
+                })
+
+                # Darwin 决策
+                if new_score > final_score:
+                    logger.info(f"[Task {task_info['task_id']}] 新版本评分提升: {final_score} -> {new_score}")
+                    final_content = new_content
+                    final_score = new_score
+                else:
+                    logger.info(f"[Task {task_info['task_id']}] 新版本未改进，保留旧版本")
+                    break
+
+            except Exception as e:
+                logger.error(f"Rewrite 失败: {e}")
+                break
+            finally:
+                db.close()
+
+        return {
+            "success": True,
+            "steps": steps,
+            "tokens": total_tokens,
+            "cost": total_cost,
+            "final_content": final_content,
+            "final_score": final_score,
+        }
+
+    def _build_rewrite_prompt(
+        self, chapter_title: str, content: str,
+        must_fix_items: list, line_comments: list, rewrite_plan: str, bible_data: Dict
+    ) -> str:
+        """构建有针对性的 Rewrite prompt"""
+
+        # 构建 must_fix 部分
+        must_fix_section = ""
+        if must_fix_items:
+            must_fix_section = "## 必须修复的问题（按优先级）\n" + "\n".join([f"{i+1}. {item}" for i, item in enumerate(must_fix_items)]) + "\n"
+
+        # 构建 line_comments 部分
+        line_comments_section = ""
+        if line_comments:
+            line_comments_section = "## 行级批注\n"
+            for comment in line_comments[:5]:  # 最多5条
+                if isinstance(comment, dict):
+                    line_comments_section += f"\n原文: \"{comment.get('quote', '')}\"\n"
+                    line_comments_section += f"问题: {comment.get('issue_type', '')} - {comment.get('comment', '')}\n"
+                    if comment.get('rewrite_suggestion'):
+                        line_comments_section += f"改写建议: {comment.get('rewrite_suggestion')}\n"
+
+        return f"""请根据审稿意见改写文章。
+
+章节标题: {chapter_title}
+
+## 本轮改稿重点
+{rewrite_plan}
+
+{must_fix_section}
+{line_comments_section}
+
+## 原文
+{content[:6000]}
+
+## 改写要求
+1. 优先修复上述"必须修复的问题"
+2. 针对行级批注中的具体问题进行修改
+3. 保持原有情节主线不变
+4. 提高可读性和流畅度
+5. 输出完整的改写后章节内容
+
+请输出改写后的完整章节内容："""
                 )
 
                 self._save_step(db, task_info, "Rewrite", prompt, response)
@@ -1035,6 +1314,70 @@ class PipelineService:
             return {"success": False, "error": str(e)}
         finally:
             db.close()
+
+    def _parse_critic_structured_output(self, content: str) -> Dict:
+        """解析 Critic 的结构化 JSON 输出"""
+        import re
+
+        # 去除 Markdown 代码块标记
+        content = re.sub(r'^```json\s*', '', content.strip())
+        content = re.sub(r'```\s*$', '', content.strip())
+
+        # 尝试直接解析
+        try:
+            data = json.loads(content)
+            return data
+        except json.JSONDecodeError:
+            pass
+
+        # 尝试提取 JSON 部分
+        match = re.search(r'\{[\s\S]*\}', content)
+        if match:
+            try:
+                data = json.loads(match.group())
+                return data
+            except json.JSONDecodeError:
+                pass
+
+        # 解析失败，返回空结构
+        return {
+            "overall_score": 0,
+            "dimension_scores": {},
+            "anchored_comments": {},
+            "line_comments": [],
+            "must_fix_items": [],
+            "nice_to_have_items": [],
+            "rewrite_plan": [],
+        }
+
+    def _validate_critic_output(self, result: Dict) -> bool:
+        """验证 Critic 输出是否有效"""
+        # 检查必需字段
+        required_fields = ["overall_score", "dimension_scores", "must_fix_items", "rewrite_plan"]
+        for field in required_fields:
+            if field not in result:
+                logger.warning(f"Critic 输出缺少字段: {field}")
+                return False
+
+        # 检查 dimension_scores 是否包含九维
+        dimensions = [
+            "plot_progress", "pacing", "character_consistency",
+            "dialogue_distinction", "payoff_delivery", "ending_hook",
+            "style_stability", "continuity", "commercial_readability"
+        ]
+        dim_scores = result.get("dimension_scores", {})
+        for dim in dimensions:
+            if dim not in dim_scores:
+                logger.warning(f"Critic 输出缺少维度评分: {dim}")
+                # 不强制要求所有维度，但记录警告
+
+        # 检查 line_comments 是否包含 quote
+        line_comments = result.get("line_comments", [])
+        for comment in line_comments:
+            if isinstance(comment, dict) and "quote" not in comment:
+                logger.warning("line_comment 缺少 quote 字段")
+
+        return True
 
     # ===== 辅助方法 =====
 
