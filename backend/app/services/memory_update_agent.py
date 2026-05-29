@@ -169,6 +169,28 @@ class MemoryUpdateAgent:
                     "foreshadow_updates": []
                 }
 
+            # 检查是否已存在
+            existing = memory_service.get_chapter_memory(chapter_id)
+            if existing:
+                # 更新现有记录
+                existing.short_summary = memory_data.get("short_summary", "")
+                existing.detailed_summary = memory_data.get("detailed_summary", "")
+                existing.key_events = memory_data.get("key_events", [])
+                existing.character_changes = memory_data.get("character_changes", [])
+                existing.world_updates = memory_data.get("world_updates", [])
+                existing.relationship_changes = memory_data.get("relationship_changes", [])
+                existing.unresolved_questions = memory_data.get("unresolved_questions", [])
+                existing.foreshadow_updates = memory_data.get("foreshadow_updates", [])
+                existing.updated_at = datetime.utcnow()
+                memory_service.db.commit()
+                memory_service.db.refresh(existing)
+                logger.info(f"[MemoryUpdate] 更新章节记忆: chapter {chapter_index}")
+                return {
+                    "id": existing.id,
+                    "short_summary": existing.short_summary,
+                    "key_events_count": len(existing.key_events)
+                }
+
             # 保存到数据库
             chapter_mem = memory_service.create_chapter_memory(
                 project_id=project_id,
@@ -192,6 +214,17 @@ class MemoryUpdateAgent:
 
         except Exception as e:
             logger.error(f"生成章节记忆失败: {e}")
+            # 检查是否已存在
+            existing = memory_service.get_chapter_memory(chapter_id)
+            if existing:
+                existing.short_summary = f"第{chapter_index}章: {chapter_title}"
+                existing.detailed_summary = final_content[:2000] if final_content else ""
+                existing.updated_at = datetime.utcnow()
+                memory_service.db.commit()
+                memory_service.db.refresh(existing)
+                logger.info(f"[MemoryUpdate] 更新基础章节记忆: chapter {chapter_index}")
+                return {"id": existing.id, "short_summary": existing.short_summary}
+
             # 创建基础记忆
             chapter_mem = memory_service.create_chapter_memory(
                 project_id=project_id,

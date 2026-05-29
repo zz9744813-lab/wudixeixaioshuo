@@ -342,11 +342,13 @@ class P4MemoryWorkerE2ETest:
         print(f"✓ Context 组装成功:")
         print(f"  - 最近章节数: {len(recent_chapters)}")
 
-        if recent_chapters:
-            chapter_indices = [ch["index"] for ch in recent_chapters]
-            print(f"  - 包含章节: {chapter_indices}")
-            assert 1 in chapter_indices, "Context 应包含第 1 章"
-            assert recent_chapters[0]["index"] == 1, "第 1 章应是最新的章节"
+        # 必须 assert 非空
+        assert len(recent_chapters) > 0, "下一章 Context 必须包含上一章记忆"
+
+        chapter_indices = [ch["index"] for ch in recent_chapters]
+        print(f"  - 包含章节: {chapter_indices}")
+        assert 1 in chapter_indices, "Context 应包含第 1 章"
+        assert recent_chapters[0]["index"] == 1, "第 1 章应是最新的章节"
 
         return True
 
@@ -370,6 +372,10 @@ class P4MemoryWorkerE2ETest:
         print(f"✓ Planner Prompt 验证:")
         print(f"  - 包含'相关记忆上下文': {has_memory_context}")
         print(f"  - 不含'记忆系统暂不可用': {not_unavailable}")
+
+        # 必须 assert
+        assert has_memory_context, "Planner Prompt 必须包含相关记忆上下文"
+        assert not_unavailable, "Planner Prompt 不应包含记忆系统暂不可用"
 
         # 验证包含其他必要元素
         has_bible = "世界观" in prompt or "Bible" in prompt
@@ -398,13 +404,20 @@ class P4MemoryWorkerE2ETest:
         print(f"  - 包含'相关记忆上下文': {has_memory_context}")
         print(f"  - 不含'记忆系统暂不可用': {not_unavailable}")
 
+        # 必须 assert
+        assert has_memory_context, "Draft Prompt 必须包含相关记忆上下文"
+        assert not_unavailable, "Draft Prompt 不应包含记忆系统暂不可用"
+
         # 验证包含其他必要元素
         has_plan = "章节规划" in prompt or "plan" in prompt.lower()
         print(f"  - 包含章节规划: {has_plan}")
 
+        # 必须 assert
+        assert has_plan, "Draft Prompt 必须包含章节规划"
+
         return True
 
-    def test_11_verify_chapter_memory_no_duplicate(self):
+    async def test_11_verify_chapter_memory_no_duplicate(self):
         """11. 验证 ChapterMemory 不会重复创建"""
         print("\n[11] 验证 ChapterMemory 不重复...")
 
@@ -413,8 +426,59 @@ class P4MemoryWorkerE2ETest:
             ChapterMemory.chapter_id == self.chapter_id
         ).all()
 
-        print(f"✓ ChapterMemory 数量: {len(memories)}")
+        print(f"✓ 首次查询 ChapterMemory 数量: {len(memories)}")
         assert len(memories) == 1, f"同一章节应只有 1 条 ChapterMemory，实际有 {len(memories)} 条"
+
+        # 再次调用 MemoryUpdateAgent.update_from_chapter
+        print("✓ 再次调用 MemoryUpdateAgent...")
+        from app.services.memory_update_agent import MemoryUpdateAgent
+        agent = MemoryUpdateAgent(self.db)
+
+        chapter = self.db.query(Chapter).filter(Chapter.id == self.chapter_id).first()
+        await agent.update_from_chapter(
+            project_id=self.project_id,
+            chapter_id=self.chapter_id,
+            chapter_index=1,
+            chapter_title="第1章：神秘戒指",
+            chapter_content=chapter.final_content or "",
+            plan={"goal": "测试重复更新"},
+            bible={"characters": [{"name": "林凡"}]}
+        )
+
+        # 再次查询，应该还是只有 1 条
+        memories = self.db.query(ChapterMemory).filter(
+            ChapterMemory.chapter_id == self.chapter_id
+        ).all()
+
+        print(f"✓ 再次查询 ChapterMemory 数量: {len(memories)}")
+        assert len(memories) == 1, f"重复调用后仍应只有 1 条 ChapterMemory，实际有 {len(memories)} 条"
+
+        return True
+
+    def test_12_verify_continuity_prompt_has_memory(self):
+        """12. 验证 Continuity Prompt 包含记忆上下文"""
+        print("\n[12] 验证 Continuity Prompt 包含记忆上下文...")
+
+        continuity_step = self.db.query(GenerationStep).filter(
+            GenerationStep.chapter_id == self.chapter_id,
+            GenerationStep.agent_name == "Continuity"
+        ).first()
+
+        assert continuity_step is not None, "Continuity 步骤应存在"
+
+        prompt = continuity_step.input_prompt or ""
+
+        # 验证包含记忆上下文
+        has_memory_context = "相关记忆上下文" in prompt
+        not_unavailable = "记忆系统暂不可用" not in prompt
+
+        print(f"✓ Continuity Prompt 验证:")
+        print(f"  - 包含'相关记忆上下文': {has_memory_context}")
+        print(f"  - 不含'记忆系统暂不可用': {not_unavailable}")
+
+        # 必须 assert
+        assert has_memory_context, "Continuity Prompt 必须包含相关记忆上下文"
+        assert not_unavailable, "Continuity Prompt 不应包含记忆系统暂不可用"
 
         return True
 
@@ -439,7 +503,8 @@ class P4MemoryWorkerE2ETest:
                 ("验证下一章 Context", self.test_8_verify_next_chapter_context),
                 ("验证 Planner Prompt", self.test_9_verify_planner_prompt_has_memory),
                 ("验证 Draft Prompt", self.test_10_verify_draft_prompt_has_memory),
-                ("验证不重复创建", self.test_11_verify_chapter_memory_no_duplicate),
+                ("验证不重复创建", lambda: asyncio.run(self.test_11_verify_chapter_memory_no_duplicate())),
+                ("验证 Continuity Prompt", self.test_12_verify_continuity_prompt_has_memory),
             ]
 
             passed = 0
