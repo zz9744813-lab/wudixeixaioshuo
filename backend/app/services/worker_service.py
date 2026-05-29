@@ -55,7 +55,6 @@ class WritingWorker:
         self.current_task: Optional[dict] = None
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
-        self.task_service: Optional[TaskService] = None
         self._heartbeat_task: Optional[asyncio.Task] = None
         # WORKER-002: PipelineService 实例
         self.pipeline_service = PipelineService()
@@ -130,10 +129,16 @@ class WritingWorker:
         """心跳循环 - 每30秒更新一次"""
         while not self._stop_event.is_set():
             try:
-                if self.current_task and self.task_service:
+                if self.current_task:
                     task_id = self.current_task.get("task_id")
                     if task_id:
-                        self.task_service.update_heartbeat(task_id)
+                        # WORKER-003: 短 session 更新心跳
+                        db = SessionLocal()
+                        try:
+                            task_service = TaskService(db)
+                            task_service.update_heartbeat(task_id)
+                        finally:
+                            db.close()
                 await asyncio.wait_for(
                     self._stop_event.wait(),
                     timeout=30.0
@@ -161,21 +166,23 @@ class WritingWorker:
                 await asyncio.sleep(10)
 
     async def _process_next_task(self):
-        """处理下一个任务"""
-        db = SessionLocal()
-        self.task_service = TaskService(db)
+        """
+        处理下一个任务 - WORKER-003: 短 session 模式
 
+        任务领取、Pipeline 执行、结果处理各自使用独立 session，
+        不持有跨 Pipeline 生命周期的长 session。
+        """
+        # 1. 短 session 领取任务
+        task_info = None
+        db = SessionLocal()
         try:
-            # 原子领取任务
-            gen_task = self.task_service.claim_task_safe()
+            task_service = TaskService(db)
+            gen_task = task_service.claim_task_safe()
 
             if not gen_task:
                 return
 
-            # 有任务才初始化 LLM
-            await llm_manager.init_from_db(db)
-
-            # 获取关联的章节和项目
+            # 获取关联信息
             chapter = db.query(Chapter).filter(
                 Chapter.id == gen_task.chapter_id
             ).first()
@@ -186,7 +193,7 @@ class WritingWorker:
 
             if not chapter or not project:
                 logger.error(f"任务 {gen_task.id} 关联的章节或项目不存在")
-                self.task_service.handle_task_failure(
+                task_service.handle_task_failure(
                     gen_task.id,
                     "关联的章节或项目不存在",
                     is_retryable=False
@@ -199,57 +206,70 @@ class WritingWorker:
                 await self.pause()
                 return
 
-            # 设置当前任务
-            self.current_task = {
+            # 保存任务信息用于后续处理
+            task_id = gen_task.id
+            task_info = {
                 "task_id": gen_task.id,
                 "chapter_id": chapter.id,
                 "project_id": project.id,
                 "chapter_title": chapter.title,
+                "chapter_index": chapter.chapter_index,
                 "task_type": gen_task.task_type,
-                "start_time": datetime.now().isoformat(),
             }
 
-            logger.info(f"开始处理任务 {gen_task.id}: {chapter.title} "
-                       f"(Worker: {self.task_service.worker_id})")
+            # 有任务才初始化 LLM
+            await llm_manager.init_from_db(db)
+        finally:
+            db.close()
 
-            # 发布任务开始事件
-            await event_bus.publish("task.started", {
-                "task_id": gen_task.id,
-                "chapter_id": chapter.id,
-                "chapter_index": chapter.chapter_index,
-                "chapter_title": chapter.title,
-            })
+        # 2. 无 Worker DB session 执行 pipeline
+        # PipelineService 内部自己管理 session，Worker 不持有长 session
+        self.current_task = {
+            **task_info,
+            "start_time": datetime.now().isoformat(),
+        }
 
-            # WORKER-002: 调用 PipelineService 执行流水线
-            result = await self.pipeline_service.run(gen_task.id)
+        logger.info(f"开始处理任务 {task_info['task_id']}: {task_info['chapter_title']}")
 
-            # 处理任务结果
+        # 发布任务开始事件
+        await event_bus.publish("task.started", {
+            "task_id": task_info["task_id"],
+            "chapter_id": task_info["chapter_id"],
+            "chapter_index": task_info["chapter_index"],
+            "chapter_title": task_info["chapter_title"],
+        })
+
+        result = await self.pipeline_service.run(task_info["task_id"])
+
+        # 3. 短 session 处理成功/失败
+        db = SessionLocal()
+        try:
+            task_service = TaskService(db)
+
             if result["success"]:
-                self.task_service.handle_task_success(gen_task.id)
+                task_service.handle_task_success(task_info["task_id"])
                 await event_bus.publish("task.completed", {
-                    "task_id": gen_task.id,
-                    "chapter_id": chapter.id,
+                    "task_id": task_info["task_id"],
+                    "chapter_id": task_info["chapter_id"],
                     "word_count": result.get("word_count", 0),
                     "final_score": result.get("final_score", 0),
                 })
             else:
                 is_retryable = self._is_error_retryable(result.get("error", ""))
-                self.task_service.handle_task_failure(
-                    gen_task.id,
+                task_service.handle_task_failure(
+                    task_info["task_id"],
                     result.get("error", "未知错误"),
                     is_retryable=is_retryable
                 )
                 await event_bus.publish("task.failed", {
-                    "task_id": gen_task.id,
+                    "task_id": task_info["task_id"],
                     "error": result.get("error", "未知错误"),
                     "retryable": is_retryable,
                 })
-
-            self.current_task = None
-
         finally:
             db.close()
-            self.task_service = None
+
+        self.current_task = None
 
     def _is_error_retryable(self, error: str) -> bool:
         """判断错误是否可重试"""

@@ -172,11 +172,13 @@ def _recreate_book_chapters_with_cascade():
 
 def downgrade() -> None:
     """
-    Downgrade schema: 移除级联删除
+    Downgrade schema: 降级不支持
 
-    注意：downgrade 会丢失 ON DELETE CASCADE 行为，但不会删除数据。
+    降级会丢失 ON DELETE CASCADE 行为，需要再次重建表（不带 CASCADE）。
+    由于降级外键约束在生产环境中很少使用，且操作复杂，
+    本迁移不支持降级。如需回滚，请从备份恢复。
     """
-    # Downgrade 操作较为复杂，涉及再次重建表
-    # 在生产环境中，通常不建议降级外键约束
-    # 如需完整降级，需要再次重建表（不带 CASCADE）
-    pass
+    raise NotImplementedError(
+        "Downgrade for cascade migration is intentionally unsupported. "
+        "Restore from backup if rollback is required."
+    )

@@ -19,6 +19,7 @@ from app.models.task import GenerationTask, GenerationStep, TaskStatus
 from app.services.openai_llm_service import llm_manager
 from app.services.memory_service import MemoryService
 from app.services.prompt_template_service import PromptTemplateService
+from app.services.daily_usage_stats_service import DailyUsageStatsService
 from app.services.event_bus import event_bus
 from app.utils.time_utils import utc_now
 
@@ -858,10 +859,33 @@ class PipelineService:
                 version.is_accepted = 1
                 version.final_content = result.get("final_content", "")
                 version.acceptance_reason = f"最终评分: {result.get('final_score', 0)}"
+
+            # STATS-001: 记录成功统计到 DailyUsageStats
+            DailyUsageStatsService(db).record_usage(
+                project_id=task_info["project_id"],
+                provider="pipeline",
+                model_name="mixed",
+                input_tokens=0,
+                output_tokens=0,
+                cost=result.get("cost", 0.0),
+                chapter_count=1,
+                task_count=1,
+                word_count=result.get("word_count", 0),
+                success=True,
+            )
         else:
             gen_task.status = TaskStatus.FAILED
             gen_task.error_message = result.get("error", "未知错误")
             chapter.status = ChapterStatus.FAILED
+
+            # STATS-001: 记录失败统计到 DailyUsageStats
+            DailyUsageStatsService(db).record_usage(
+                project_id=task_info["project_id"],
+                provider="pipeline",
+                model_name="mixed",
+                task_count=1,
+                success=False,
+            )
 
         db.commit()
 
