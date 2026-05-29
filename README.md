@@ -20,7 +20,8 @@
 # 2. 配置环境变量（重要！）
 cp .env.example .env
 # 编辑 .env 文件，设置 APP_SECRET_KEY（用于加密 API Key）
-# 生成密钥: openssl rand -hex 32
+# 生成密钥（必须是 Fernet urlsafe base64 key）:
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 
 # 3. 启动服务
 docker-compose up --build
@@ -256,7 +257,8 @@ novel-agent-workbench/
 
 ```bash
 # 安全密钥（必填）- 用于加密存储 LLM API Key
-# 生产环境必须设置强随机密钥，生成: openssl rand -hex 32
+# 必须是 Fernet.generate_key() 生成的 urlsafe base64 key，不能使用普通 hex 随机串
+# 生成方法: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 APP_SECRET_KEY=your-secret-key-here
 
 # 后端
