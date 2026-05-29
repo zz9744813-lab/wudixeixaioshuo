@@ -1,65 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Grid,
-  Chip,
-  Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  FormControlLabel,
-  Checkbox,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Alert,
-  LinearProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Tooltip,
-} from '@mui/material';
-import {
-  Download,
-  Delete,
-  Description,
-  TextSnippet,
-  PictureAsPdf,
-  Book,
-  DataObject,
-  Article,
-} from '@mui/icons-material';
-
-import api from "../services/api";
-
-const formatIcons = {
-  md: <Article />,
-  txt: <TextSnippet />,
-  docx: <Description />,
-  epub: <Book />,
-  pdf: <PictureAsPdf />,
-  json: <DataObject />,
-};
-
-const formatColors = {
-  md: 'primary',
-  txt: 'default',
-  docx: 'info',
-  epub: 'warning',
-  pdf: 'error',
-  json: 'success',
-};
+import api from '../services/api';
+import './ExportPage.css';
 
 function ExportPage() {
   const [projects, setProjects] = useState([]);
@@ -116,7 +57,6 @@ function ExportPage() {
     fetchData();
   }, []);
 
-  // 使用 axios blob 下载文件（携带 X-API-Key）
   const downloadExport = async (filename) => {
     try {
       const response = await api.get(`/export/download/${filename}`, {
@@ -142,7 +82,6 @@ function ExportPage() {
       const res = await api.post("/export/", exportConfig);
       setDialogOpen(false);
       fetchData();
-      // 自动下载 - 使用 axios blob
       await downloadExport(res.data.filename);
     } catch (err) {
       setError(err.response?.data?.detail || '导出失败');
@@ -159,10 +98,6 @@ function ExportPage() {
     }
   };
 
-  const handleDownload = async (filename) => {
-    await downloadExport(filename);
-  };
-
   const formatFileSize = (bytes) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -170,247 +105,160 @@ function ExportPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        小说导出中心
-      </Typography>
+    <div className="export-page">
+      <h1 className="page-title">小说导出中心</h1>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <div className="alert alert-error" onClick={() => setError(null)}>
           {error}
-        </Alert>
+        </div>
       )}
 
-      <Grid container spacing={3}>
-        {/* 统计卡片 */}
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                总章节数
-              </Typography>
-              <Typography variant="h4">
-                {stats?.total_chapters || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                总字数
-              </Typography>
-              <Typography variant="h4">
-                {(stats?.total_word_count || 0).toLocaleString()}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                已完成字数
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                {(stats?.completed_word_count || 0).toLocaleString()}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                导出历史
-              </Typography>
-              <Typography variant="h4">
-                {history.length}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>总章节数</h3>
+          <div className="stat-value">{stats?.total_chapters || 0}</div>
+        </div>
+        <div className="stat-card">
+          <h3>总字数</h3>
+          <div className="stat-value">{(stats?.total_word_count || 0).toLocaleString()}</div>
+        </div>
+        <div className="stat-card">
+          <h3>已完成字数</h3>
+          <div className="stat-value success">{(stats?.completed_word_count || 0).toLocaleString()}</div>
+        </div>
+        <div className="stat-card">
+          <h3>导出历史</h3>
+          <div className="stat-value">{history.length}</div>
+        </div>
+      </div>
 
-        {/* 导出按钮 */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6">快速导出</Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<Download />}
-                  onClick={() => setDialogOpen(true)}
-                >
-                  导出小说
-                </Button>
-              </Box>
-
-              <Box mt={2} display="flex" gap={1} flexWrap="wrap">
-                {formats.map((fmt) => (
-                  <Chip
-                    key={fmt.id}
-                    icon={formatIcons[fmt.id]}
-                    label={fmt.name}
-                    color={formatColors[fmt.id]}
-                    variant="outlined"
-                    onClick={() => {
-                      setExportConfig(prev => ({ ...prev, format: fmt.id }));
-                      setDialogOpen(true);
-                    }}
-                    sx={{ cursor: 'pointer' }}
-                  />
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 导出历史 */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                导出历史
-              </Typography>
-
-              {history.length === 0 ? (
-                <Typography color="text.secondary" align="center" py={3}>
-                  暂无导出记录
-                </Typography>
-              ) : (
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>文件名</TableCell>
-                      <TableCell>格式</TableCell>
-                      <TableCell>大小</TableCell>
-                      <TableCell>时间</TableCell>
-                      <TableCell>操作</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {history.map((item) => (
-                      <TableRow key={item.filename}>
-                        <TableCell>{item.filename}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            icon={formatIcons[item.format]}
-                            label={item.format.toUpperCase()}
-                            color={formatColors[item.format] || 'default'}
-                          />
-                        </TableCell>
-                        <TableCell>{formatFileSize(item.size)}</TableCell>
-                        <TableCell>
-                          {new Date(item.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <Tooltip title="下载">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDownload(item.filename)}
-                            >
-                              <Download />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="删除">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(item.filename)}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* 导出对话框 */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>导出小说</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth sx={{ mt: 2, mb: 2 }}>
-            <InputLabel>选择项目</InputLabel>
-            <Select
-              value={exportConfig.project_id}
-              onChange={(e) => {
-                setExportConfig({ ...exportConfig, project_id: e.target.value });
-                fetchStats(e.target.value);
+      <div className="section-card">
+        <div className="section-header">
+          <h2>快速导出</h2>
+          <button className="btn btn-primary" onClick={() => setDialogOpen(true)}>
+            导出小说
+          </button>
+        </div>
+        <div className="format-chips">
+          {formats.map((fmt) => (
+            <span
+              key={fmt.id}
+              className="chip"
+              onClick={() => {
+                setExportConfig(prev => ({ ...prev, format: fmt.id }));
+                setDialogOpen(true);
               }}
             >
-              {projects.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
+              {fmt.name}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="section-card">
+        <h2>导出历史</h2>
+        {history.length === 0 ? (
+          <p className="empty-text">暂无导出记录</p>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>文件名</th>
+                <th>格式</th>
+                <th>大小</th>
+                <th>时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((item) => (
+                <tr key={item.filename}>
+                  <td>{item.filename}</td>
+                  <td><span className="badge">{item.format.toUpperCase()}</span></td>
+                  <td>{formatFileSize(item.size)}</td>
+                  <td>{new Date(item.created_at).toLocaleString()}</td>
+                  <td>
+                    <button className="btn btn-sm" onClick={() => downloadExport(item.filename)}>下载</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(item.filename)}>删除</button>
+                  </td>
+                </tr>
               ))}
-            </Select>
-          </FormControl>
+            </tbody>
+          </table>
+        )}
+      </div>
 
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>导出格式</InputLabel>
-            <Select
-              value={exportConfig.format}
-              onChange={(e) => setExportConfig({ ...exportConfig, format: e.target.value })}
-            >
-              {formats.map((fmt) => (
-                <MenuItem key={fmt.id} value={fmt.id}>
-                  {formatIcons[fmt.id]}
-                  {fmt.name} - {fmt.description}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>章节范围</InputLabel>
-            <Select
-              value={exportConfig.chapter_filter}
-              onChange={(e) => setExportConfig({ ...exportConfig, chapter_filter: e.target.value })}
-            >
-              <MenuItem value="completed">仅已完成</MenuItem>
-              <MenuItem value="reviewed">已完成和审核中</MenuItem>
-              <MenuItem value="all">全部章节</MenuItem>
-            </Select>
-          </FormControl>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={exportConfig.include_outline}
-                onChange={(e) => setExportConfig({ ...exportConfig, include_outline: e.target.checked })}
-              />
-            }
-            label="包含大纲"
-          />
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={exportConfig.include_metadata}
-                onChange={(e) => setExportConfig({ ...exportConfig, include_metadata: e.target.checked })}
-              />
-            }
-            label="包含元数据"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>取消</Button>
-          <Button onClick={handleExport} variant="contained" disabled={loading}>
-            {loading ? '导出中...' : '导出'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      {dialogOpen && (
+        <div className="modal-overlay" onClick={() => setDialogOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <h2>导出小说</h2>
+            <div className="form-group">
+              <label>选择项目</label>
+              <select
+                value={exportConfig.project_id}
+                onChange={(e) => {
+                  setExportConfig({ ...exportConfig, project_id: e.target.value });
+                  fetchStats(e.target.value);
+                }}
+              >
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>导出格式</label>
+              <select
+                value={exportConfig.format}
+                onChange={(e) => setExportConfig({ ...exportConfig, format: e.target.value })}
+              >
+                {formats.map((fmt) => (
+                  <option key={fmt.id} value={fmt.id}>{fmt.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>章节范围</label>
+              <select
+                value={exportConfig.chapter_filter}
+                onChange={(e) => setExportConfig({ ...exportConfig, chapter_filter: e.target.value })}
+              >
+                <option value="completed">仅已完成</option>
+                <option value="reviewed">已完成和审核中</option>
+                <option value="all">全部章节</option>
+              </select>
+            </div>
+            <div className="form-group checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={exportConfig.include_outline}
+                  onChange={(e) => setExportConfig({ ...exportConfig, include_outline: e.target.checked })}
+                />
+                包含大纲
+              </label>
+            </div>
+            <div className="form-group checkbox">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={exportConfig.include_metadata}
+                  onChange={(e) => setExportConfig({ ...exportConfig, include_metadata: e.target.checked })}
+                />
+                包含元数据
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setDialogOpen(false)}>取消</button>
+              <button className="btn btn-primary" onClick={handleExport} disabled={loading}>
+                {loading ? '导出中...' : '导出'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

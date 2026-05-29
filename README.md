@@ -177,8 +177,27 @@ npm start
 ## 技术栈
 
 - **后端**: Python 3.11, FastAPI, SQLAlchemy, SQLite
-- **前端**: React 18, Material-UI, React Router
+- **前端**: React 18, CSS Modules, Design Tokens, Lucide Icons
 - **部署**: Docker, Docker Compose
+
+## 前端架构
+
+### 设计系统
+- **Design Tokens**: CSS 自定义属性定义颜色、间距、阴影、字体等 (`src/styles/tokens.css`)
+- **基础样式**: 全局重置和工具类 (`src/styles/base.css`)
+- **原始组件**: 可复用的 UI 原始组件样式 (`src/styles/primitives.css`)
+- **主题切换**: 支持浅色/深色/跟随系统三种模式
+
+### 状态管理
+- **API 请求**: 统一封装的 `useFetch` Hook，处理 loading/error/retry 状态
+- **主题管理**: `useTheme` Hook 管理主题模式并持久化到 localStorage
+
+### 图标
+使用 [Lucide React](https://lucide.dev/) 作为图标库，轻量级、一致性好
+
+```jsx
+import { LayoutDashboard, BookOpen, Bot } from 'lucide-react';
+```
 
 ## 目录结构
 

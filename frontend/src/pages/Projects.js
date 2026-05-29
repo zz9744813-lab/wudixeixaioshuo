@@ -33,12 +33,8 @@ function Projects() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await api.post("/projects/", 
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProject),
-      });
-      if (response.ok) {
+      const response = await api.post("/projects/", newProject);
+      if (response.data) {
         setShowForm(false);
         setNewProject({ name: '', description: '', genre: '', daily_word_goal: 3000 });
         fetchProjects();

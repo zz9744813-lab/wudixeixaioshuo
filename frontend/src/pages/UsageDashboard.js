@@ -17,16 +17,16 @@ function UsageDashboard() {
     setLoading(true);
     try {
       const [summaryRes, roleRes, modelRes, dailyRes] = await Promise.all([
-        api.get("/usage/summary?days=${days}`),
-        api.get("/usage/by-role?days=${days}`),
-        api.get("/usage/by-model?days=${days}`),
-        api.get("/usage/daily?days=${days}`),
+        api.get(`/usage/summary?days=${days}`),
+        api.get(`/usage/by-role?days=${days}`),
+        api.get(`/usage/by-model?days=${days}`),
+        api.get(`/usage/daily?days=${days}`),
       ]);
 
-      setSummary(await summaryRes.json());
-      setByRole(await roleRes.json());
-      setByModel(await modelRes.json());
-      setDaily(await dailyRes.json());
+      setSummary(summaryRes.data);
+      setByRole(roleRes.data);
+      setByModel(modelRes.data);
+      setDaily(dailyRes.data);
     } catch (error) {
       console.error('Error fetching usage data:', error);
     }

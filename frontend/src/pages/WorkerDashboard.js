@@ -1,42 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  LinearProgress,
-  Chip,
-  Alert,
-  List,
-  ListItem,
-  ListItemText,
-  Divider,
-  IconButton,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from '@mui/material';
-import {
-  PlayArrow,
-  Stop,
-  Pause,
-  Refresh,
-  Delete,
-  Add,
-  TrendingUp,
-  Schedule,
-} from '@mui/icons-material';
 import api from '../services/api';
+import './WorkerDashboard.css';
 
 const statusMap = {
-  idle: { label: '空闲', color: 'default' },
-  running: { label: '运行中', color: 'success' },
-  paused: { label: '已暂停', color: 'warning' },
-  stopped: { label: '已停止', color: 'error' },
+  idle: { label: '空闲', class: 'muted' },
+  running: { label: '运行中', class: 'success' },
+  paused: { label: '已暂停', class: 'warning' },
+  stopped: { label: '已停止', class: 'danger' },
 };
 
 function WorkerDashboard() {
@@ -44,7 +14,6 @@ function WorkerDashboard() {
   const [queueStatus, setQueueStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, action: '' });
 
   const fetchStatus = async () => {
     try {
@@ -53,11 +22,8 @@ function WorkerDashboard() {
         api.get('/worker/queue/status'),
       ]);
 
-      const workerData = workerRes.data;
-      const queueData = queueRes.data;
-
-      setWorkerStatus(workerData.worker);
-      setQueueStatus(queueData);
+      setWorkerStatus(workerRes.data.worker);
+      setQueueStatus(queueRes.data);
     } catch (err) {
       setError('获取状态失败: ' + err.message);
     }
@@ -79,7 +45,6 @@ function WorkerDashboard() {
       setError('操作失败: ' + err.message);
     }
     setLoading(false);
-    setConfirmDialog({ open: false, action: '' });
   };
 
   const resetStats = async () => {
@@ -91,252 +56,127 @@ function WorkerDashboard() {
     }
   };
 
-  const handleConfirm = (action) => {
-    setConfirmDialog({ open: true, action });
-  };
-
-  const confirmAction = () => {
-    controlWorker(confirmDialog.action);
-  };
-
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     return `${hours}小时 ${mins}分钟`;
   };
 
+  const getStatusBadge = (status) => {
+    const config = statusMap[status] || statusMap.idle;
+    return <span className={`badge badge-${config.class}`}>{config.label}</span>;
+  };
+
   if (!workerStatus || !queueStatus) {
-    return <LinearProgress />;
+    return <div className="loading">加载中...</div>;
   }
 
-  const status = statusMap[workerStatus.status] || statusMap.idle;
   const progress = queueStatus.progress || { percentage: 0, completed: 0, total: 0 };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        24小时自动写作控制台
-      </Typography>
+    <div className="worker-dashboard">
+      <h1 className="page-title">24小时自动写作控制台</h1>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      {error && <div className="alert alert-error" onClick={() => setError(null)}>{error}</div>}
 
-      <Grid container spacing={3}>
-        {/* Worker 控制面板 */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Worker 状态
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Chip
-                  label={status.label}
-                  color={status.color}
-                  size="large"
-                  sx={{ fontSize: '1.1rem', py: 1 }}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                {workerStatus.status === 'stopped' ? (
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<PlayArrow />}
-                    onClick={() => handleConfirm('start')}
-                    disabled={loading}
-                  >
-                    启动
-                  </Button>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3>Worker 状态</h3>
+          <div className="stat-value">{getStatusBadge(workerStatus.status)}</div>
+          <div className="worker-actions" style={{ marginTop: '12px' }}>
+            {workerStatus.status === 'stopped' ? (
+              <button className="btn btn-primary" onClick={() => controlWorker('start')} disabled={loading}>
+                启动
+              </button>
+            ) : (
+              <>
+                <button className="btn btn-danger" onClick={() => controlWorker('stop')} disabled={loading}>
+                  停止
+                </button>
+                {workerStatus.status === 'running' ? (
+                  <button className="btn btn-secondary" onClick={() => controlWorker('pause')} disabled={loading}>
+                    暂停
+                  </button>
                 ) : (
-                  <>
-                    <Button
-                      variant="contained"
-                      color="error"
-                      startIcon={<Stop />}
-                      onClick={() => handleConfirm('stop')}
-                      disabled={loading}
-                    >
-                      停止
-                    </Button>
-                    {workerStatus.status === 'running' ? (
-                      <Button
-                        variant="outlined"
-                        startIcon={<Pause />}
-                        onClick={() => handleConfirm('pause')}
-                        disabled={loading}
-                      >
-                        暂停
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outlined"
-                        startIcon={<PlayArrow />}
-                        onClick={() => handleConfirm('resume')}
-                        disabled={loading}
-                      >
-                        恢复
-                      </Button>
-                    )}
-                  </>
+                  <button className="btn btn-secondary" onClick={() => controlWorker('resume')} disabled={loading}>
+                    恢复
+                  </button>
                 )}
-              </Box>
+              </>
+            )}
+          </div>
+          {workerStatus.current_task && (
+            <div className="alert alert-info" style={{ marginTop: '12px' }}>
+              正在写作: {workerStatus.current_task.chapter_title}
+            </div>
+          )}
+        </div>
 
-              {workerStatus.current_task && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  <Typography variant="body2">
-                    正在写作: {workerStatus.current_task.chapter_title}
-                  </Typography>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
+        <div className="stat-card">
+          <h3>今日统计</h3>
+          <div className="stat-item">
+            <span>已完成章节</span>
+            <span className="stat-value">{workerStatus.daily_stats?.chapters_completed || 0}</span>
+          </div>
+          <div className="stat-item">
+            <span>已写字数</span>
+            <span className="stat-value">{(workerStatus.daily_stats?.words_written || 0).toLocaleString()}</span>
+          </div>
+          <div className="stat-item">
+            <span>Token 消耗</span>
+            <span className="stat-value">{(workerStatus.daily_stats?.tokens_used || 0).toLocaleString()}</span>
+          </div>
+          <div className="stat-item">
+            <span>运行时间</span>
+            <span>{formatTime(workerStatus.uptime || 0)}</span>
+          </div>
+          <button className="btn btn-sm btn-secondary" onClick={resetStats} style={{ marginTop: '8px' }}>
+            重置统计
+          </button>
+        </div>
 
-        {/* 每日统计 */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                今日统计
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  已完成章节
-                </Typography>
-                <Typography variant="h4">
-                  {workerStatus.daily_stats.chapters_completed}
-                </Typography>
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  已写字数
-                </Typography>
-                <Typography variant="h4">
-                  {workerStatus.daily_stats.words_written.toLocaleString()}
-                </Typography>
-              </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Token 消耗
-                </Typography>
-                <Typography variant="h4">
-                  {workerStatus.daily_stats.tokens_used.toLocaleString()}
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                运行时间: {formatTime(workerStatus.uptime)}
-              </Typography>
-              <Button
-                size="small"
-                startIcon={<Refresh />}
-                onClick={resetStats}
-                sx={{ mt: 1 }}
-              >
-                重置统计
-              </Button>
-            </CardContent>
-          </Card>
-        </Grid>
+        <div className="stat-card">
+          <h3>写作队列</h3>
+          <div className="progress-bar" style={{ marginBottom: '12px' }}>
+            <div className="progress-fill" style={{ width: `${progress.percentage}%` }}></div>
+          </div>
+          <div className="progress-text">
+            {progress.completed} / {progress.total} ({progress.percentage.toFixed(1)}%)
+          </div>
+          <div className="queue-stats">
+            <div className="queue-item">
+              <span>待写作</span>
+              <span>{queueStatus.pending || 0}</span>
+            </div>
+            <div className="queue-item">
+              <span>写作中</span>
+              <span>{queueStatus.writing || 0}</span>
+            </div>
+            <div className="queue-item">
+              <span>审核中</span>
+              <span>{queueStatus.review || 0}</span>
+            </div>
+            <div className="queue-item">
+              <span>已完成</span>
+              <span>{queueStatus.completed || 0}</span>
+            </div>
+            <div className="queue-item">
+              <span>失败</span>
+              <span>{queueStatus.failed || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-        {/* 队列状态 */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                写作队列
-              </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" gutterBottom>
-                  总体进度
-                </Typography>
-                <LinearProgress
-                  variant="determinate"
-                  value={progress.percentage}
-                  sx={{ height: 10, borderRadius: 5 }}
-                />
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {progress.completed} / {progress.total} ({progress.percentage.toFixed(1)}%)
-                </Typography>
-              </Box>
-
-              <List dense>
-                <ListItem>
-                  <ListItemText
-                    primary="待写作"
-                    secondary={queueStatus.pending}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="写作中"
-                    secondary={queueStatus.writing}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="审核中"
-                    secondary={queueStatus.review}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="已完成"
-                    secondary={queueStatus.completed}
-                  />
-                </ListItem>
-                <ListItem>
-                  <ListItemText
-                    primary="失败"
-                    secondary={queueStatus.failed}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 操作提示 */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                使用说明
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                1. 点击"启动"开始 24 小时自动写作循环<br />
-                2. Worker 会自动从队列中获取待写作章节<br />
-                3. 完成一章后自动开始下一章<br />
-                4. 达到每日字数或 Token 预算后自动暂停<br />
-                5. 可以在项目设置中配置每日目标
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* 确认对话框 */}
-      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, action: '' })}>
-        <DialogTitle>确认操作</DialogTitle>
-        <DialogContent>
-          <Typography>
-            确定要{confirmDialog.action === 'start' ? '启动' : confirmDialog.action === 'stop' ? '停止' : confirmDialog.action === 'pause' ? '暂停' : '恢复'} Worker 吗？
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmDialog({ open: false, action: '' })}>
-            取消
-          </Button>
-          <Button onClick={confirmAction} variant="contained" color="primary">
-            确认
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+      <div className="section-card">
+        <h2>使用说明</h2>
+        <p>1. 点击"启动"开始 24 小时自动写作循环</p>
+        <p>2. Worker 会自动从队列中获取待写作章节</p>
+        <p>3. 完成一章后自动开始下一章</p>
+        <p>4. 达到每日字数或 Token 预算后自动暂停</p>
+        <p>5. 可以在项目设置中配置每日目标</p>
+      </div>
+    </div>
   );
 }
 
