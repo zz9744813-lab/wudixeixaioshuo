@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import ApiKeyModal from './ApiKeyModal';
 import './Layout.css';
 
 function Layout({ children }) {
   const location = useLocation();
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
   const menuItems = [
     { path: '/', label: '首页 Dashboard', icon: '' },
@@ -29,6 +31,13 @@ function Layout({ children }) {
         <div className="logo">
           <h1>小说 Agent</h1>
           <p>24小时自动写作工作台</p>
+          <button
+            className="api-key-btn"
+            onClick={() => setIsApiKeyModalOpen(true)}
+            title="设置 API Key"
+          >
+            🔑 API Key
+          </button>
         </div>
         <nav className="nav">
           {menuItems.map((item) => (
@@ -46,6 +55,10 @@ function Layout({ children }) {
       <main className="main-content">
         {children}
       </main>
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ Auth Dependencies - API Key 鉴权
 """
 
 import hmac
+import os
 import secrets
 from fastapi import Header, HTTPException, status
 
@@ -19,12 +20,18 @@ def require_api_key(x_api_key: str = Header(default="", alias="X-API-Key")):
 
     - 从环境变量 APP_API_KEY 读取预期值
     - 生产环境必须配置 APP_API_KEY，否则拒绝服务
+    - 开发环境未配置 APP_API_KEY 时放行（方便本地开发）
     - 使用 hmac.compare_digest 防止时序攻击
     """
     expected_key = get_api_key_from_env()
+    app_env = os.getenv("APP_ENV", "development").lower()
 
-    # 生产环境必须配置 API Key
+    # 未配置 API Key 时的处理
     if not expected_key:
+        # 开发环境放行
+        if app_env in ("development", "dev", "local"):
+            return x_api_key or "dev-mode"
+        # 生产/预发环境拒绝服务
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="APP_API_KEY is not configured on server",
