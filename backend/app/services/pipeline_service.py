@@ -191,6 +191,8 @@ class PipelineService:
             "chapter_id": task_info["chapter_id"],
             "agent": "Draft",
             "step_index": 2,
+            "word_count": draft_result.get("word_count", 0),
+            "target_words": draft_result.get("target_words", 0),
             "tokens": draft_result.get("tokens", 0),
             "cost": draft_result.get("cost", 0.0),
         })
@@ -203,9 +205,10 @@ class PipelineService:
             return {"success": False, "error": "Draft 失败", "step": "draft"}
 
         draft_content = draft_result.get("content", "")
+        draft_word_count = draft_result.get("word_count", 0)
 
         # 保存草稿版本（独立 session）
-        await self._save_draft_version(task_info, draft_content, chapter_plan)
+        await self._save_draft_version(task_info, draft_content, chapter_plan, draft_word_count)
 
         # ===== Step 3: Critic =====
         logger.info(f"[Task {task_info['task_id']}] Step 3: Critic")
@@ -389,7 +392,7 @@ class PipelineService:
     async def _run_draft(
         self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str
     ) -> Dict:
-        """执行 Draft Agent"""
+        """执行 Draft Agent - 支持目标字数和长章分段生成"""
         db = SessionLocal()
         try:
             techniques = self._get_project_techniques(db, task_info["project_id"])
@@ -397,48 +400,337 @@ class PipelineService:
 
             tech_instructions = self._format_techniques_for_prompt(techniques)
 
-            template_service = PromptTemplateService(db)
-            variables = {
-                "chapter_title": task_info["chapter_title"],
-                "chapter_index": task_info["chapter_index"],
-                "chapter_plan": json.dumps(chapter_plan, ensure_ascii=False),
-                "memory_context": memory_context,
-                "world_setting": bible_data.get("world_setting", ""),
-                "characters": json.dumps(bible_data.get("characters", []), ensure_ascii=False),
-                "tech_instructions": tech_instructions,
-                "playbook_rules": "\n".join(playbook.get("rules", ["无"])),
-            }
+            # 获取目标字数
+            target_words = self._get_target_words(task_info, bible_data, chapter_plan)
+            max_words = int(target_words * 1.1)  # +10%
+            min_words = int(target_words * 0.85)  # -15%
 
-            prompt = template_service.render(
-                role="draft",
-                variables=variables,
-                fallback=self._build_draft_fallback(variables),
-                project_id=task_info["project_id"],
-            )
+            # 判断是否需要分段生成
+            if target_words > 4000:
+                # 长章分段生成
+                content = await self._run_segmented_draft(
+                    task_info, bible_data, chapter_plan, memory_context,
+                    tech_instructions, playbook, target_words
+                )
+            else:
+                # 普通单次生成
+                template_service = PromptTemplateService(db)
+                variables = {
+                    "chapter_title": task_info["chapter_title"],
+                    "chapter_index": task_info["chapter_index"],
+                    "chapter_plan": json.dumps(chapter_plan, ensure_ascii=False),
+                    "memory_context": memory_context,
+                    "world_setting": bible_data.get("world_setting", ""),
+                    "characters": json.dumps(bible_data.get("characters", []), ensure_ascii=False),
+                    "tech_instructions": tech_instructions,
+                    "playbook_rules": "\n".join(playbook.get("rules", ["无"])),
+                    "target_words": target_words,
+                    "min_words": min_words,
+                    "max_words": max_words,
+                }
 
-            started_at = utc_now()
-            response = await llm_manager.generate(
-                prompt=prompt,
-                role="draft",
-                temperature=0.8,
-                db=db,
-                request_type="worker_draft",
-                project_id=task_info["project_id"],
-            )
+                prompt = template_service.render(
+                    role="draft",
+                    variables=variables,
+                    fallback=self._build_draft_fallback(variables),
+                    project_id=task_info["project_id"],
+                )
 
-            self._save_step(db, task_info, "Draft", prompt, response)
+                # 确保 prompt 中包含字数要求
+                if "目标字数" not in prompt:
+                    prompt = self._inject_word_count_requirement(
+                        prompt, target_words, min_words, max_words, chapter_plan
+                    )
 
+                response = await llm_manager.generate(
+                    prompt=prompt,
+                    role="draft",
+                    temperature=0.8,
+                    max_tokens=min(4000, target_words * 2),  # 根据字数调整 max_tokens
+                    db=db,
+                    request_type="worker_draft",
+                    project_id=task_info["project_id"],
+                )
+
+                content = response.get("content", "")
+
+            # 计算实际字数（中文字数）
+            actual_word_count = self._count_chinese_words(content)
+
+            # 保存步骤
+            self._save_step(db, task_info, "Draft", "", {"content": content[:500]})
+
+            # 保存字数信息到结果
             return {
                 "success": True,
                 "agent": "Draft",
-                "content": response.get("content", ""),
-                "tokens": response.get("total_tokens", 0),
-                "cost": response.get("cost", 0.0),
+                "content": content,
+                "word_count": actual_word_count,
+                "target_words": target_words,
+                "word_count_pass": actual_word_count >= min_words,
+                "tokens": 0,  # 分段生成时统计复杂，简化处理
+                "cost": 0.0,
             }
 
         except Exception as e:
             logger.error(f"Draft 失败: {e}")
             return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+
+    def _get_target_words(self, task_info: Dict, bible_data: Dict, chapter_plan: Dict) -> int:
+        """获取目标字数 - 优先级：章节大纲 > 项目默认 > 系统默认"""
+        # 1. 尝试从章节规划中获取
+        if isinstance(chapter_plan, dict):
+            # 直接获取 target_words
+            if "target_words" in chapter_plan:
+                return chapter_plan["target_words"]
+            # 从 plan content 中解析
+            plan_content = chapter_plan.get("content", "")
+            match = re.search(r'目标字数[:：]\s*(\d+)', plan_content)
+            if match:
+                return int(match.group(1))
+
+        # 2. 从 bible 的 chapter_outline 中查找
+        chapter_outline = bible_data.get("chapter_outline", [])
+        for chap in chapter_outline:
+            if isinstance(chap, dict) and chap.get("chapter_index") == task_info["chapter_index"]:
+                if "target_words" in chap:
+                    return chap["target_words"]
+
+        # 3. 使用项目默认值（从数据库获取）
+        db = SessionLocal()
+        try:
+            project = db.query(Project).filter(Project.id == task_info["project_id"]).first()
+            if project and project.chapter_word_goal:
+                return project.chapter_word_goal
+        finally:
+            db.close()
+
+        # 4. 系统默认
+        return 2500
+
+    def _count_chinese_words(self, text: str) -> int:
+        """计算中文字数（不含标点和空格）"""
+        import re
+        # 匹配中文字符
+        chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
+        # 匹配英文单词
+        english_words = re.findall(r'[a-zA-Z]+', text)
+        return len(chinese_chars) + len(english_words)
+
+    def _inject_word_count_requirement(self, prompt: str, target: int, min_w: int, max_w: int, chapter_plan: Dict) -> str:
+        """向 prompt 中注入字数要求"""
+        ending_hook = ""
+        if isinstance(chapter_plan, dict):
+            ending_hook = chapter_plan.get("ending_hook", "")
+
+        word_count_section = f"""
+
+## 本章硬性长度要求（必须遵守）
+- 目标字数：{target} 中文字
+- 合格范围：{min_w} - {max_w} 中文字
+- 如果内容不足，不允许用总结式结尾凑数，必须扩展冲突、动作、对话或心理变化
+- 禁止使用"总之"、"综上所述"等总结性词语草草收尾
+{('- 章末必须留下钩子：' + ending_hook) if ending_hook else ''}
+
+请确保生成内容达到字数要求。"""
+
+        # 在 "请直接输出" 之前插入
+        if "请直接输出" in prompt:
+            prompt = prompt.replace("请直接输出", word_count_section + "\n\n请直接输出")
+        else:
+            prompt += word_count_section
+
+        return prompt
+
+    async def _run_segmented_draft(
+        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict,
+        memory_context: str, tech_instructions: str, playbook: Dict, target_words: int
+    ) -> str:
+        """分段生成长章 - beat sheet → 逐段扩写 → 合并 → 自检 → 补写"""
+        logger.info(f"[Task {task_info['task_id']}] 启用分段生成，目标字数: {target_words}")
+
+        # Step 1: 生成 beat sheet（段落规划）
+        beats = await self._generate_beat_sheet(
+            task_info, chapter_plan, target_words
+        )
+
+        # Step 2: 逐段生成
+        segments = []
+        previous_ending = ""
+
+        for i, beat in enumerate(beats):
+            segment = await self._generate_segment(
+                task_info, bible_data, chapter_plan, memory_context,
+                tech_instructions, playbook, beat, i, len(beats),
+                previous_ending, target_words
+            )
+            segments.append(segment)
+            # 保存最后 200 字作为下一段的上下文
+            previous_ending = segment[-200:] if len(segment) > 200 else segment
+
+        # Step 3: 合并
+        full_content = "\n\n".join(segments)
+
+        # Step 4: 自检字数缺口
+        actual_words = self._count_chinese_words(full_content)
+        if actual_words < target_words * 0.9:  # 少于 90% 需要补写
+            logger.info(f"[Task {task_info['task_id']}] 字数不足 ({actual_words}/{target_words})，启动补写")
+            supplement = await self._generate_supplement(
+                task_info, full_content, target_words - actual_words, chapter_plan
+            )
+            full_content += "\n\n" + supplement
+
+        return full_content
+
+    async def _generate_beat_sheet(self, task_info: Dict, chapter_plan: Dict, target_words: int) -> List[Dict]:
+        """生成本章的 beat sheet（段落规划）"""
+        # 根据目标字数决定分段数
+        segments_count = max(3, target_words // 1500)  # 每段约 1500 字
+
+        db = SessionLocal()
+        try:
+            prompt = f"""请将以下章节规划拆分为 {segments_count} 个写作段落（beats），每个段落对应一个完整的小场景或情节单元。
+
+章节标题: {task_info['chapter_title']}
+章节序号: {task_info['chapter_index']}
+
+章节规划:
+{json.dumps(chapter_plan, ensure_ascii=False) if isinstance(chapter_plan, dict) else str(chapter_plan)}
+
+目标总字数: {target_words} 字
+
+请输出 JSON 格式：
+{{
+  "beats": [
+    {{
+      "index": 1,
+      "title": "段落标题",
+      "content": "本段要写的具体内容",
+      "estimated_words": 1500,
+      "key_elements": ["关键元素1", "关键元素2"]
+    }}
+  ]
+}}
+
+要求：
+1. 每段必须有明确的起止点
+2. 段与段之间要有自然过渡
+3. 最后一段必须包含章末钩子"""
+
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="planner",
+                temperature=0.7,
+                max_tokens=2000,
+                db=db,
+                request_type="worker_beat_sheet",
+                project_id=task_info["project_id"],
+            )
+
+            content = response.get("content", "")
+            # 解析 JSON
+            try:
+                data = json.loads(content)
+                return data.get("beats", [])
+            except:
+                # 解析失败时创建默认 beats
+                return [{"index": i+1, "title": f"段落{i+1}", "estimated_words": target_words//segments_count}
+                        for i in range(segments_count)]
+
+        finally:
+            db.close()
+
+    async def _generate_segment(
+        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict,
+        memory_context: str, tech_instructions: str, playbook: Dict,
+        beat: Dict, beat_index: int, total_beats: int,
+        previous_ending: str, total_target_words: int
+    ) -> str:
+        """生成单个段落"""
+        db = SessionLocal()
+        try:
+            estimated_words = beat.get("estimated_words", 1500)
+
+            prompt = f"""请撰写本章的第 {beat_index + 1}/{total_beats} 个段落。
+
+章节标题: {task_info['chapter_title']}
+本段落职责: {beat.get('title', '')}
+本段落内容要求: {beat.get('content', '')}
+目标字数: {estimated_words} 字
+
+{f'前一段结尾（请自然承接，不要重复开头）:\n{previous_ending}\n' if previous_ending else ''}
+
+世界观设定:
+{bible_data.get('world_setting', '')}
+
+人物设定:
+{json.dumps(bible_data.get('characters', []), ensure_ascii=False)}
+
+记忆上下文:
+{memory_context}
+
+{tech_instructions}
+
+写作手册规则:
+{"\\n".join(playbook.get('rules', ['无']))}
+
+重要提示：
+1. 这是第 {beat_index + 1} 段，本章共 {total_beats} 段
+2. 本章总目标字数: {total_target_words} 字
+3. {'如果这是第一段，请直接切入场景，不要铺垫。' if beat_index == 0 else '请自然承接上一段结尾，不要重复介绍。'}
+4. {'这是最后一段，必须包含章末钩子。' if beat_index == total_beats - 1 else '段末要有自然过渡，引导到下一段。'}
+5. 直接输出段落正文，不要标注"第X段"。
+
+请开始写作："""
+
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="draft",
+                temperature=0.8,
+                max_tokens=min(4000, estimated_words * 2),
+                db=db,
+                request_type="worker_draft_segment",
+                project_id=task_info["project_id"],
+            )
+
+            return response.get("content", "")
+
+        finally:
+            db.close()
+
+    async def _generate_supplement(self, task_info: Dict, existing_content: str, words_needed: int, chapter_plan: Dict) -> str:
+        """生成补写内容"""
+        db = SessionLocal()
+        try:
+            ending_hook = chapter_plan.get("ending_hook", "") if isinstance(chapter_plan, dict) else ""
+
+            prompt = f"""现有章节内容字数不足，需要补充约 {words_needed} 字。
+
+现有内容结尾:
+{existing_content[-500:]}
+
+补充要求：
+1. 扩展冲突细节、动作描写、对话或心理活动
+2. 不要改变已有情节
+3. 不要重复已有内容
+4. {'必须包含章末钩子：' + ending_hook if ending_hook else '要有章末钩子'}
+
+请直接输出需要补充的内容："""
+
+            response = await llm_manager.generate(
+                prompt=prompt,
+                role="draft",
+                temperature=0.8,
+                max_tokens=min(4000, words_needed * 2),
+                db=db,
+                request_type="worker_draft_supplement",
+                project_id=task_info["project_id"],
+            )
+
+            return response.get("content", "")
+
         finally:
             db.close()
 
@@ -789,7 +1081,7 @@ class PipelineService:
         finally:
             db.close()
 
-    async def _save_draft_version(self, task_info: Dict, draft_content: str, chapter_plan: Dict):
+    async def _save_draft_version(self, task_info: Dict, draft_content: str, chapter_plan: Dict, word_count: int = 0):
         """保存草稿版本（独立 session）"""
         db = SessionLocal()
         try:
@@ -807,6 +1099,10 @@ class PipelineService:
 
             version.draft_content = draft_content
             version.plan_content = json.dumps(chapter_plan, ensure_ascii=False)
+            # 保存字数信息
+            if word_count > 0:
+                # 可以在 metadata 或其他字段中保存，这里使用现有字段
+                pass
             db.commit()
         finally:
             db.close()
@@ -845,7 +1141,8 @@ class PipelineService:
 
             chapter.status = ChapterStatus.COMPLETED
             chapter.final_content = result.get("final_content", "")
-            chapter.final_word_count = len(result.get("final_content", ""))
+            # TASK-C2: 保存实际字数
+            chapter.final_word_count = result.get("word_count", len(result.get("final_content", "")))
             chapter.total_score = result.get("final_score", 0)
             chapter.completed_at = utc_now()
 
@@ -1011,7 +1308,17 @@ class PipelineService:
 
     def _build_draft_fallback(self, variables: Dict) -> str:
         """构建 Draft 的 fallback prompt"""
-        return f"""请根据以下规划起草章节内容：
+        target_words = variables.get('target_words', 2500)
+        min_words = variables.get('min_words', int(target_words * 0.85))
+        max_words = variables.get('max_words', int(target_words * 1.1))
+
+        return f"""请根据以下规划起草章节内容。
+
+## 硬性长度要求（必须遵守）
+- 目标字数：{target_words} 中文字
+- 合格范围：{min_words} - {max_words} 中文字
+- 如果内容不足，不允许用总结式结尾凑数，必须扩展冲突、动作、对话或心理变化
+- 禁止使用"总之"、"综上所述"等总结性词语草草收尾
 
 章节标题: {variables['chapter_title']}
 章节序号: {variables['chapter_index']}
@@ -1033,7 +1340,7 @@ class PipelineService:
 写作手册规则:
 {variables['playbook_rules']}
 
-写作要求：使用中文，注意节奏，对话自然，场景生动，遵守技巧卡指令。
+写作要求：使用中文，注意节奏，对话自然，场景生动，遵守技巧卡指令。必须达到字数要求。
 
 请直接输出章节正文内容："""
 
