@@ -14,8 +14,8 @@ import os
 router = APIRouter()
 
 
-def validate_api_key(api_key: str):
-    """验证API Key，支持URL参数传递（SSE无法自定义header）"""
+def validate_api_key(request: Request, api_key: str = Query(default="", description="API Key for SSE authentication (fallback if header not available)")):
+    """验证API Key，优先从header获取，其次从URL参数获取（原生EventSource兼容性）"""
     expected_key = get_api_key_from_env()
     app_env = os.getenv("APP_ENV", "development").lower()
 
@@ -30,14 +30,19 @@ def validate_api_key(api_key: str):
             detail="APP_API_KEY is not configured on server",
         )
 
-    if not api_key:
+    # 优先从header获取API Key
+    header_key = request.headers.get("X-API-Key", "")
+    # 其次从query参数获取（原生EventSource只能带query）
+    actual_key = header_key if header_key else api_key
+
+    if not actual_key:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing api_key parameter",
+            detail="Missing API key (provide via X-API-Key header or api_key query parameter)",
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
-    if not hmac.compare_digest(api_key, expected_key):
+    if not hmac.compare_digest(actual_key, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",

@@ -200,7 +200,7 @@ app.include_router(
     events.router,
     prefix="/api/events",
     tags=["Events"],
-    dependencies=[Depends(require_api_key)],
+    # 注意：SSE端点在内部自行验证API Key（支持header或query），不在路由级验证
 )
 app.include_router(
     prompts.router,
