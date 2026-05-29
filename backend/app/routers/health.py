@@ -7,11 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.schemas import HealthCheck
 
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("/", response_model=HealthCheck)
 async def health_check(db: Session = Depends(get_db)):
     """健康检查端点"""
     try:
@@ -21,9 +22,9 @@ async def health_check(db: Session = Depends(get_db)):
     except Exception as e:
         db_status = f"error: {str(e)}"
 
-    return {
-        "status": "healthy" if db_status == "connected" else "unhealthy",
-        "service": "24小时小说 Agent 工作台",
-        "version": "0.1.0",
-        "database": db_status,
-    }
+    return HealthCheck(
+        status="healthy" if db_status == "connected" else "unhealthy",
+        service="24小时小说 Agent 工作台",
+        version="0.1.0",
+        database=db_status,
+    )
