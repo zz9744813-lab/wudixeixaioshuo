@@ -227,10 +227,9 @@ class TestFileUploadUtils:
             # 如果到这里说明应该抛出413但没有
             pytest.fail("应该抛出HTTPException 413")
         except HTTPException as e:
-            # 可能是413或500（Windows文件锁定导致的）
-            assert e.status_code in [413, 500]
-            if e.status_code == 413:
-                assert "文件过大" in str(e.detail)
+            # 严格返回413，实现层已确保不会因文件锁等问题返回500
+            assert e.status_code == 413, f"期望413，实际{e.status_code}"
+            assert "文件过大" in str(e.detail)
         finally:
             file_obj.close()
             await upload_file.close()

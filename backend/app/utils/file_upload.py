@@ -89,8 +89,6 @@ async def save_upload_file_safely(
 
                 # 检查大小限制
                 if size > max_bytes:
-                    # 删除已写入的部分文件
-                    target_path.unlink(missing_ok=True)
                     raise HTTPException(
                         status_code=413,
                         detail=f"文件过大，最大允许 {max_bytes // (1024 * 1024)}MB"
@@ -99,10 +97,18 @@ async def save_upload_file_safely(
                 await out.write(chunk)
 
     except HTTPException:
+        # 清理可能存在的部分文件（忽略错误）
+        try:
+            target_path.unlink(missing_ok=True)
+        except Exception:
+            pass  # 清理失败不影响返回正确的 413 状态码
         raise
     except Exception as e:
-        # 清理失败时可能存在的部分文件
-        target_path.unlink(missing_ok=True)
+        # 清理失败时可能存在的部分文件（忽略错误）
+        try:
+            target_path.unlink(missing_ok=True)
+        except Exception:
+            pass  # 清理失败不重要
         raise HTTPException(
             status_code=500,
             detail=f"文件保存失败: {str(e)}"
