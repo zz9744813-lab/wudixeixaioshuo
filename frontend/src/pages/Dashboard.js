@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './Dashboard.css';
 
 function Dashboard() {
@@ -15,9 +15,8 @@ function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/dashboard/stats`);
-      const data = await response.json();
-      setStats(data);
+      const response = await api.get('/dashboard/stats');
+      setStats(response.data);
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -25,9 +24,8 @@ function Dashboard() {
 
   const fetchActivities = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/dashboard/recent-activity`);
-      const data = await response.json();
-      setActivities(data.activities);
+      const response = await api.get('/dashboard/recent-activity');
+      setActivities(response.data.activities);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching activities:', error);

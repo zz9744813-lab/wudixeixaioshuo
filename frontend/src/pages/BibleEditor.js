@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './BibleEditor.css';
 
 function BibleEditor({ projectId }) {
@@ -30,12 +30,11 @@ function BibleEditor({ projectId }) {
 
   const fetchBible = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${projectId}/bible`);
-      const data = await response.json();
-      setBible(data);
-      setWorldSetting(data.world_setting || '');
-      setCharacters(data.characters || []);
-      setOutline(data.chapter_outline || []);
+      const response = await api.get(`/projects/${projectId}/bible`);
+      setBible(response.data);
+      setWorldSetting(response.data.world_setting || '');
+      setCharacters(response.data.characters || []);
+      setOutline(response.data.chapter_outline || []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching bible:', error);
@@ -46,12 +45,11 @@ function BibleEditor({ projectId }) {
   const handleGenerateWorld = async () => {
     setGenerating(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/projects/${projectId}/bible/world-setting/generate`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ hint: '' }) }
+      const response = await api.post(
+        `/projects/${projectId}/bible/world-setting/generate`,
+        { hint: '' }
       );
-      const data = await response.json();
-      setWorldSetting(data.content);
+      setWorldSetting(response.data.content);
       setGenerating(false);
     } catch (error) {
       console.error('Error generating world:', error);
@@ -61,10 +59,8 @@ function BibleEditor({ projectId }) {
 
   const handleSaveWorld = async () => {
     try {
-      await fetch(`${API_BASE_URL}/projects/${projectId}/bible/world-setting`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ world_setting: worldSetting })
+      await api.put(`/projects/${projectId}/bible/world-setting`, {
+        world_setting: worldSetting
       });
       alert('世界观已保存');
     } catch (error) {
@@ -74,11 +70,7 @@ function BibleEditor({ projectId }) {
 
   const handleAddCharacter = async () => {
     try {
-      await fetch(`${API_BASE_URL}/projects/${projectId}/bible/characters`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newCharacter)
-      });
+      await api.post(`/projects/${projectId}/bible/characters`, newCharacter);
       setNewCharacter({ name: '', role: '主角', age: '', appearance: '', personality: '', desires: '', flaws: '', background: '', abilities: '' });
       fetchBible();
     } catch (error) {
@@ -89,7 +81,7 @@ function BibleEditor({ projectId }) {
   const handleGenerateCharacter = async (role) => {
     setGenerating(true);
     try {
-      await fetch(`${API_BASE_URL}/projects/${projectId}/bible/characters/generate?role=${role}`, { method: 'POST' });
+      await api.post(`/projects/${projectId}/bible/characters/generate?role=${role}`);
       fetchBible();
       setGenerating(false);
     } catch (error) {
@@ -101,10 +93,8 @@ function BibleEditor({ projectId }) {
   const handleGenerateOutline = async () => {
     setGenerating(true);
     try {
-      await fetch(`${API_BASE_URL}/projects/${projectId}/bible/outline/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ volume_count: 3, chapters_per_volume: 30 })
+      await api.post(`/projects/${projectId}/bible/outline/generate`, {
+        volume_count: 3, chapters_per_volume: 30
       });
       fetchBible();
       setGenerating(false);

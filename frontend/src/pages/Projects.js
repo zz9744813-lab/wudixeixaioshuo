@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './Projects.css';
 
 function Projects() {
@@ -20,7 +20,7 @@ function Projects() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/`);
+      const response = await api.get("/projects/");
       const data = await response.json();
       setProjects(data);
       setLoading(false);
@@ -33,7 +33,7 @@ function Projects() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/`, {
+      const response = await api.post("/projects/", 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProject),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './Tasks.css';
 
 function Tasks() {
@@ -12,7 +12,7 @@ function Tasks() {
 
   const fetchTasks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/tasks/`);
+      const response = await api.get("/tasks/");
       const data = await response.json();
       setTasks(data);
       setLoading(false);

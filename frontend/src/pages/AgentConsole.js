@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import { eventStream, subscribeToAgentSteps, subscribeToTaskEvents, subscribeToWorkerStatus } from '../services/eventStream';
 import './AgentConsole.css';
 
@@ -142,9 +142,8 @@ function AgentConsole() {
 
   const fetchAgentStatus = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/agents/status`);
-      const data = await response.json();
-      setAgentStatus(data);
+      const response = await api.get('/agents/status');
+      setAgentStatus(response.data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching agent status:', error);
@@ -154,13 +153,10 @@ function AgentConsole() {
 
   const handleGenerateChapter = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/agents/generate-chapter`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: 1, chapter_index: 1, title: '测试章节' }),
+      const response = await api.post('/agents/generate-chapter', {
+        project_id: 1, chapter_index: 1, title: '测试章节'
       });
-      const data = await response.json();
-      addLog(`📤 提交生成请求: ${data.message || '成功'}`, 'system');
+      addLog(`📤 提交生成请求: ${response.data.message || '成功'}`, 'system');
     } catch (error) {
       console.error('Error generating chapter:', error);
       addLog(`提交生成请求失败: ${error.message}`, 'error');

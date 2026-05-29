@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import BibleEditor from './BibleEditor';
 import './ProjectDetail.css';
 
@@ -16,7 +16,7 @@ function ProjectDetail() {
 
   const fetchProject = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/projects/${id}`);
+      const response = await api.get(`/projects/${id}`);
       const data = await response.json();
       setProject(data);
       setLoading(false);
@@ -28,7 +28,7 @@ function ProjectDetail() {
 
   const handleStart = async () => {
     try {
-      await fetch(`${API_BASE_URL}/projects/${id}/start`, { method: 'POST' });
+      await api.post(`/projects/${id}/start`);
       fetchProject();
     } catch (error) {
       console.error('Error starting project:', error);
@@ -37,7 +37,7 @@ function ProjectDetail() {
 
   const handlePause = async () => {
     try {
-      await fetch(`${API_BASE_URL}/projects/${id}/pause`, { method: 'POST' });
+      await api.post(`/projects/${id}/pause`);
       fetchProject();
     } catch (error) {
       console.error('Error pausing project:', error);

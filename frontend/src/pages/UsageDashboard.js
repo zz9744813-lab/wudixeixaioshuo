@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 
 function UsageDashboard() {
   const [summary, setSummary] = useState(null);
@@ -17,10 +17,10 @@ function UsageDashboard() {
     setLoading(true);
     try {
       const [summaryRes, roleRes, modelRes, dailyRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/usage/summary?days=${days}`),
-        fetch(`${API_BASE_URL}/usage/by-role?days=${days}`),
-        fetch(`${API_BASE_URL}/usage/by-model?days=${days}`),
-        fetch(`${API_BASE_URL}/usage/daily?days=${days}`),
+        api.get("/usage/summary?days=${days}`),
+        api.get("/usage/by-role?days=${days}`),
+        api.get("/usage/by-model?days=${days}`),
+        api.get("/usage/daily?days=${days}`),
       ]);
 
       setSummary(await summaryRes.json());

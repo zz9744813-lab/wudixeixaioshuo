@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 
 function PromptTemplates() {
   const [templates, setTemplates] = useState([]);
@@ -34,12 +34,9 @@ function PromptTemplates() {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const url = selectedRole
-        ? `${API_BASE_URL}/prompts/templates?role=${selectedRole}`
-        : `${API_BASE_URL}/prompts/templates`;
-      const response = await fetch(url);
-      const data = await response.json();
-      setTemplates(data);
+      const params = selectedRole ? { role: selectedRole } : {};
+      const response = await api.get('/prompts/templates', { params });
+      setTemplates(response.data);
     } catch (error) {
       console.error('Error fetching templates:', error);
     }
@@ -49,22 +46,16 @@ function PromptTemplates() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_BASE_URL}/prompts/templates`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newTemplate),
+      await api.post('/prompts/templates', newTemplate);
+      setShowCreateModal(false);
+      setNewTemplate({
+        role: 'planner',
+        name: '',
+        content: '',
+        description: '',
+        activate: true,
       });
-      if (response.ok) {
-        setShowCreateModal(false);
-        setNewTemplate({
-          role: 'planner',
-          name: '',
-          content: '',
-          description: '',
-          activate: true,
-        });
-        fetchTemplates();
-      }
+      fetchTemplates();
     } catch (error) {
       console.error('Error creating template:', error);
     }
@@ -72,9 +63,7 @@ function PromptTemplates() {
 
   const handleActivate = async (id) => {
     try {
-      await fetch(`${API_BASE_URL}/prompts/templates/${id}/activate`, {
-        method: 'POST',
-      });
+      await api.post(`/prompts/templates/${id}/activate`);
       fetchTemplates();
     } catch (error) {
       console.error('Error activating template:', error);
@@ -83,9 +72,7 @@ function PromptTemplates() {
 
   const handleDisable = async (id) => {
     try {
-      await fetch(`${API_BASE_URL}/prompts/templates/${id}/disable`, {
-        method: 'POST',
-      });
+      await api.post(`/prompts/templates/${id}/disable`);
       fetchTemplates();
     } catch (error) {
       console.error('Error disabling template:', error);
@@ -138,16 +125,11 @@ function PromptTemplates() {
     setShowPreviewModal(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/prompts/render-preview`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role: template.role,
-          variables: exampleVars[template.role] || {},
-        }),
+      const response = await api.post('/prompts/render-preview', {
+        role: template.role,
+        variables: exampleVars[template.role] || {},
       });
-      const data = await response.json();
-      setPreviewResult(data);
+      setPreviewResult(response.data);
     } catch (error) {
       console.error('Error previewing template:', error);
       setPreviewResult({ prompt: '预览失败', source: 'error' });

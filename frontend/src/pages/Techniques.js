@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './Techniques.css';
 
 function Techniques() {
@@ -13,7 +13,7 @@ function Techniques() {
 
   const fetchTechniques = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/techniques/`);
+      const response = await api.get("/techniques/");
       const data = await response.json();
       setTechniques(data);
       setLoading(false);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './Books.css';
 
 function Books() {
@@ -14,9 +14,8 @@ function Books() {
 
   const fetchBooks = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/books/`);
-      const data = await response.json();
-      setBooks(data);
+      const response = await api.get('/books/');
+      setBooks(response.data);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching books:', error);
@@ -33,13 +32,10 @@ function Books() {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/books/upload`, {
-        method: 'POST',
-        body: formData,
+      await api.post('/books/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (response.ok) {
-        fetchBooks();
-      }
+      fetchBooks();
     } catch (error) {
       console.error('Error uploading book:', error);
     }

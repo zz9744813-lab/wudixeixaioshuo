@@ -41,7 +41,7 @@ import {
   Article,
 } from '@mui/icons-material';
 
-const API_BASE = 'http://localhost:8000';
+import api from "../services/api";
 
 const formatIcons = {
   md: <Article />,
@@ -81,25 +81,21 @@ function ExportPage() {
     setLoading(true);
     try {
       const [projectsRes, formatsRes, historyRes] = await Promise.all([
-        fetch(`${API_BASE}/api/projects/`),
-        fetch(`${API_BASE}/api/export/formats`),
-        fetch(`${API_BASE}/api/export/history`),
+        api.get("/projects/"),
+        api.get("/export/formats"),
+        api.get("/export/history"),
       ]);
 
-      const projectsData = await projectsRes.json();
-      const formatsData = await formatsRes.json();
-      const historyData = await historyRes.json();
+      setProjects(projectsRes.data.projects || []);
+      setFormats(formatsRes.data.formats || []);
+      setHistory(historyRes.data.exports || []);
 
-      setProjects(projectsData.projects || []);
-      setFormats(formatsData.formats || []);
-      setHistory(historyData.exports || []);
-
-      if (projectsData.projects?.length > 0 && !exportConfig.project_id) {
+      if (projectsRes.data.projects?.length > 0 && !exportConfig.project_id) {
         setExportConfig(prev => ({
           ...prev,
-          project_id: projectsData.projects[0].id
+          project_id: projectsRes.data.projects[0].id
         }));
-        fetchStats(projectsData.projects[0].id);
+        fetchStats(projectsRes.data.projects[0].id);
       }
     } catch (err) {
       setError('获取数据失败: ' + err.message);
@@ -109,9 +105,8 @@ function ExportPage() {
 
   const fetchStats = async (projectId) => {
     try {
-      const res = await fetch(`${API_BASE}/api/export/stats/word-count/${projectId}`);
-      const data = await res.json();
-      setStats(data);
+      const res = await api.get(`/export/stats/word-count/${projectId}`);
+      setStats(res.data);
     } catch (err) {
       console.error('获取统计失败:', err);
     }
@@ -124,44 +119,28 @@ function ExportPage() {
   const handleExport = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/export/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(exportConfig),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setDialogOpen(false);
-        fetchData();
-        // 自动下载
-        window.open(`${API_BASE}/api/export/download/${data.filename}`, '_blank');
-      } else {
-        const err = await res.json();
-        setError(err.detail || '导出失败');
-      }
+      const res = await api.post("/export/", exportConfig);
+      setDialogOpen(false);
+      fetchData();
+      // 自动下载
+      window.open(`/api/export/download/${res.data.filename}`, '_blank');
     } catch (err) {
-      setError('导出失败: ' + err.message);
+      setError(err.response?.data?.detail || '导出失败');
     }
     setLoading(false);
   };
 
   const handleDelete = async (filename) => {
     try {
-      const res = await fetch(`${API_BASE}/api/export/${filename}`, {
-        method: 'DELETE',
-      });
-
-      if (res.ok) {
-        fetchData();
-      }
+      await api.delete(`/export/${filename}`);
+      fetchData();
     } catch (err) {
       setError('删除失败: ' + err.message);
     }
   };
 
   const handleDownload = (filename) => {
-    window.open(`${API_BASE}/api/export/download/${filename}`, '_blank');
+    window.open(`/api/export/download/${filename}`, '_blank');
   };
 
   const formatFileSize = (bytes) => {

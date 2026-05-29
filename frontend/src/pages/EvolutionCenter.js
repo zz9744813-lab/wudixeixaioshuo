@@ -38,8 +38,7 @@ import {
   Science,
   TrendingUp,
 } from '@mui/icons-material';
-
-const API_BASE = 'http://localhost:8000';
+import api from '../services/api';
 
 const statusColors = {
   evaluating: 'info',
@@ -79,21 +78,16 @@ function EvolutionCenter() {
     setLoading(true);
     try {
       const [evoRes, statsRes, practicesRes, dimRes] = await Promise.all([
-        fetch(`${API_BASE}/api/evolution/`),
-        fetch(`${API_BASE}/api/evolution/stats/overview`),
-        fetch(`${API_BASE}/api/evolution/best-practices`),
-        fetch(`${API_BASE}/api/evolution/dimensions`),
+        api.get("/evolution/"),
+        api.get("/evolution/stats/overview"),
+        api.get("/evolution/best-practices"),
+        api.get("/evolution/dimensions"),
       ]);
 
-      const evoData = await evoRes.json();
-      const statsData = await statsRes.json();
-      const practicesData = await practicesRes.json();
-      const dimData = await dimRes.json();
-
-      setEvolutions(evoData.items || []);
-      setStats(statsData);
-      setPractices(practicesData.practices || []);
-      setDimensions(dimData.dimensions || []);
+      setEvolutions(evoRes.data.items || []);
+      setStats(statsRes.data);
+      setPractices(practicesRes.data.practices || []);
+      setDimensions(dimRes.data.dimensions || []);
     } catch (err) {
       setError('获取数据失败: ' + err.message);
     }
@@ -106,54 +100,33 @@ function EvolutionCenter() {
 
   const handleCreateEvolution = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/evolution/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEvolution),
-      });
-
-      if (res.ok) {
-        setDialogOpen(false);
-        fetchData();
-      } else {
-        const err = await res.json();
-        setError(err.detail || '创建失败');
-      }
+      const res = await api.post("/evolution/", newEvolution);
+      setDialogOpen(false);
+      fetchData();
     } catch (err) {
-      setError('创建失败: ' + err.message);
+      setError(err.response?.data?.detail || '创建失败');
     }
   };
 
   const handleAction = async (id, action) => {
     try {
-      const res = await fetch(`${API_BASE}/api/evolution/${id}/action`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-
-      if (res.ok) {
-        fetchData();
-        if (detailOpen) setDetailOpen(false);
-      } else {
-        const err = await res.json();
-        setError(err.detail || '操作失败');
-      }
+      await api.post(`/evolution/${id}/action`, { action });
+      fetchData();
+      if (detailOpen) setDetailOpen(false);
     } catch (err) {
-      setError('操作失败: ' + err.message);
+      setError(err.response?.data?.detail || '操作失败');
     }
   };
 
   const viewDetail = async (id) => {
     try {
-      const res = await fetch(`${API_BASE}/api/evolution/${id}`);
-      const data = await res.json();
-      setSelectedEvolution(data);
+      const res = await api.get(`/evolution/${id}`);
+      setSelectedEvolution(res.data);
       setDetailOpen(true);
 
       // 根据状态设置步骤
-      if (data.status === 'evaluating') setActiveStep(0);
-      else if (data.status === 'testing') setActiveStep(2);
+      if (res.data.status === 'evaluating') setActiveStep(0);
+      else if (res.data.status === 'testing') setActiveStep(2);
       else setActiveStep(3);
     } catch (err) {
       setError('获取详情失败: ' + err.message);

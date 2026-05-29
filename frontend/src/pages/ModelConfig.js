@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../services/api';
+import api from '../services/api';
 import './ModelConfig.css';
 
 function ModelConfig() {
@@ -20,7 +20,7 @@ function ModelConfig() {
 
   const fetchProviders = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/models/providers`);
+      const response = await api.get("/models/providers");
       const data = await response.json();
       setProviders(data);
       setLoading(false);
@@ -33,7 +33,7 @@ function ModelConfig() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_BASE_URL}/models/providers`, {
+      const response = await api.post("/models/providers", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newProvider),
@@ -56,7 +56,7 @@ function ModelConfig() {
 
   const handleTest = async (id) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/models/providers/${id}/test`, {
+      const response = await api.post(`/models/providers/${id}/test`, {
         method: 'POST',
       });
       const data = await response.json();
