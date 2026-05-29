@@ -3,7 +3,7 @@ Events Router - SSE 实时事件流
 """
 
 import json
-from fastapi import APIRouter, Request, Query, HTTPException, status
+from fastapi import APIRouter, Request, Query, HTTPException, status, Depends
 from sse_starlette.sse import EventSourceResponse
 
 from app.services.event_bus import event_bus
@@ -55,12 +55,9 @@ def validate_api_key(request: Request, api_key: str = Query(default="", descript
 @router.get("/stream")
 async def stream_events(
     request: Request,
-    api_key: str = Query(default="", description="API Key for SSE authentication"),
+    _auth: bool = Depends(validate_api_key),
 ):
     """SSE事件流端点 - 支持header或URL参数传递api_key"""
-    # 验证API Key - 传入request和api_key
-    validate_api_key(request, api_key)
-
     queue = await event_bus.subscribe()
 
     async def event_generator():
