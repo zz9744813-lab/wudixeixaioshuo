@@ -19,6 +19,7 @@ from app.models.project import Project, NovelBible
 from app.models.chapter import Chapter, ChapterStatus
 from app.models.task import GenerationTask, TaskStatus, GenerationStep
 from app.models.memory import CharacterMemory, WorldMemory, ChapterMemory
+from app.models.prompt_template import PromptTemplate  # P1: Prompt模板
 from app.services.memory_service import MemoryService
 from app.services.worker_service import WritingWorker
 

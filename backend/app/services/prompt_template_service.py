@@ -36,7 +36,12 @@ class PromptTemplateService:
     def render(self, role: str, variables: Dict, fallback: str, project_id: Optional[int] = None) -> str:
         """渲染模板"""
         template = self.get_active_template(role, project_id)
-        content = template.content if template else fallback
+
+        # 如果没有找到模板，直接返回fallback（不进行format处理）
+        if template is None:
+            return fallback
+
+        content = template.content
 
         try:
             return content.format(**variables)
