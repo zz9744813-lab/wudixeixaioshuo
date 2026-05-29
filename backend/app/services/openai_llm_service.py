@@ -386,10 +386,13 @@ class LLMServiceManager:
             ModelProvider.is_enabled == 1
         ).all()
 
-        # 获取角色映射
-        roles = db_session.query(ModelRole).filter(
-            ModelRole.provider_id.in_([p.id for p in providers]) if providers else []
-        ).all()
+        # 获取角色映射 - 避免空列表传入filter
+        if providers:
+            roles = db_session.query(ModelRole).filter(
+                ModelRole.provider_id.in_([p.id for p in providers])
+            ).all()
+        else:
+            roles = []
 
         # 构建配置签名
         signature = self._build_config_signature(providers, roles)
