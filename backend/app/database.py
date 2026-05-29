@@ -56,20 +56,10 @@ def _enable_sqlite_foreign_keys():
 
 def init_db():
     """初始化数据库"""
-    # 导入所有模型以确保表被创建
-    from app.models import (
-        book,
-        chapter,
-        evolution,
-        feedback,
-        model_config,
-        project,
-        prompt_template,
-        task,
-        technique,
-    )
+    # 导入所有模型以确保表被创建 - 使用 models 包的 __init__ 导入
+    import app.models
 
-    # 启用 SQLite 外键
+    # 启用 SQLite 外键（只需调用一次）
     _enable_sqlite_foreign_keys()
 
     env = (settings.APP_ENV or "").lower()
@@ -77,8 +67,7 @@ def init_db():
     # 生产环境：完全禁用 create_all，强制使用 Alembic
     if env in {"production", "prod", "staging"}:
         logger.info("[Database] 生产环境：跳过 create_all，请运行: alembic upgrade head")
-        # 仅启用外键，不做任何 schema 变更
-        _enable_sqlite_foreign_keys()
+        # 外键已在上面启用，无需重复调用
         return
 
     # 开发环境：检查是否启用自动建表

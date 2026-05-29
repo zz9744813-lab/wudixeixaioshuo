@@ -57,9 +57,9 @@ async def stream_events(
     request: Request,
     api_key: str = Query(default="", description="API Key for SSE authentication"),
 ):
-    """SSE事件流端点 - 通过URL参数传递api_key"""
-    # 验证API Key
-    validate_api_key(api_key)
+    """SSE事件流端点 - 支持header或URL参数传递api_key"""
+    # 验证API Key - 传入request和api_key
+    validate_api_key(request, api_key)
 
     queue = await event_bus.subscribe()
 

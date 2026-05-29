@@ -8,7 +8,7 @@ const getApiKey = () =>
 // 创建 axios 实例
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000,
+  timeout: 300000, // 5分钟 - 支持长耗时同步生成接口
   headers: {
     'Content-Type': 'application/json',
   },
