@@ -9,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.services.event_bus import event_bus
 from app.deps.auth import get_api_key_from_env
 import hmac
+import os
 
 router = APIRouter()
 
@@ -16,9 +17,14 @@ router = APIRouter()
 def validate_api_key(api_key: str):
     """验证API Key，支持URL参数传递（SSE无法自定义header）"""
     expected_key = get_api_key_from_env()
+    app_env = os.getenv("APP_ENV", "development").lower()
 
-    # 生产环境必须配置 API Key
+    # 未配置 API Key 时的处理
     if not expected_key:
+        # 开发环境放行
+        if app_env in ("development", "dev", "local"):
+            return True
+        # 生产/预发环境拒绝服务
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="APP_API_KEY is not configured on server",

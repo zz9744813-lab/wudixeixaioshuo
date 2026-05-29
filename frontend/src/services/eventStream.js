@@ -39,7 +39,12 @@ class EventStreamService {
 
     this.abortController = new AbortController();
 
-    fetchEventSource(`${API_BASE_URL}/events/stream`, {
+    // SSE 不支持自定义 headers，通过 URL 参数传递 API Key
+    const streamUrl = apiKey
+      ? `${API_BASE_URL}/events/stream?api_key=${encodeURIComponent(apiKey)}`
+      : `${API_BASE_URL}/events/stream`;
+
+    fetchEventSource(streamUrl, {
       signal: this.abortController.signal,
       headers: {
         'X-API-Key': apiKey,
