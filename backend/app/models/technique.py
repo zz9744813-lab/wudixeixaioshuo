@@ -29,7 +29,7 @@ class TechniqueCard(Base):
     __tablename__ = "technique_cards"
 
     id = Column(Integer, primary_key=True, index=True)
-    book_id = Column(Integer, ForeignKey("books.id"), nullable=True)  # 可选的来源书籍
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), nullable=True)  # 可选的来源书籍
 
     category = Column(String(50), nullable=False)
     title = Column(String(200), nullable=False)
@@ -120,7 +120,7 @@ class FailurePattern(Base):
     __tablename__ = "failure_patterns"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
 
     category = Column(String(100), nullable=False)  # 失败类别
     symptom = Column(Text, nullable=False)  # 症状描述
@@ -140,7 +140,7 @@ class ProjectPlaybook(Base):
     __tablename__ = "project_playbooks"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), unique=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), unique=True)
 
     # 来源
     source_books = Column(JSON, default=list)  # 参考书籍ID
@@ -170,7 +170,7 @@ class BookProfile(Base):
     __tablename__ = "book_profiles"
 
     id = Column(Integer, primary_key=True, index=True)
-    book_id = Column(Integer, ForeignKey("books.id"), unique=True)
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"), unique=True)
 
     # 基本分类
     genre = Column(String(100))  # 主题材

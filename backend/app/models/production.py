@@ -16,7 +16,7 @@ class ProductionPolicy(Base):
     __tablename__ = "production_policies"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), unique=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), unique=True, index=True)
 
     # 开关
     enabled = Column(Integer, default=0)  # 是否启用自动排产
@@ -50,14 +50,14 @@ class ProductionLog(Base):
     __tablename__ = "production_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
 
     # 日志类型
     log_type = Column(String(50), index=True)  # auto_created / paused / resumed / completed / failed
 
     # 详情
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), nullable=True)
-    task_id = Column(Integer, ForeignKey("generation_tasks.id"), nullable=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), nullable=True)
+    task_id = Column(Integer, ForeignKey("generation_tasks.id", ondelete="CASCADE"), nullable=True)
 
     # 统计
     words_written = Column(Integer, default=0)
@@ -82,7 +82,7 @@ class ProductionStats(Base):
     __tablename__ = "production_stats"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     date = Column(String(10), index=True)  # YYYY-MM-DD
 
     # 完成情况

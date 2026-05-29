@@ -47,9 +47,9 @@ class ReviewResult(Base):
     __tablename__ = "review_results"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(Integer, ForeignKey("generation_tasks.id"), index=True)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True)
-    version_id = Column(Integer, ForeignKey("chapter_versions.id"), nullable=True)
+    task_id = Column(Integer, ForeignKey("generation_tasks.id", ondelete="CASCADE"), index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
+    version_id = Column(Integer, ForeignKey("chapter_versions.id", ondelete="CASCADE"), nullable=True)
 
     # 评审者信息
     reviewer_role = Column(String(100), index=True)  # reviewer_plot/reviewer_character/...
@@ -59,20 +59,6 @@ class ReviewResult(Base):
     # 评分
     total_score = Column(Float)
     score_breakdown = Column(JSON, default=dict)
-    # {
-    #   "plot_progress": 85,
-    #   "character_consistency": 80,
-    #   "continuity": 78,
-    #   "pacing": 82,
-    #   "hook": 88,
-    #   "emotional_reward": 85,
-    #   "foreshadow_quality": 75,
-    #   "style_consistency": 80,
-    #   "readability": 90,
-    #   "commercial_potential": 88,
-    #   "memory_consistency": 82,
-    #   "safety_boundary": 95
-    # }
 
     # 问题与建议
     problems = Column(JSON, default=list)  # 发现的问题
@@ -100,9 +86,9 @@ class FinalReview(Base):
     __tablename__ = "final_reviews"
 
     id = Column(Integer, primary_key=True, index=True)
-    task_id = Column(Integer, ForeignKey("generation_tasks.id"), index=True)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True)
-    version_id = Column(Integer, ForeignKey("chapter_versions.id"), nullable=True)
+    task_id = Column(Integer, ForeignKey("generation_tasks.id", ondelete="CASCADE"), index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
+    version_id = Column(Integer, ForeignKey("chapter_versions.id", ondelete="CASCADE"), nullable=True)
 
     # 汇总评分
     weighted_score = Column(Float)

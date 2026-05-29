@@ -141,8 +141,8 @@ class MemoryQueryLog(Base):
     __tablename__ = "memory_query_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True, nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=True)
 
     query_type = Column(String(50))  # character/world/chapter/relationship
     query_params = Column(JSON, default=dict)  # 查询参数

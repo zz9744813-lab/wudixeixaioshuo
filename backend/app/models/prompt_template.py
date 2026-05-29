@@ -23,7 +23,7 @@ class PromptTemplate(Base):
     description = Column(Text)
     variables_schema = Column(Text)  # JSON string
     is_active = Column(Integer, default=1)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=True)
 
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)

@@ -34,7 +34,7 @@ class EvolutionRun(Base):
     __tablename__ = "evolution_runs"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
 
     # 目标
     target_type = Column(String(50), nullable=False)
@@ -71,7 +71,7 @@ class EvolutionLog(Base):
     __tablename__ = "evolution_logs"
 
     id = Column(Integer, primary_key=True, index=True)
-    evolution_run_id = Column(Integer, ForeignKey("evolution_runs.id"))
+    evolution_run_id = Column(Integer, ForeignKey("evolution_runs.id", ondelete="CASCADE"))
 
     log_type = Column(String(50))  # info, warning, error, success
     message = Column(Text)
@@ -88,7 +88,7 @@ class VersionHistory(Base):
     __tablename__ = "version_history"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
 
     asset_type = Column(String(50), nullable=False)  # 资产类型
     asset_name = Column(String(200), nullable=False)  # 资产名称

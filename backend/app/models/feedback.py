@@ -26,8 +26,8 @@ class Feedback(Base):
     __tablename__ = "feedback"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"))
-    chapter_id = Column(Integer, ForeignKey("chapters.id"))
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"))
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"))
 
     source = Column(String(50), nullable=False)
     raw_text = Column(Text, nullable=False)  # 原始反馈文本

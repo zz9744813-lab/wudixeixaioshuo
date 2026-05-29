@@ -70,7 +70,7 @@ class Book(Base):
     analyzed_at = Column(DateTime)
 
     # 关系
-    chapters = relationship("BookChapter", back_populates="book", order_by="BookChapter.chapter_index")
+    chapters = relationship("BookChapter", back_populates="book", order_by="BookChapter.chapter_index", cascade="all, delete-orphan")
     technique_cards = relationship(
         "TechniqueCard",
         back_populates="book",
@@ -83,7 +83,7 @@ class BookChapter(Base):
     __tablename__ = "book_chapters"
 
     id = Column(Integer, primary_key=True, index=True)
-    book_id = Column(Integer, ForeignKey("books.id"))
+    book_id = Column(Integer, ForeignKey("books.id", ondelete="CASCADE"))
     chapter_index = Column(Integer, nullable=False)
     title = Column(String(300))
     content = Column(Text)  # 原始内容

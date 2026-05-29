@@ -61,9 +61,10 @@ class Chapter(Base):
 
     # 关系
     project = relationship("Project", back_populates="chapters")
-    tasks = relationship("GenerationTask", back_populates="chapter")
-    steps = relationship("GenerationStep", back_populates="chapter")
-    chapter_memory = relationship("ChapterMemory", back_populates="chapter", uselist=False)
+    tasks = relationship("GenerationTask", back_populates="chapter", cascade="all, delete-orphan")
+    steps = relationship("GenerationStep", back_populates="chapter", cascade="all, delete-orphan")
+    chapter_memory = relationship("ChapterMemory", back_populates="chapter", uselist=False, cascade="all, delete-orphan")
+    versions = relationship("ChapterVersion", back_populates="chapter", cascade="all, delete-orphan", order_by="ChapterVersion.version_number")
 
 
 class ChapterVersion(Base):
@@ -94,3 +95,6 @@ class ChapterVersion(Base):
 
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
+
+    # 关系
+    chapter = relationship("Chapter", back_populates="versions")

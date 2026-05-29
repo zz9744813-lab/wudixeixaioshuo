@@ -16,7 +16,7 @@ class Foreshadow(Base):
     __tablename__ = "foreshadows"
 
     id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
 
     # 基本信息
     title = Column(String(300), nullable=False)
@@ -63,8 +63,8 @@ class ForeshadowPlan(Base):
     __tablename__ = "foreshadow_plans"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
     chapter_index = Column(Integer, index=True)
 
     # 计划内容
@@ -88,8 +88,8 @@ class ForeshadowReview(Base):
     __tablename__ = "foreshadow_reviews"
 
     id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), index=True)
-    chapter_id = Column(Integer, ForeignKey("chapters.id"), index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True)
 
     # 评审结果
     forgotten_foreshadows = Column(JSON, default=list)  # 遗忘的伏笔
