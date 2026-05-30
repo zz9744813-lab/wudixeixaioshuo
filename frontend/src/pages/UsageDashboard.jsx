@@ -11,7 +11,7 @@ export default function UsageDashboard() {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>
-          <Icon name={PAGE_ICON} size={22} />
+          <Icon name="FileText" size={22} />
           <span>{PAGE_TITLE}</span>
         </h1>
       </header>
