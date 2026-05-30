@@ -21,6 +21,7 @@ from app.models.memory import (
     ChapterMemory,
     WorldMemory,
     RelationshipMemory,
+    ConsolidatedMemory,
 )
 from app.models.model_config import ModelCallLog, ModelProvider, ModelRole
 from app.models.project import NovelBible, Project
@@ -128,6 +129,7 @@ __all__ = [
     "ChapterMemory",
     "WorldMemory",
     "RelationshipMemory",
+    "ConsolidatedMemory",
     # Agent Run models (P0)
     "AgentRun",
     "AgentRunStatus",

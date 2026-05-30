@@ -163,7 +163,6 @@ class RelationshipMemory(Base):
 class MemoryQueryLog(Base):
     """记忆查询日志 - 用于优化检索策略"""
     __tablename__ = "memory_query_logs"
-
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
     chapter_id = Column(Integer, ForeignKey("chapters.id", ondelete="CASCADE"), index=True, nullable=True)
@@ -172,3 +171,39 @@ class MemoryQueryLog(Base):
     query_params = Column(JSON, default=dict)  # 查询参数
     results_count = Column(Integer)  # 返回结果数
     created_at = Column(DateTime, default=utc_now)
+
+
+class ConsolidatedMemory(Base):
+    """记忆固化 - L5层：对历史章节区间的长期固化摘要 (P5)"""
+    __tablename__ = "consolidated_memories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, index=True, nullable=False)
+
+    scope_type = Column(String(50), default="volume")  # volume/arc/range
+    scope_start_chapter = Column(Integer, nullable=True)
+    scope_end_chapter = Column(Integer, nullable=True)
+
+    title = Column(String(200), nullable=False)
+    summary = Column(Text, nullable=False)
+
+    key_events = Column(JSON, default=list)
+    character_arcs = Column(JSON, default=dict)
+    world_updates = Column(JSON, default=list)
+    unresolved_hooks = Column(JSON, default=list)
+    resolved_hooks = Column(JSON, default=list)
+    contradictions = Column(JSON, default=list)
+
+    importance_score = Column(Float, default=0.7)
+
+    embedding_text = Column(Text, nullable=True)
+    embedding_vector = Column(JSON, nullable=True)
+    embedding_model = Column(String(100), nullable=True)
+    embedding_updated_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        Index('idx_consolidated_project_scope', 'project_id', 'scope_start_chapter', 'scope_end_chapter'),
+    )

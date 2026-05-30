@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.memory import (
     CharacterMemory,
     ChapterMemory,
+    ConsolidatedMemory,
     RelationshipMemory,
     WorldMemory,
 )
@@ -119,6 +120,21 @@ class MemorySemanticSearchService:
                 "text": r.embedding_text or r.current_status or "",
                 "chapter_index": None,
                 "importance_score": None,
+                "embedding_vector": r.embedding_vector,
+            } for r in rows]
+
+        if mtype == "consolidated":
+            rows = self.db.query(ConsolidatedMemory).filter(
+                ConsolidatedMemory.project_id == project_id,
+                ConsolidatedMemory.embedding_vector.isnot(None),
+            ).all()
+            return [{
+                "memory_type": "consolidated",
+                "id": r.id,
+                "title": r.title,
+                "text": r.embedding_text or r.summary or "",
+                "chapter_index": r.scope_end_chapter,
+                "importance_score": r.importance_score,
                 "embedding_vector": r.embedding_vector,
             } for r in rows]
 

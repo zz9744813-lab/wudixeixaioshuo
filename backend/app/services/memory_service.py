@@ -626,13 +626,21 @@ class MemoryService:
             results = await searcher.search(
                 project_id=project_id,
                 query_text=query_text,
+                memory_types=["chapter", "character", "world", "relationship", "consolidated"],
                 top_k=semantic_top_k,
             )
             # 排除最近 3 章自身，避免重复
             recent_idx = {c.get("index") for c in context.get("recent_chapters", [])}
-            context["semantic_recall"] = [
+            filtered = [
                 r for r in results
                 if not (r["memory_type"] == "chapter" and r.get("chapter_index") in recent_idx)
+            ]
+            # 固化记忆单独分区（优先级更高）
+            context["consolidated_recall"] = [
+                r for r in filtered if r["memory_type"] == "consolidated"
+            ]
+            context["semantic_recall"] = [
+                r for r in filtered if r["memory_type"] != "consolidated"
             ]
         except Exception as e:
             logger.warning(f"语义召回失败，降级为基础上下文: {e}")
@@ -640,17 +648,33 @@ class MemoryService:
         return context
 
     def format_semantic_recall_for_prompt(self, context: Dict[str, Any]) -> str:
-        """把语义召回结果格式化为 Prompt 片段。"""
+        """把语义召回结果格式化为 Prompt 片段（含长期固化记忆分区）。"""
+        sections = []
+
+        consolidated = context.get("consolidated_recall") or []
+        if consolidated:
+            lines = [
+                "## 长期固化记忆\n",
+                "以下是系统对历史章节进行固化后的长期记忆，优先级高于零散章节摘要：\n",
+            ]
+            for r in consolidated:
+                lines.append(
+                    f"- {r.get('title','')}（相关度 {r.get('score')}）："
+                    f"{(r.get('text') or '')[:200]}"
+                )
+            sections.append("\n".join(lines))
+
         recall = context.get("semantic_recall") or []
-        if not recall:
-            return ""
-        lines = ["## 语义召回的相关记忆\n"]
-        for r in recall:
-            lines.append(
-                f"- [{r['memory_type']}] {r.get('title','')}"
-                f"（相关度 {r.get('score')}）：{(r.get('text') or '')[:160]}"
-            )
-        return "\n".join(lines)
+        if recall:
+            lines = ["## 语义召回的相关记忆\n"]
+            for r in recall:
+                lines.append(
+                    f"- [{r['memory_type']}] {r.get('title','')}"
+                    f"（相关度 {r.get('score')}）：{(r.get('text') or '')[:160]}"
+                )
+            sections.append("\n".join(lines))
+
+        return "\n\n".join(sections)
 
     # ========== Memory Update from Chapter ==========
 

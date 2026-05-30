@@ -112,8 +112,7 @@ class PipelineService:
 
             # 章节保存成功后更新长期记忆（失败不影响主流程）
             if result.get("success") and result.get("final_content"):
-                await self._update_long_term_memory(task_info, result["final_content"])
-                await self._update_book_state(task_info)
+                await self._post_chapter_success_hooks(task_info, result)
 
             return result
 
@@ -1438,6 +1437,58 @@ class PipelineService:
             logger.error(f"[Task {task_info['task_id']}] 全书状态更新失败: {e}")
         finally:
             db.close()
+
+    async def _update_memory_embeddings(self, task_info: Dict):
+        """章节完成后回填记忆向量（独立 session，失败仅记日志不阻断）"""
+        from app.services.memory_embedding_service import MemoryEmbeddingService
+        db = SessionLocal()
+        try:
+            await MemoryEmbeddingService(db).backfill_project_embeddings(
+                project_id=task_info["project_id"], limit=50
+            )
+        except Exception as e:
+            logger.warning(f"[Task {task_info['task_id']}] 记忆向量回填失败: {e}")
+        finally:
+            db.close()
+
+    async def _consolidate_memory_if_needed(self, task_info: Dict):
+        """章节完成后按需固化记忆（独立 session，失败仅记日志不阻断）"""
+        from app.services.memory_consolidation_service import MemoryConsolidationService
+        db = SessionLocal()
+        try:
+            result = await MemoryConsolidationService(db).consolidate_if_needed(
+                project_id=task_info["project_id"], every_n_chapters=10
+            )
+            if result:
+                await event_bus.publish("memory.consolidated", {
+                    "project_id": task_info["project_id"],
+                    "consolidated_id": result.get("id"),
+                })
+        except Exception as e:
+            logger.warning(f"[Task {task_info['task_id']}] 记忆固化失败: {e}")
+        finally:
+            db.close()
+
+    async def _post_chapter_success_hooks(self, task_info: Dict, result: Dict):
+        """章节成功后的后处理钩子链（任一失败都不影响章节成功）。
+
+        顺序：长期记忆更新 → 记忆向量回填 → 按需固化 → 全书状态更新。
+        """
+        await self._update_long_term_memory(task_info, result["final_content"])
+        await self._update_memory_embeddings(task_info)
+        await self._consolidate_memory_if_needed(task_info)
+        await self._update_book_state(task_info)
+
+        try:
+            await event_bus.publish("memory.updated", {
+                "project_id": task_info["project_id"],
+                "chapter_id": task_info["chapter_id"],
+            })
+            await event_bus.publish("book_state.updated", {
+                "project_id": task_info["project_id"],
+            })
+        except Exception as e:
+            logger.warning(f"[Task {task_info['task_id']}] 事件发布失败: {e}")
 
     def _parse_critic_structured_output(self, content: str) -> Dict:
         """解析 Critic 的结构化 JSON 输出"""
