@@ -245,9 +245,10 @@ class TaskService:
                 return False
 
             task.error_message = error_message
-            task.attempts += 1  # 增加尝试次数
+            # 注意：attempts 只在 claim_task 时 +1（代表"已启动次数"）。
+            # 这里不再重复 +1，否则一次真实失败会消耗两次配额。
 
-            # 判断是否可以重试
+            # 判断是否可以重试（claim 时已把本次计入 attempts）
             if is_retryable and task.attempts < task.max_attempts:
                 # 计算退避时间
                 backoff_seconds = self._calculate_backoff(task.attempts)

@@ -172,6 +172,10 @@ class PipelineService:
             bible_task, memory_task, style_task, knowledge_task, directive_task
         )
 
+        # 取消检查：用户在准备阶段取消则尽早退出，不再消耗 LLM
+        if self._is_task_cancelled(task_info["task_id"]):
+            return {"success": False, "cancelled": True, "error": "任务已取消"}
+
         # ===== Step 1: Planner =====
         logger.info(f"[Task {task_info['task_id']}] Step 1: Planner")
         await event_bus.publish("agent.step.started", {
@@ -202,6 +206,10 @@ class PipelineService:
             return {"success": False, "error": "Planner 失败", "step": "planner"}
 
         chapter_plan = planner_result.get("plan", {})
+
+        # 取消检查
+        if self._is_task_cancelled(task_info["task_id"]):
+            return {"success": False, "cancelled": True, "error": "任务已取消"}
 
         # ===== Step 2: Draft =====
         logger.info(f"[Task {task_info['task_id']}] Step 2: Draft")
@@ -257,6 +265,10 @@ class PipelineService:
 
         # 保存草稿版本（独立 session）
         await self._save_draft_version(task_info, draft_content, chapter_plan, draft_word_count)
+
+        # 取消检查
+        if self._is_task_cancelled(task_info["task_id"]):
+            return {"success": False, "cancelled": True, "error": "任务已取消"}
 
         # ===== Step 3: Critic =====
         logger.info(f"[Task {task_info['task_id']}] Step 3: Critic")
@@ -374,7 +386,7 @@ class PipelineService:
             "total_steps": len(steps_data),
             "tokens_used": total_tokens,
             "cost": total_cost,
-            "word_count": len(final_content),
+            "word_count": self._count_chinese_words(final_content),
             "final_content": final_content,
             "final_score": final_score,
             "continuity_score": continuity_score,
@@ -489,10 +501,11 @@ class PipelineService:
 
             # 判断是否需要分段生成
             if target_words > 4000:
-                # 长章分段生成
+                # 长章分段生成（透传风格/知识/总编指令，避免长章丢失关键上下文）
                 content = await self._run_segmented_draft(
                     task_info, bible_data, chapter_plan, memory_context,
-                    tech_instructions, playbook, target_words
+                    tech_instructions, playbook, target_words,
+                    style_rules, knowledge_text, directive_text
                 )
                 # 分段模式下保留知识注入痕迹，便于 GenerationStep 审计
                 draft_prompt = self._append_editor_directive_to_prompt(knowledge_text, directive_text)
@@ -549,6 +562,14 @@ class PipelineService:
             # 保存步骤
             self._save_step(db, task_info, "Draft", draft_prompt, {"content": content[:500]})
 
+            # 分段模式下分段调用难以精确归集，单次生成则取真实用量
+            if target_words > 4000:
+                draft_tokens = 0
+                draft_cost = 0.0
+            else:
+                draft_tokens = response.get("total_tokens", 0)
+                draft_cost = response.get("cost", 0.0)
+
             # 保存字数信息到结果
             return {
                 "success": True,
@@ -557,8 +578,8 @@ class PipelineService:
                 "word_count": actual_word_count,
                 "target_words": target_words,
                 "word_count_pass": actual_word_count >= min_words,
-                "tokens": 0,  # 分段生成时统计复杂，简化处理
-                "cost": 0.0,
+                "tokens": draft_tokens,
+                "cost": draft_cost,
             }
 
         except Exception as e:
@@ -764,7 +785,8 @@ class PipelineService:
 
     async def _run_segmented_draft(
         self, task_info: Dict, bible_data: Dict, chapter_plan: Dict,
-        memory_context: str, tech_instructions: str, playbook: Dict, target_words: int
+        memory_context: str, tech_instructions: str, playbook: Dict, target_words: int,
+        style_rules: str = "", knowledge_text: str = "", directive_text: str = ""
     ) -> str:
         """分段生成长章 - beat sheet → 逐段扩写 → 合并 → 自检 → 补写"""
         logger.info(f"[Task {task_info['task_id']}] 启用分段生成，目标字数: {target_words}")
@@ -782,7 +804,8 @@ class PipelineService:
             segment = await self._generate_segment(
                 task_info, bible_data, chapter_plan, memory_context,
                 tech_instructions, playbook, beat, i, len(beats),
-                previous_ending, target_words
+                previous_ending, target_words,
+                style_rules, knowledge_text, directive_text
             )
             segments.append(segment)
             # 保存最后 200 字作为下一段的上下文
@@ -796,7 +819,8 @@ class PipelineService:
         if actual_words < target_words * 0.9:  # 少于 90% 需要补写
             logger.info(f"[Task {task_info['task_id']}] 字数不足 ({actual_words}/{target_words})，启动补写")
             supplement = await self._generate_supplement(
-                task_info, full_content, target_words - actual_words, chapter_plan
+                task_info, full_content, target_words - actual_words, chapter_plan,
+                directive_text
             )
             full_content += "\n\n" + supplement
 
@@ -864,13 +888,22 @@ class PipelineService:
         self, task_info: Dict, bible_data: Dict, chapter_plan: Dict,
         memory_context: str, tech_instructions: str, playbook: Dict,
         beat: Dict, beat_index: int, total_beats: int,
-        previous_ending: str, total_target_words: int
+        previous_ending: str, total_target_words: int,
+        style_rules: str = "", knowledge_text: str = "", directive_text: str = ""
     ) -> str:
         """生成单个段落"""
         db = SessionLocal()
         try:
             estimated_words = beat.get("estimated_words", 1500)
             playbook_rules = "\n".join(playbook.get("rules", ["无"]))
+
+            extra_sections = ""
+            if style_rules:
+                extra_sections += f"\n风格档案要求:\n{style_rules}\n"
+            if knowledge_text:
+                extra_sections += f"\n{knowledge_text}\n"
+            if directive_text:
+                extra_sections += f"\n{directive_text}\n"
 
             prompt = f"""请撰写本章的第 {beat_index + 1}/{total_beats} 个段落。
 
@@ -894,7 +927,7 @@ class PipelineService:
 
 写作手册规则:
 {playbook_rules}
-
+{extra_sections}
 重要提示：
 1. 这是第 {beat_index + 1} 段，本章共 {total_beats} 段
 2. 本章总目标字数: {total_target_words} 字
@@ -919,17 +952,18 @@ class PipelineService:
         finally:
             db.close()
 
-    async def _generate_supplement(self, task_info: Dict, existing_content: str, words_needed: int, chapter_plan: Dict) -> str:
+    async def _generate_supplement(self, task_info: Dict, existing_content: str, words_needed: int, chapter_plan: Dict, directive_text: str = "") -> str:
         """生成补写内容"""
         db = SessionLocal()
         try:
             ending_hook = chapter_plan.get("ending_hook", "") if isinstance(chapter_plan, dict) else ""
 
+            directive_section = f"\n{directive_text}\n" if directive_text else ""
             prompt = f"""现有章节内容字数不足，需要补充约 {words_needed} 字。
 
 现有内容结尾:
 {existing_content[-500:]}
-
+{directive_section}
 补充要求：
 1. 扩展冲突细节、动作描写、对话或心理活动
 2. 不要改变已有情节
@@ -2042,6 +2076,19 @@ class PipelineService:
         finally:
             db.close()
 
+    def _is_task_cancelled(self, task_id: int) -> bool:
+        """检查任务是否已被取消（独立短 session）。"""
+        db = SessionLocal()
+        try:
+            task = db.query(GenerationTask).filter(
+                GenerationTask.id == task_id
+            ).first()
+            return bool(task and task.status == TaskStatus.CANCELLED)
+        except Exception:
+            return False
+        finally:
+            db.close()
+
     def _save_pipeline_result(self, db, task_info: Dict, result: Dict):
         """保存流水线最终结果"""
         gen_task = db.query(GenerationTask).filter(
@@ -2051,6 +2098,13 @@ class PipelineService:
         chapter = db.query(Chapter).filter(
             Chapter.id == task_info["chapter_id"]
         ).first()
+
+        # 任务已被取消：不要覆盖成 COMPLETED/FAILED，保留 CANCELLED
+        if result.get("cancelled") or (gen_task and gen_task.status == TaskStatus.CANCELLED):
+            if chapter and chapter.status not in (ChapterStatus.COMPLETED,):
+                chapter.status = ChapterStatus.FAILED
+            db.commit()
+            return
 
         if result["success"]:
             gen_task.status = TaskStatus.COMPLETED

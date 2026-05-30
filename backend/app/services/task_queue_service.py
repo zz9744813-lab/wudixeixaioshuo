@@ -231,8 +231,15 @@ class TaskQueueService:
 
         for task in tasks:
             task.status = TaskStatus.PENDING
+            task.attempts = 0
             task.retry_count = 0
             task.error_message = None
+            task.locked_by = None
+            task.locked_at = None
+            task.heartbeat_at = None
+            task.next_run_at = utc_now()
+            task.started_at = None
+            task.finished_at = None
 
         self.db.commit()
         return count

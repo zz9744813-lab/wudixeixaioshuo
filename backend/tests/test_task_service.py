@@ -146,7 +146,7 @@ def test_task_failure_with_retry(db_session: Session):
         status=TaskStatus.RUNNING,
         locked_by="test-worker",
         locked_at=datetime.utcnow(),
-        attempts=0,
+        attempts=1,  # claim 时已 +1
         max_attempts=3,
     )
     db_session.add(task)
@@ -161,7 +161,7 @@ def test_task_failure_with_retry(db_session: Session):
     # 验证任务状态
     db_session.refresh(task)
     assert task.status == TaskStatus.PENDING  # 回到 pending 等待重试
-    assert task.attempts == 1
+    assert task.attempts == 1  # 失败处理不再重复 +1
     assert task.error_message == "Network error"
     assert task.next_run_at is not None  # 设置了下次运行时间
 
@@ -183,7 +183,7 @@ def test_task_failure_non_retryable(db_session: Session):
         task_type="draft",
         status=TaskStatus.RUNNING,
         locked_by="test-worker",
-        attempts=0,
+        attempts=1,  # claim 时已 +1
         max_attempts=3,
     )
     db_session.add(task)
@@ -198,7 +198,7 @@ def test_task_failure_non_retryable(db_session: Session):
     # 验证任务状态
     db_session.refresh(task)
     assert task.status == TaskStatus.FAILED  # 直接失败
-    assert task.attempts == 1
+    assert task.attempts == 1  # 失败处理不重复 +1
 
 
 def test_task_failure_max_attempts(db_session: Session):
@@ -218,7 +218,7 @@ def test_task_failure_max_attempts(db_session: Session):
         task_type="draft",
         status=TaskStatus.RUNNING,
         locked_by="test-worker",
-        attempts=2,  # 已经尝试2次
+        attempts=3,  # claim 时已把第3次计入
         max_attempts=3,
     )
     db_session.add(task)

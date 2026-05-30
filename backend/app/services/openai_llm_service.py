@@ -527,6 +527,7 @@ class LLMServiceManager:
         try:
             response = await service.generate(
                 prompt=prompt,
+                role=role,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 **kwargs

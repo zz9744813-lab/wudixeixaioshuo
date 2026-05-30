@@ -27,7 +27,7 @@ class QueueAddRequest(BaseModel):
 
 
 class QueueReorderRequest(BaseModel):
-    chapter_ids: list  # 按新顺序排列的章节ID列表
+    task_ids: list  # 按新顺序排列的任务ID列表（队列排序对象是任务，不是章节）
 
 
 # ============== Worker 控制 API ==============
@@ -132,7 +132,7 @@ async def reorder_queue(
 ):
     """重新排序队列"""
     service = TaskQueueService(db)
-    success = service.reorder_queue(request.chapter_ids)
+    success = service.reorder_queue(request.task_ids)
 
     if not success:
         raise HTTPException(status_code=400, detail="重新排序失败")

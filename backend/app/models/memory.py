@@ -115,7 +115,11 @@ class ChapterMemory(Base):
     embedding_model = Column(String(100), nullable=True)
     embedding_updated_at = Column(DateTime, nullable=True)
 
+    # 结尾承接等附加元数据 (TASK-C3)
+    meta = Column(JSON, default=dict)
+
     created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # 反向关系
     project = relationship("Project", back_populates="chapter_memories")

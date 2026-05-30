@@ -151,8 +151,10 @@ async def cancel_task(task_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="已完成的任务无法取消")
 
     task.status = TaskStatus.CANCELLED
-    from datetime import datetime
     task.finished_at = utc_now()
+    task.locked_by = None
+    task.locked_at = None
+    task.heartbeat_at = None
     db.commit()
 
     return {"message": "任务已取消", "id": task.id}
@@ -160,23 +162,33 @@ async def cancel_task(task_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{task_id}/retry")
 async def retry_task(task_id: int, db: Session = Depends(get_db)):
-    """重试任务"""
+    """重试任务 - 完整重置 attempts/锁/心跳/调度，确保 Worker 能重新领取"""
     task = db.query(GenerationTask).filter(GenerationTask.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
     task.status = TaskStatus.PENDING
+    task.attempts = 0
     task.retry_count += 1
     task.error_message = None
+    task.locked_by = None
+    task.locked_at = None
+    task.heartbeat_at = None
+    task.next_run_at = utc_now()
+    task.started_at = None
+    task.finished_at = None
     db.commit()
 
     return {"message": "任务已重置", "id": task.id}
 
 
 @router.get("/{task_id}/steps/{step_id}")
-async def get_step(step_id: int, db: Session = Depends(get_db)):
-    """获取步骤详情"""
-    step = db.query(GenerationStep).filter(GenerationStep.id == step_id).first()
+async def get_step(task_id: int, step_id: int, db: Session = Depends(get_db)):
+    """获取步骤详情（校验 step 属于该 task，避免越权读取其它任务的 step）"""
+    step = db.query(GenerationStep).filter(
+        GenerationStep.id == step_id,
+        GenerationStep.task_id == task_id,
+    ).first()
     if not step:
         raise HTTPException(status_code=404, detail="步骤不存在")
 
