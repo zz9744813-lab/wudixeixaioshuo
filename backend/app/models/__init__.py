@@ -74,6 +74,7 @@ from app.models.evolution_auto import (
     PromptEvolutionRun,
     PromptEvolutionRunStatus,
 )
+from app.models.editor import EditorDirective, BookState
 
 __all__ = [
     "Project",
@@ -152,4 +153,7 @@ __all__ = [
     "PromptEvolutionPolicy",
     "PromptEvolutionRun",
     "PromptEvolutionRunStatus",
+    # Editor / BookState models (P2)
+    "EditorDirective",
+    "BookState",
 ]

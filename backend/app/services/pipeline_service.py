@@ -113,6 +113,7 @@ class PipelineService:
             # 章节保存成功后更新长期记忆（失败不影响主流程）
             if result.get("success") and result.get("final_content"):
                 await self._update_long_term_memory(task_info, result["final_content"])
+                await self._update_book_state(task_info)
 
             return result
 
@@ -160,9 +161,15 @@ class PipelineService:
             task_info["chapter_title"],
             task_info["chapter_index"],
         )
+        directive_task = self._get_editor_directive(
+            task_info["project_id"],
+            task_info["chapter_id"],
+            task_info["chapter_index"],
+            task_info["chapter_title"],
+        )
 
-        bible_data, memory_context, style_profile_context, knowledge_context = await asyncio.gather(
-            bible_task, memory_task, style_task, knowledge_task
+        bible_data, memory_context, style_profile_context, knowledge_context, editor_directive = await asyncio.gather(
+            bible_task, memory_task, style_task, knowledge_task, directive_task
         )
 
         # ===== Step 1: Planner =====
@@ -175,7 +182,7 @@ class PipelineService:
         })
 
         planner_result = await self._run_planner(
-            task_info, bible_data, memory_context, style_profile_context, knowledge_context
+            task_info, bible_data, memory_context, style_profile_context, knowledge_context, editor_directive
         )
 
         await event_bus.publish("agent.step.completed", {
@@ -206,7 +213,7 @@ class PipelineService:
         })
 
         draft_result = await self._run_draft(
-            task_info, bible_data, chapter_plan, memory_context, style_profile_context, knowledge_context
+            task_info, bible_data, chapter_plan, memory_context, style_profile_context, knowledge_context, editor_directive
         )
 
         await event_bus.publish("agent.step.completed", {
@@ -242,7 +249,7 @@ class PipelineService:
             "step_index": 3,
         })
 
-        critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context)
+        critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context, editor_directive)
 
         await event_bus.publish("agent.step.completed", {
             "task_id": task_info["task_id"],
@@ -273,7 +280,7 @@ class PipelineService:
 
         if score < 80:
             rewrite_result = await self._run_rewrite_if_needed(
-                task_info, draft_content, critic_result, bible_data, score, memory_context, knowledge_context
+                task_info, draft_content, critic_result, bible_data, score, memory_context, knowledge_context, editor_directive
             )
 
             if rewrite_result.get("success"):
@@ -353,7 +360,8 @@ class PipelineService:
 
     async def _run_planner(
         self, task_info: Dict, bible_data: Dict, memory_context: str,
-        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None
+        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None,
+        editor_directive: Optional[Dict] = None
     ) -> Dict:
         """执行 Planner Agent"""
         db = SessionLocal()
@@ -369,6 +377,9 @@ class PipelineService:
 
             # 联网研究知识
             knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="planner")
+
+            # 总编全局指令
+            directive_text = self._format_editor_directive_for_prompt(editor_directive, role="planner")
 
             # 渲染 Prompt
             template_service = PromptTemplateService(db)
@@ -393,6 +404,7 @@ class PipelineService:
                 project_id=task_info["project_id"],
             )
             prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
+            prompt = self._append_editor_directive_to_prompt(prompt, directive_text)
 
             # 调用 LLM
             started_at = utc_now()
@@ -424,7 +436,8 @@ class PipelineService:
 
     async def _run_draft(
         self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str,
-        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None
+        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None,
+        editor_directive: Optional[Dict] = None
     ) -> Dict:
         """执行 Draft Agent - 支持目标字数和长章分段生成"""
         db = SessionLocal()
@@ -440,6 +453,9 @@ class PipelineService:
             # 联网研究知识
             knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="draft")
 
+            # 总编全局指令
+            directive_text = self._format_editor_directive_for_prompt(editor_directive, role="draft")
+
             # 获取目标字数
             target_words = self._get_target_words(task_info, bible_data, chapter_plan)
             max_words = int(target_words * 1.1)  # +10%
@@ -453,7 +469,7 @@ class PipelineService:
                     tech_instructions, playbook, target_words
                 )
                 # 分段模式下保留知识注入痕迹，便于 GenerationStep 审计
-                draft_prompt = knowledge_text
+                draft_prompt = self._append_editor_directive_to_prompt(knowledge_text, directive_text)
             else:
                 # 普通单次生成
                 template_service = PromptTemplateService(db)
@@ -480,6 +496,7 @@ class PipelineService:
                     project_id=task_info["project_id"],
                 )
                 prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
+                prompt = self._append_editor_directive_to_prompt(prompt, directive_text)
 
                 # 确保 prompt 中包含字数要求
                 if "目标字数" not in prompt:
@@ -782,7 +799,8 @@ class PipelineService:
             db.close()
 
     async def _run_critic(
-        self, task_info: Dict, content: str, bible_data: Dict, knowledge_context: Optional[Dict] = None
+        self, task_info: Dict, content: str, bible_data: Dict, knowledge_context: Optional[Dict] = None,
+        editor_directive: Optional[Dict] = None
     ) -> Dict:
         """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注 + 一致性检查"""
         db = SessionLocal()
@@ -792,6 +810,9 @@ class PipelineService:
 
             # 联网研究审稿依据
             knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="critic")
+
+            # 总编指令达成度检查
+            directive_text = self._format_editor_directive_for_prompt(editor_directive, role="critic")
 
             # 生成一致性检查prompt片段 (B4)
             consistency_prompt = ""
@@ -821,6 +842,7 @@ class PipelineService:
                 project_id=task_info["project_id"],
             )
             prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
+            prompt = self._append_editor_directive_to_prompt(prompt, directive_text)
 
             response = await llm_manager.generate(
                 prompt=prompt,
@@ -1018,7 +1040,8 @@ class PipelineService:
     async def _run_rewrite_if_needed(
         self, task_info: Dict, content: str, critic_result: Dict,
         bible_data: Dict, current_score: int, memory_context: str,
-        knowledge_context: Optional[Dict] = None
+        knowledge_context: Optional[Dict] = None,
+        editor_directive: Optional[Dict] = None
     ) -> Dict:
         """如果需要，执行 Rewrite - 使用 must_fix_items 和 rewrite_plan"""
         steps = []
@@ -1101,7 +1124,7 @@ class PipelineService:
                     "rewrite_round": rewrite_count,
                 })
 
-                new_critic_result = await self._run_critic(task_info, new_content, bible_data, knowledge_context)
+                new_critic_result = await self._run_critic(task_info, new_content, bible_data, knowledge_context, editor_directive)
                 new_score = new_critic_result.get("score", final_score)
 
                 steps.append({
@@ -1346,6 +1369,20 @@ class PipelineService:
         finally:
             db.close()
 
+    async def _update_book_state(self, task_info: Dict):
+        """章节完成后更新全书状态（独立 session，失败仅记日志不阻断）"""
+        from app.services.book_state_service import BookStateService
+        db = SessionLocal()
+        try:
+            await BookStateService(db).update_from_completed_chapter(
+                project_id=task_info["project_id"],
+                chapter_id=task_info["chapter_id"],
+            )
+        except Exception as e:
+            logger.error(f"[Task {task_info['task_id']}] 全书状态更新失败: {e}")
+        finally:
+            db.close()
+
     def _parse_critic_structured_output(self, content: str) -> Dict:
         """解析 Critic 的结构化 JSON 输出"""
         import re
@@ -1454,6 +1491,60 @@ class PipelineService:
         if knowledge_text.strip() in prompt:
             return prompt
         return f"{prompt}\n\n{knowledge_text}"
+
+    async def _get_editor_directive(
+        self,
+        project_id: int,
+        chapter_id: int,
+        chapter_index: int,
+        chapter_title: str = "",
+    ) -> Dict:
+        """获取总编全局指令（独立 session）"""
+        db = SessionLocal()
+        try:
+            from app.services.chief_editor_agent import ChiefEditorAgent
+            agent = ChiefEditorAgent(db)
+            return await agent.build_chapter_directive(
+                project_id=project_id,
+                chapter_id=chapter_id,
+                chapter_index=chapter_index,
+                chapter_title=chapter_title,
+            )
+        except Exception as e:
+            logger.warning(f"总编指令生成失败: {e}")
+            return {}
+        finally:
+            db.close()
+
+    def _format_editor_directive_for_prompt(
+        self, directive: Optional[Dict], role: str = "draft"
+    ) -> str:
+        """把总编指令格式化为 Prompt 片段"""
+        if not directive:
+            return ""
+        try:
+            from app.services.chief_editor_agent import ChiefEditorAgent
+            body = ChiefEditorAgent(None).format_directive_for_prompt(directive)
+        except Exception as e:
+            logger.warning(f"总编指令格式化失败: {e}")
+            return ""
+        if not body:
+            return ""
+        headers = {
+            "planner": "## 总编全局指令\n\n以下内容优先级高于普通章节规划。你必须按全书节奏执行：\n",
+            "draft": "## 本章全局写作目标\n",
+            "critic": "## 总编指令达成度检查\n\n请检查正文是否完成以下目标：\n",
+        }
+        header = headers.get(role, headers["draft"])
+        return f"{header}\n{body}"
+
+    def _append_editor_directive_to_prompt(self, prompt: str, directive_text: str) -> str:
+        """把总编指令追加到 Prompt"""
+        if not directive_text:
+            return prompt
+        if directive_text.strip() in prompt:
+            return prompt
+        return f"{prompt}\n\n{directive_text}"
 
     async def _get_bible_data(self, project_id: int) -> Dict:
         """获取 Bible 数据（独立 session）"""
