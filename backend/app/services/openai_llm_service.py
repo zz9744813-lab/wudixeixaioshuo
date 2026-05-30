@@ -342,6 +342,8 @@ class LLMServiceManager:
 
     def __init__(self):
         self._services: Dict[str, OpenAILLMService] = {}
+        # 项目级角色服务缓存，键为 (project_id, role)
+        self._project_services: Dict[tuple, OpenAILLMService] = {}
         self._mock_service = None
         self._db = None
         self._initialized = False
@@ -482,6 +484,76 @@ class LLMServiceManager:
 
         return self._mock_service
 
+    def get_service_for(self, role: str, project_id: Optional[int], db=None) -> BaseLLMService:
+        """按 project_id + priority 解析角色服务，找不到项目级配置则回退全局 get_service。
+
+        选择顺序：
+        1. 项目级 ModelRole（project_id 匹配）按 priority 降序取第一个
+        2. 全局 ModelRole（project_id 为 None）按 priority 降序取第一个
+        3. 回退 get_service(role) 的全局缓存/默认/Mock
+        """
+        if not project_id or db is None:
+            return self.get_service(role)
+
+        cache_key = (project_id, role)
+        if cache_key in self._project_services:
+            return self._project_services[cache_key]
+
+        try:
+            from app.models.model_config import ModelProvider, ModelRole
+            from app.services.secret_service import decrypt_api_key
+            from sqlalchemy import or_
+
+            enabled_ids = [
+                p.id for p in db.query(ModelProvider).filter(
+                    ModelProvider.is_enabled == 1
+                ).all()
+            ]
+            if not enabled_ids:
+                return self.get_service(role)
+
+            role_config = (
+                db.query(ModelRole)
+                .filter(
+                    ModelRole.role == role,
+                    ModelRole.provider_id.in_(enabled_ids),
+                    or_(ModelRole.project_id == project_id,
+                        ModelRole.project_id.is_(None)),
+                )
+                .order_by(
+                    # 项目级优先于全局
+                    (ModelRole.project_id == project_id).desc(),
+                    ModelRole.priority.desc(),
+                )
+                .first()
+            )
+
+            # 没有项目级专属配置（命中的是全局）→ 用全局缓存即可
+            if not role_config or role_config.project_id != project_id:
+                return self.get_service(role)
+
+            provider = role_config.provider
+            if not provider:
+                return self.get_service(role)
+
+            service = OpenAILLMService(
+                base_url=provider.base_url,
+                api_key=decrypt_api_key(provider.api_key_encrypted),
+                model_name=role_config.model_name,
+                timeout=provider.timeout_seconds or 120,
+                retry_times=provider.retry_times or 3,
+                provider_id=provider.id,
+                provider_name=provider.name,
+            )
+            self._project_services[cache_key] = service
+            return service
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"项目级模型路由解析失败，回退全局: {e}"
+            )
+            return self.get_service(role)
+
     async def generate(
         self,
         prompt: str,
@@ -519,7 +591,7 @@ class LLMServiceManager:
         from app.services.model_call_log_service import ModelCallLogService
 
         started_at = utc_now()
-        service = self.get_service(role)
+        service = self.get_service_for(role, project_id, db)
 
         # P2-4: 创建独立的日志服务（不依赖业务 db session）
         log_service = ModelCallLogService()
