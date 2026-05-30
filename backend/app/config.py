@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     PARALLEL_DRAFT_COST_LIMIT: float = 1.00
     ENABLE_PARALLEL_CRITIC: bool = False
 
+    # 常驻生产循环与自动化调度 (P8)
+    AUTO_START_PRODUCTION_LOOP: bool = False
+    PRODUCTION_SCAN_INTERVAL_SECONDS: int = 60
+    AUTO_START_WORKER_ON_SCHEDULE: bool = True
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

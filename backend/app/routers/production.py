@@ -189,3 +189,44 @@ def get_production_logs(
     scheduler = ProductionScheduler(db)
     logs = scheduler.get_recent_logs(project_id, limit)
     return {"logs": logs}
+
+
+# ========== Production Loop 控制 (P8) ==========
+
+@router.post("/loop/start")
+async def start_production_loop():
+    """启动常驻生产循环"""
+    from app.services.production_loop_service import production_loop
+    await production_loop.start()
+    return production_loop.get_status()
+
+
+@router.post("/loop/stop")
+async def stop_production_loop():
+    """停止常驻生产循环"""
+    from app.services.production_loop_service import production_loop
+    await production_loop.stop()
+    return production_loop.get_status()
+
+
+@router.post("/loop/pause")
+async def pause_production_loop():
+    """暂停常驻生产循环"""
+    from app.services.production_loop_service import production_loop
+    await production_loop.pause()
+    return production_loop.get_status()
+
+
+@router.post("/loop/resume")
+async def resume_production_loop():
+    """恢复常驻生产循环"""
+    from app.services.production_loop_service import production_loop
+    await production_loop.resume()
+    return production_loop.get_status()
+
+
+@router.get("/loop/status")
+async def get_production_loop_status():
+    """查看常驻生产循环状态"""
+    from app.services.production_loop_service import production_loop
+    return production_loop.get_status()

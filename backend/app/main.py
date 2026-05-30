@@ -53,7 +53,19 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     setup_logging()
     init_db()
+    # P8: 按配置自动启动常驻生产循环
+    try:
+        if getattr(settings, "AUTO_START_PRODUCTION_LOOP", False):
+            from app.services.production_loop_service import production_loop
+            await production_loop.start()
+    except Exception:
+        pass
     yield
+    try:
+        from app.services.production_loop_service import production_loop
+        await production_loop.stop()
+    except Exception:
+        pass
     await llm_manager.close_all()
 
 

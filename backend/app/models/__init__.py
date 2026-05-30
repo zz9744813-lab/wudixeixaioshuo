@@ -76,6 +76,7 @@ from app.models.evolution_auto import (
     PromptEvolutionRunStatus,
 )
 from app.models.editor import EditorDirective, BookState
+from app.models.automation import AutomationPolicy
 
 __all__ = [
     "Project",
