@@ -10,6 +10,7 @@ import Techniques from './pages/Techniques';
 import WritingFactory from './pages/WritingFactory';
 import AgentConsole from './pages/AgentConsole';
 import Tasks from './pages/Tasks';
+import TaskDetail from './pages/TaskDetail';
 import ModelConfig from './pages/ModelConfig';
 import FeedbackCenter from './pages/FeedbackCenter';
 import EvolutionCenter from './pages/EvolutionCenter';
@@ -38,6 +39,7 @@ function App() {
           <Route path="/factory" element={<WritingFactory />} />
           <Route path="/agents" element={<AgentConsole />} />
           <Route path="/tasks" element={<Tasks />} />
+          <Route path="/tasks/:id" element={<TaskDetail />} />
           <Route path="/models" element={<ModelConfig />} />
           <Route path="/feedback" element={<FeedbackCenter />} />
           <Route path="/evolution" element={<EvolutionCenter />} />

@@ -101,3 +101,79 @@ async def get_recent_activity(limit: int = 10, db: Session = Depends(get_db)):
         })
 
     return {"activities": activity_list}
+
+
+@router.get("/automation-status")
+async def get_automation_status(db: Session = Depends(get_db)):
+    """生产控制台聚合状态 (P9-4)"""
+    # 生产循环状态
+    try:
+        from app.services.production_loop_service import production_loop
+        loop_status = production_loop.get_status()
+    except Exception:
+        loop_status = {"status": "stopped"}
+
+    # Worker 状态
+    worker_status = {}
+    try:
+        from app.services.worker_service import worker
+        worker_status = worker.get_status()
+    except Exception:
+        pass
+
+    # 最近总编复盘
+    last_review = None
+    try:
+        from app.models.editor import EditorDirective
+        ed = db.query(EditorDirective).order_by(
+            EditorDirective.updated_at.desc()
+        ).first()
+        if ed:
+            last_review = {
+                "chapter_index": ed.chapter_index,
+                "updated_at": ed.updated_at.isoformat() if ed.updated_at else None,
+            }
+    except Exception:
+        pass
+
+    # 最近 Prompt 进化
+    last_evolution = None
+    try:
+        from app.models.evolution_auto import PromptEvolutionRun
+        run = db.query(PromptEvolutionRun).order_by(
+            PromptEvolutionRun.created_at.desc()
+        ).first()
+        if run:
+            last_evolution = {
+                "id": run.id,
+                "role": run.role,
+                "status": run.status,
+                "created_at": run.created_at.isoformat() if run.created_at else None,
+            }
+    except Exception:
+        pass
+
+    # 最近记忆固化
+    last_consolidation = None
+    try:
+        from app.models.memory import ConsolidatedMemory
+        cm = db.query(ConsolidatedMemory).order_by(
+            ConsolidatedMemory.created_at.desc()
+        ).first()
+        if cm:
+            last_consolidation = {
+                "id": cm.id,
+                "title": cm.title,
+                "scope": [cm.scope_start_chapter, cm.scope_end_chapter],
+                "created_at": cm.created_at.isoformat() if cm.created_at else None,
+            }
+    except Exception:
+        pass
+
+    return {
+        "production_loop": loop_status,
+        "worker": worker_status,
+        "last_editor_review": last_review,
+        "last_evolution": last_evolution,
+        "last_consolidation": last_consolidation,
+    }
