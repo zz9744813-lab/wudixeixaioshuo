@@ -150,7 +150,8 @@ class PipelineService:
         bible_task = self._get_bible_data(task_info["project_id"])
         memory_task = self._get_memory_context(
             task_info["project_id"],
-            task_info["chapter_index"]
+            task_info["chapter_index"],
+            task_info.get("chapter_title", ""),
         )
         style_task = self._get_style_profile_context(
             task_info["project_id"],
@@ -1654,17 +1655,26 @@ class PipelineService:
         finally:
             db.close()
 
-    async def _get_memory_context(self, project_id: int, chapter_index: int) -> str:
-        """获取记忆上下文（独立 session）- TASK-C3: 增加上一章结尾"""
+    async def _get_memory_context(self, project_id: int, chapter_index: int, chapter_title: str = "", chapter_plan: Optional[dict] = None) -> str:
+        """获取记忆上下文（独立 session）- TASK-C3: 增加上一章结尾；P4: 语义召回"""
         db = SessionLocal()
         try:
             memory_service = MemoryService(db)
 
-            # 1. 获取基础上下文
-            context_data = memory_service.assemble_context_for_chapter(
-                project_id=project_id,
-                chapter_index=chapter_index
-            )
+            # 1. 获取基础上下文（P4: 优先语义增强版，失败自动降级）
+            try:
+                context_data = await memory_service.assemble_context_for_chapter_semantic(
+                    project_id=project_id,
+                    chapter_index=chapter_index,
+                    chapter_title=chapter_title,
+                    chapter_plan=chapter_plan,
+                )
+            except Exception as e:
+                logger.warning(f"语义上下文组装失败，降级基础版: {e}")
+                context_data = memory_service.assemble_context_for_chapter(
+                    project_id=project_id,
+                    chapter_index=chapter_index
+                )
 
             # 2. TASK-C3: 获取上一章结尾
             previous_ending = memory_service.get_previous_chapter_ending(
@@ -1675,6 +1685,11 @@ class PipelineService:
 
             # 3. 格式化上下文
             base_context = memory_service.format_context_for_prompt(context_data)
+
+            # 3b. P4: 追加语义召回片段
+            semantic_text = memory_service.format_semantic_recall_for_prompt(context_data)
+            if semantic_text:
+                base_context = f"{base_context}\n\n{semantic_text}"
 
             # 4. 添加上一章结尾信息
             if chapter_index > 1 and previous_ending.get("ending_excerpt"):

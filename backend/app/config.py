@@ -45,6 +45,11 @@ class Settings(BaseSettings):
     # 开发环境自动创建表（生产环境禁用）
     APP_AUTO_CREATE_TABLES: bool = False
 
+    # Embedding 配置 (P4 语义记忆召回)
+    EMBEDDING_PROVIDER: str = "openai_compatible"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIM: int = 1536
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

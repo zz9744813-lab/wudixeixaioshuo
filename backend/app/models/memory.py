@@ -34,6 +34,12 @@ class CharacterMemory(Base):
     summary = Column(Text)  # 角色摘要
     latest_update_reason = Column(Text)  # 上次更新原因
 
+    # 语义记忆向量 (P4)
+    embedding_text = Column(Text, nullable=True)
+    embedding_vector = Column(JSON, nullable=True)
+    embedding_model = Column(String(100), nullable=True)
+    embedding_updated_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
@@ -67,6 +73,12 @@ class WorldMemory(Base):
     importance_score = Column(Float, default=0.5)  # 重要性
     is_canon = Column(Integer, default=1)  # 1=正史设定，0=临时/可改
 
+    # 语义记忆向量 (P4)
+    embedding_text = Column(Text, nullable=True)
+    embedding_vector = Column(JSON, nullable=True)
+    embedding_model = Column(String(100), nullable=True)
+    embedding_updated_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
@@ -97,6 +109,12 @@ class ChapterMemory(Base):
     unresolved_questions = Column(JSON, default=list)  # 未解之谜
     foreshadow_updates = Column(JSON, default=list)    # 伏笔更新
 
+    # 语义记忆向量 (P4)
+    embedding_text = Column(Text, nullable=True)
+    embedding_vector = Column(JSON, nullable=True)
+    embedding_model = Column(String(100), nullable=True)
+    embedding_updated_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=utc_now)
 
     # 反向关系
@@ -124,6 +142,12 @@ class RelationshipMemory(Base):
 
     history = Column(JSON, default=list)  # 关系变化历史
     last_changed_chapter = Column(Integer)
+
+    # 语义记忆向量 (P4)
+    embedding_text = Column(Text, nullable=True)
+    embedding_vector = Column(JSON, nullable=True)
+    embedding_model = Column(String(100), nullable=True)
+    embedding_updated_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)

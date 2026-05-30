@@ -591,6 +591,67 @@ class MemoryService:
 
         return "\n".join(sections)
 
+    async def assemble_context_for_chapter_semantic(
+        self,
+        project_id: int,
+        chapter_index: int,
+        chapter_title: str = "",
+        chapter_plan: Optional[dict] = None,
+        query_text: Optional[str] = None,
+        semantic_top_k: int = 10,
+        token_budget: int = 6000,
+    ) -> Dict[str, Any]:
+        """语义增强版上下文组装：基础上下文 + 语义召回 top-K。
+
+        语义检索失败时降级为基础 assemble_context_for_chapter。
+        """
+        context = self.assemble_context_for_chapter(project_id, chapter_index)
+
+        # 构造检索 query
+        if not query_text:
+            parts = [chapter_title or ""]
+            if isinstance(chapter_plan, dict):
+                parts.append(str(chapter_plan.get("content", ""))[:500])
+            query_text = "\n".join(p for p in parts if p).strip()
+
+        context["semantic_recall"] = []
+        if not query_text:
+            return context
+
+        try:
+            from app.services.memory_semantic_search_service import (
+                MemorySemanticSearchService,
+            )
+            searcher = MemorySemanticSearchService(self.db)
+            results = await searcher.search(
+                project_id=project_id,
+                query_text=query_text,
+                top_k=semantic_top_k,
+            )
+            # 排除最近 3 章自身，避免重复
+            recent_idx = {c.get("index") for c in context.get("recent_chapters", [])}
+            context["semantic_recall"] = [
+                r for r in results
+                if not (r["memory_type"] == "chapter" and r.get("chapter_index") in recent_idx)
+            ]
+        except Exception as e:
+            logger.warning(f"语义召回失败，降级为基础上下文: {e}")
+
+        return context
+
+    def format_semantic_recall_for_prompt(self, context: Dict[str, Any]) -> str:
+        """把语义召回结果格式化为 Prompt 片段。"""
+        recall = context.get("semantic_recall") or []
+        if not recall:
+            return ""
+        lines = ["## 语义召回的相关记忆\n"]
+        for r in recall:
+            lines.append(
+                f"- [{r['memory_type']}] {r.get('title','')}"
+                f"（相关度 {r.get('score')}）：{(r.get('text') or '')[:160]}"
+            )
+        return "\n".join(lines)
+
     # ========== Memory Update from Chapter ==========
 
     def update_memory_from_chapter(
