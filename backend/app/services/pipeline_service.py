@@ -274,13 +274,16 @@ class PipelineService:
         # 保存评分（独立 session）
         await self._save_critic_result(task_info, score, critique)
 
-        # ===== Step 4: Rewrite (如果分数不够) =====
+        # ===== Step 4: Rewrite (分数不够 或 关键商业维度过低) =====
         final_content = draft_content
         final_score = score
 
-        if score < 80:
+        need_rewrite, rewrite_reasons = self._should_rewrite(critic_result)
+        if need_rewrite:
+            logger.info(f"[Task {task_info['task_id']}] 触发改稿: {rewrite_reasons}")
             rewrite_result = await self._run_rewrite_if_needed(
-                task_info, draft_content, critic_result, bible_data, score, memory_context, knowledge_context, editor_directive
+                task_info, draft_content, critic_result, bible_data, score, memory_context,
+                knowledge_context, editor_directive, rewrite_reasons
             )
 
             if rewrite_result.get("success"):
@@ -929,7 +932,7 @@ class PipelineService:
 章节内容:
 {content[:8000]}{consistency_section}
 
-请严格按照以下九维 Rubric 进行评分，每维度必须引用原文证据。
+请严格按照以下 15 维 Rubric 进行评分，每维度必须引用原文证据。
 
 ## 评分锚点（Rubric）
 
@@ -987,6 +990,36 @@ class PipelineService:
 - 50: 平铺直叙，缺乏吸引力
 - 30: 晦涩难懂或过于文艺，不符合网文调性
 
+### 10. 情绪钩子强度 (emotional_hook_strength, 满分100)
+- 90: 情绪冲击强烈，能瞬间抓住读者情绪（愤怒/期待/爽/虐）
+- 50: 情绪平淡，难以共情
+- 30: 几乎无情绪牵引
+
+### 11. 追读欲 (reader_addiction, 满分100)
+- 90: 读完强烈想看下一章，停不下来
+- 50: 可看可不看，缺乏追更动力
+- 30: 容易弃书
+
+### 12. 主角主动性 (protagonist_agency, 满分100)
+- 90: 主角主动推动剧情、做关键决策，而非被动挨打
+- 50: 主角部分被动，多被事件推着走
+- 30: 主角完全被动，沦为背景板
+
+### 13. 冲突密度 (conflict_density, 满分100)
+- 90: 冲突贯穿全章，张力持续，无冷场
+- 50: 冲突稀疏，存在大段平淡过渡
+- 30: 几乎无有效冲突
+
+### 14. 信息增量 (information_gain, 满分100)
+- 90: 提供大量新信息（设定/线索/反转），读者收获感强
+- 50: 信息增量有限，多为已知内容复述
+- 30: 几乎无新信息
+
+### 15. 总编指令达成度 (editor_directive_fulfillment, 满分100)
+- 90: 完整达成总编全局指令（节奏/伏笔/爽点/角色目标）
+- 50: 部分达成，存在偏离
+- 30: 基本未执行总编指令
+
 ## 输出要求（严格 JSON 格式）
 
 必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释：
@@ -1002,7 +1035,19 @@ class PipelineService:
     "ending_hook": 85,
     "style_stability": 77,
     "continuity": 90,
-    "commercial_readability": 76
+    "commercial_readability": 76,
+    "emotional_hook_strength": 80,
+    "reader_addiction": 78,
+    "protagonist_agency": 75,
+    "conflict_density": 74,
+    "information_gain": 72,
+    "editor_directive_fulfillment": 76
+  }},
+  "commercial_diagnosis": {{
+    "strongest_hook": "最强的钩子是什么",
+    "weakest_point": "最弱的环节是什么",
+    "reader_drop_risk": "读者最可能在哪里弃书",
+    "next_chapter_pull": "下一章拉力来自哪里"
   }},
   "anchored_comments": {{
     "pacing": "按 rubric 属于 70 档：整体流畅，但中段重复解释主角动机。"
@@ -1041,7 +1086,8 @@ class PipelineService:
         self, task_info: Dict, content: str, critic_result: Dict,
         bible_data: Dict, current_score: int, memory_context: str,
         knowledge_context: Optional[Dict] = None,
-        editor_directive: Optional[Dict] = None
+        editor_directive: Optional[Dict] = None,
+        rewrite_reasons: Optional[list] = None
     ) -> Dict:
         """如果需要，执行 Rewrite - 使用 must_fix_items 和 rewrite_plan"""
         steps = []
@@ -1053,6 +1099,13 @@ class PipelineService:
         # 联网研究知识（改稿同样注入）
         knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="rewrite")
 
+        # 触发原因（追读欲/钩子/总编指令等），注入改稿 Prompt
+        reasons_text = ""
+        if rewrite_reasons:
+            reasons_text = "## 本次改稿触发原因\n\n请优先解决以下问题：\n" + "\n".join(
+                f"- {r}" for r in rewrite_reasons
+            )
+
         # 提取结构化 Critic 结果
         must_fix_items = critic_result.get("must_fix_items", [])
         rewrite_plan = critic_result.get("rewrite_plan", [])
@@ -1061,7 +1114,7 @@ class PipelineService:
         rewrite_count = 0
         max_rewrites = min(2, len(rewrite_plan)) if rewrite_plan else 2
 
-        while final_score < 80 and rewrite_count < max_rewrites:
+        while rewrite_count < max_rewrites:
             rewrite_count += 1
             logger.info(f"[Task {task_info['task_id']}] Rewrite #{rewrite_count} (score={final_score})")
 
@@ -1090,6 +1143,8 @@ class PipelineService:
                     bible_data
                 )
                 prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
+                if reasons_text:
+                    prompt = f"{prompt}\n\n{reasons_text}"
 
                 response = await llm_manager.generate(
                     prompt=prompt,
@@ -1446,6 +1501,32 @@ class PipelineService:
                 logger.warning("line_comment 缺少 quote 字段")
 
         return True
+
+    def _should_rewrite(self, critic_result: Dict) -> tuple:
+        """判断是否触发 Rewrite，并返回触发原因列表。
+
+        即使 overall_score >= 80，只要关键商业维度过低也触发改稿。
+        """
+        score = critic_result.get("score", critic_result.get("overall_score", 0)) or 0
+        dims = critic_result.get("score_breakdown") or critic_result.get("dimension_scores") or {}
+
+        reasons = []
+        if score < 80:
+            reasons.append(f"总分不足（{score} < 80）")
+
+        thresholds = {
+            "reader_addiction": "追读欲不足",
+            "emotional_hook_strength": "情绪钩子不足",
+            "ending_hook": "章末钩子不足",
+            "editor_directive_fulfillment": "未完成总编指令",
+            "protagonist_agency": "主角主动性不足",
+        }
+        for dim, reason in thresholds.items():
+            value = dims.get(dim)
+            if isinstance(value, (int, float)) and value < 75:
+                reasons.append(f"{reason}（{dim}={value}）")
+
+        return (len(reasons) > 0, reasons)
 
     # ===== 辅助方法 =====
 
