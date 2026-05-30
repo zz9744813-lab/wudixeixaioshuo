@@ -110,3 +110,23 @@ class VersionHistory(Base):
 
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
+
+
+class PromptABTestRun(Base):
+    """Prompt A/B 真实验证记录 (P6)"""
+    __tablename__ = "prompt_ab_test_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, index=True)
+    role = Column(String(50), index=True)
+    baseline_prompt_id = Column(Integer, nullable=True)
+    candidate_prompt_id = Column(Integer, nullable=True)
+    sample_ids = Column(JSON, default=list)
+    baseline_avg_score = Column(Float, default=0.0)
+    candidate_avg_score = Column(Float, default=0.0)
+    improvement = Column(Float, default=0.0)
+    passed = Column(Integer, default=0)
+    decision = Column(String(50), default="reject")
+    details = Column(JSON, default=dict)
+    total_cost = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=utc_now)

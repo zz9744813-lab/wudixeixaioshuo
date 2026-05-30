@@ -78,27 +78,44 @@ class EvolutionOrchestrator:
             )
             run.candidate_prompts_json = candidates
 
-            # 5. A/B 验证（简化版：用评分差异模拟）
+            # 5. A/B 验证（P6: 真实验证，用低分样本跑评审比较平均分）
             run.status = PromptEvolutionRunStatus.TESTING
             self.db.commit()
 
-            ab_result = self._simulate_ab_test(candidates, policy)
+            from app.services.prompt_ab_test_service import PromptABTestService
+            ab_service = PromptABTestService(self.db)
+            candidate_payload = [
+                {"prompt": c.get("prompt") or c.get("content") or "", "raw": c}
+                if isinstance(c, dict) else {"prompt": str(c)}
+                for c in candidates
+            ]
+            ab_result = await ab_service.run_ab_test(
+                project_id=getattr(policy, "project_id", None) or 0,
+                role=policy.role,
+                baseline_prompt=current_prompt,
+                candidate_prompts=candidate_payload,
+                samples=samples,
+                min_improvement=policy.min_improvement,
+            )
             run.ab_test_result_json = ab_result
 
-            # 6. 判断是否应用
-            best_candidate = ab_result.get("best_candidate")
-            improvement = ab_result.get("improvement", 0)
+            # 6. 判断是否应用（仅当 winner.passed 为 True）
+            winner = ab_result.get("winner")
+            improvement = winner.get("improvement", 0) if winner else 0
 
-            if best_candidate is not None and improvement >= policy.min_improvement:
+            if winner and winner.get("passed"):
+                best_idx = winner.get("candidate_index", 0)
                 if policy.auto_apply:
                     run.status = PromptEvolutionRunStatus.APPLIED
                     run.applied_at = utc_now()
-                    self._apply_prompt(policy.role, candidates[best_candidate])
+                    self._apply_prompt(policy.role, candidates[best_idx])
                 else:
                     run.status = PromptEvolutionRunStatus.APPLIED
             else:
                 run.status = PromptEvolutionRunStatus.FAILED
-                run.error_message = f"改进幅度 {improvement:.1f} 未达到阈值 {policy.min_improvement}"
+                run.error_message = (
+                    f"改进幅度 {improvement:.1f} 未达到阈值 {policy.min_improvement}"
+                )
 
             run.finished_at = utc_now()
             self.db.commit()
@@ -192,41 +209,3 @@ class EvolutionOrchestrator:
         if target:
             target.is_active = True
         self.db.commit()
-
-    def _simulate_ab_test(
-        self,
-        candidates: list,
-        policy: PromptEvolutionPolicy,
-    ) -> Dict[str, Any]:
-        """简化版 A/B 验证（用质量指标差异模拟）。"""
-        if not candidates:
-            return {"best_candidate": None, "improvement": 0}
-
-        # 用诊断中的平均分作为基线
-        samples = self.quality_monitor.collect_failure_samples(
-            policy.role, policy.trigger_window_days
-        )
-        baseline_score = (
-            sum(s.get("score", 0) for s in samples) / len(samples) if samples else 70.0
-        )
-
-        # 模拟：第一个候选预期改善 +5，第二个 +3，第三个 +1
-        improvements = [5.0, 3.0, 1.0]
-        best_idx = 0
-        best_improvement = 0
-
-        for i, candidate in enumerate(candidates):
-            imp = improvements[i] if i < len(improvements) else 1.0
-            if imp > best_improvement:
-                best_improvement = imp
-                best_idx = i
-
-        return {
-            "baseline_score": baseline_score,
-            "best_candidate": best_idx,
-            "improvement": best_improvement,
-            "candidate_scores": [
-                {"index": i, "simulated_improvement": improvements[i] if i < len(improvements) else 1.0}
-                for i in range(len(candidates))
-            ],
-        }
