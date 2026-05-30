@@ -22,6 +22,7 @@ from app.routers import (
     dashboard,
     events,
     evolution,
+    evolution_auto,
     export,
     feedback,
     foreshadows,
@@ -32,6 +33,7 @@ from app.routers import (
     production,
     projects,
     prompts,
+    research,
     review,
     reviews,
     skills,
@@ -102,6 +104,8 @@ app.include_router(usage.router, prefix="/api/usage", tags=["Usage"], dependenci
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"], dependencies=PROTECTED)
 app.include_router(review.router, prefix="/api/review", tags=["Review"], dependencies=PROTECTED)
 app.include_router(cover.router, prefix="/api/covers", tags=["Covers"], dependencies=PROTECTED)
+app.include_router(research.router, prefix="/api", tags=["Research"], dependencies=PROTECTED)
+app.include_router(evolution_auto.router, prefix="/api", tags=["Evolution Auto"], dependencies=PROTECTED)
 
 # SSE 端点内部自行验证 API Key，支持 Header 或 query 参数。
 app.include_router(events.router, prefix="/api/events", tags=["Events"])

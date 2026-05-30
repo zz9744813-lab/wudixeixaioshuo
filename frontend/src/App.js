@@ -21,6 +21,8 @@ import PromptTemplates from './pages/PromptTemplates';
 import AgentOrchestratorPage from './pages/AgentOrchestratorPage';
 import AgentRunDetailPage from './pages/AgentRunDetailPage';
 import LLMRouterPage from './pages/LLMRouterPage';
+import ResearchAgentPage from './pages/ResearchAgentPage';
+import EvolutionAutoPage from './pages/EvolutionAutoPage';
 
 function App() {
   return (
@@ -47,6 +49,8 @@ function App() {
           <Route path="/agent-orchestrator" element={<AgentOrchestratorPage />} />
           <Route path="/agent-runs/:id" element={<AgentRunDetailPage />} />
           <Route path="/llm-routes" element={<LLMRouterPage />} />
+          <Route path="/research-agent" element={<ResearchAgentPage />} />
+          <Route path="/evolution-auto" element={<EvolutionAutoPage />} />
         </Routes>
       </Layout>
     </Router>

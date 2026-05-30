@@ -59,6 +59,7 @@ from app.models.agent_run import (
     SubAgentTask,
     SubAgentTaskStatus,
 )
+from app.models.subagent_result import SubAgentResult, SubAgentResultStatus
 from app.models.provider_route_config import ProviderRouteConfig
 from app.models.research import (
     ResearchRun,
@@ -136,6 +137,8 @@ __all__ = [
     "AgentStepStatus",
     "SubAgentTask",
     "SubAgentTaskStatus",
+    "SubAgentResult",
+    "SubAgentResultStatus",
     # Provider Route models (P0)
     "ProviderRouteConfig",
     # Research models (P1)

@@ -66,6 +66,7 @@ class AgentRun(Base):
     plans = relationship("AgentPlan", back_populates="run", cascade="all, delete-orphan")
     steps = relationship("AgentStep", back_populates="run", cascade="all, delete-orphan")
     subagent_tasks = relationship("SubAgentTask", back_populates="run", cascade="all, delete-orphan")
+    subagent_results = relationship("SubAgentResult", back_populates="run", cascade="all, delete-orphan")
 
 
 class AgentPlanStatus(str, PyEnum):
