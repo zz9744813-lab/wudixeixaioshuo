@@ -16,7 +16,7 @@ services:
       - UPLOAD_DIR=/app/data/uploads
       - ARTIFACTS_DIR=/app/data/artifacts
       - LOG_LEVEL=info
-      - CORS_ORIGINS=http://localhost:3005,http://127.0.0.1:3000
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://107.172.138.14:3005,http://localhost:3005,http://127.0.0.1:3000}
       - APP_SECRET_KEY=${APP_SECRET_KEY}
       - APP_API_KEY=${APP_API_KEY}
     restart: unless-stopped
@@ -38,7 +38,7 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
     environment:
-      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://107.172.138.14:8000/api}
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend

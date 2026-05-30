@@ -1,0 +1,35 @@
+name: Frontend Quality Gate
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main, develop]
+
+jobs:
+  frontend-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Dashboard.jsx exists
+        run: test -f src/pages/Dashboard.jsx || { echo "src/pages/Dashboard.jsx missing"; exit 1; }
+
+      - name: Build
+        run: CI=false npm run build
+
+      - name: Check build artifacts
+        run: test -d build && ls -la build/

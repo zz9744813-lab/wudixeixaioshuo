@@ -18,6 +18,7 @@ from app.routers import (
     foreshadows,
     health,
     llm_routes,
+    logs,
     memory,
     models,
     production,
@@ -63,5 +64,6 @@ __all__ = [
     "review",
     "cover",
     "llm_routes",
+    "logs",
     "research",
 ]

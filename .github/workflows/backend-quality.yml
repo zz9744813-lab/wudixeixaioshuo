@@ -1,0 +1,60 @@
+name: Backend Quality Gate
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main, develop]
+
+jobs:
+  backend-quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./backend
+    env:
+      APP_API_KEY: test-api-key-for-ci
+      APP_SECRET_KEY: test-secret-key-for-ci
+      APP_ENV: test
+      DATABASE_URL: sqlite:///./quality.db
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compile all (Python 3.11 syntax gate)
+        run: python -m compileall app/ -q
+
+      - name: Import app (catch import-time errors)
+        run: python -c "import app.main; print('import app.main OK')"
+
+      - name: Verify route paths (no /api/api, logs + agent-runs mounted)
+        run: |
+          python - <<'PY'
+          from app.main import app
+          paths = {r.path for r in app.routes if hasattr(r, "path")}
+          dup = [p for p in paths if p.startswith("/api/api")]
+          assert not dup, f"duplicated /api/api prefix: {dup}"
+          assert any(p.startswith("/api/logs") for p in paths), "missing /api/logs route"
+          assert any(p.startswith("/api/agent-runs") for p in paths), "missing /api/agent-runs route"
+          print("route paths OK")
+          PY
+
+      - name: Alembic single head
+        run: |
+          heads=$(python -m alembic heads 2>/dev/null | grep -c "(head)")
+          echo "head count: $heads"
+          test "$heads" -eq 1 || { echo "expected exactly 1 alembic head"; exit 1; }
+
+      - name: Alembic upgrade head on clean DB
+        run: |
+          rm -f quality.db
+          python -m alembic upgrade head

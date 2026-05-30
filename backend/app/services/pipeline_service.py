@@ -673,6 +673,7 @@ class PipelineService:
         db = SessionLocal()
         try:
             estimated_words = beat.get("estimated_words", 1500)
+            playbook_rules = "\n".join(playbook.get("rules", ["无"]))
 
             prompt = f"""请撰写本章的第 {beat_index + 1}/{total_beats} 个段落。
 
@@ -681,7 +682,7 @@ class PipelineService:
 本段落内容要求: {beat.get('content', '')}
 目标字数: {estimated_words} 字
 
-{f'前一段结尾（请自然承接，不要重复开头）:\n{previous_ending}\n' if previous_ending else ''}
+{f'前一段结尾（请自然承接，不要重复开头）:{chr(10)}{previous_ending}{chr(10)}' if previous_ending else ''}
 
 世界观设定:
 {bible_data.get('world_setting', '')}
@@ -695,7 +696,7 @@ class PipelineService:
 {tech_instructions}
 
 写作手册规则:
-{"\\n".join(playbook.get('rules', ['无']))}
+{playbook_rules}
 
 重要提示：
 1. 这是第 {beat_index + 1} 段，本章共 {total_beats} 段
@@ -1195,7 +1196,7 @@ class PipelineService:
 伏笔列表:
 {json.dumps(bible_data.get('foreshadowing', []), ensure_ascii=False)}
 
-{f"上一章结尾:\n{previous_ending.get('ending_excerpt', '')}\n\n待解悬念: {previous_ending.get('open_hooks', [])}\n" if task_info['chapter_index'] > 1 else ""}
+{f"上一章结尾:{chr(10)}{previous_ending.get('ending_excerpt', '')}{chr(10)}{chr(10)}待解悬念: {previous_ending.get('open_hooks', [])}{chr(10)}" if task_info['chapter_index'] > 1 else ""}
 
 记忆上下文:
 {memory_context}

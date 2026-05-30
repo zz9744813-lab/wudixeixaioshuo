@@ -28,6 +28,7 @@ from app.routers import (
     foreshadows,
     health,
     llm_routes,
+    logs,
     memory,
     models,
     production,
@@ -101,6 +102,7 @@ app.include_router(worker.router, prefix="/api/worker", tags=["Worker"], depende
 app.include_router(memory.router, prefix="/api/memory", tags=["Memory"], dependencies=PROTECTED)
 app.include_router(export.router, prefix="/api/export", tags=["Export"], dependencies=PROTECTED)
 app.include_router(usage.router, prefix="/api/usage", tags=["Usage"], dependencies=PROTECTED)
+app.include_router(logs.router, tags=["Logs"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"], dependencies=PROTECTED)
 app.include_router(review.router, prefix="/api/review", tags=["Review"], dependencies=PROTECTED)
 app.include_router(cover.router, prefix="/api/covers", tags=["Covers"], dependencies=PROTECTED)
