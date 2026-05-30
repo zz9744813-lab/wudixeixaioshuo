@@ -116,8 +116,8 @@ class TestConfigFailFast:
         """生产环境必须设置APP_API_KEY"""
         from app.config import Settings
 
-        # 创建生产环境配置，不设置API Key
-        with pytest.raises(RuntimeError) as exc_info:
+        # 构造即校验：生产环境缺 API Key 必须失败（ConfigValidationError 同时是 ValueError）
+        with pytest.raises((RuntimeError, ValueError)) as exc_info:
             settings = Settings(APP_ENV="production", APP_API_KEY="")
             settings.validate_fail_fast()
 

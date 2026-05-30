@@ -32,13 +32,19 @@ def test_worker_control_without_auth_returns_401(client):
     assert response.status_code == 401
 
 
-def test_sse_stream_with_api_key_header_returns_200(client, api_headers, monkeypatch):
-    """SSE /api/events/stream 在 APP_API_KEY 配置 + X-API-Key header 时应返回 200"""
+def test_sse_stream_with_api_key_header_returns_200(monkeypatch):
+    """SSE 鉴权：配置 APP_API_KEY 且提供正确 X-API-Key header 时，鉴权依赖应放行。
+
+    不真实打开无限事件流（会阻塞在 queue.get 导致 TestClient 关闭挂起），
+    直接验证鉴权依赖 validate_api_key 的放行逻辑。
+    """
+    from unittest.mock import MagicMock
+    from app.routers.events import validate_api_key
+
     monkeypatch.setenv("APP_API_KEY", "test-secret-key")
-    headers = {"X-API-Key": "test-secret-key"}
-    # SSE endpoint 返回 200 并建立流连接
-    response = client.get("/api/events/stream", headers=headers)
-    assert response.status_code == 200
+    request = MagicMock()
+    request.headers = {"X-API-Key": "test-secret-key"}
+    assert validate_api_key(request, api_key="") is True
 
 
 def test_sse_stream_without_auth_returns_401(client, monkeypatch):

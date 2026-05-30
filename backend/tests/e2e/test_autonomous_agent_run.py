@@ -30,13 +30,17 @@ def api_key():
     return {"X-API-Key": "test-api-key-for-ci", "Content-Type": "application/json"}
 
 
-def test_e2e_full_agent_run(client, api_key):
-    """端到端测试：创建 provider route → 启动 agent_run → 生成 plan → 执行工具 → 生成报告。"""
+def test_e2e_full_agent_run(client, api_key, db_session):
+    """端到端测试：创建 agent_run → 生成 plan → 执行工具 → 落库步骤与报告。
 
-    # 1. 创建 provider route（需要先有 provider）
-    # 使用已有的 model_providers 或跳过此步
+    注意：/start 端点用 asyncio.create_task + 独立 SessionLocal 在后台执行，
+    与测试事务连接隔离，无法在同一事务里观察到结果。因此此处直接通过
+    service 层同步执行 execute_run，验证编排主流程真实落库。
+    """
+    import asyncio
+    from app.services.orchestrator_service import OrchestratorService
 
-    # 2. 启动 agent_run
+    # 1. 启动 agent_run（走真实 API 创建记录）
     response = client.post(
         "/api/agent-runs",
         json={
@@ -47,46 +51,39 @@ def test_e2e_full_agent_run(client, api_key):
         headers=api_key,
     )
     assert response.status_code == 200
-    run_id = response.data["id"]
-    assert response.data["status"] == "pending"
+    run_id = response.json()["id"]
+    assert response.json()["status"] == "pending"
 
-    # 3. 启动执行
-    response = client.post(f"/api/agent-runs/{run_id}/start", headers=api_key)
-    assert response.status_code == 200
+    # 2. 同步执行编排（共享测试事务连接）
+    service = OrchestratorService(db_session)
+    asyncio.run(service.execute_run(run_id))
 
-    # 4. 等待执行完成（轮询）
-    import time
-    for _ in range(30):
-        time.sleep(0.5)
-        response = client.get(f"/api/agent-runs/{run_id}", headers=api_key)
-        if response.json()["status"] in ["succeeded", "failed", "paused"]:
-            break
-
-    # 5. 获取运行详情
+    # 3. 验证运行详情
     response = client.get(f"/api/agent-runs/{run_id}", headers=api_key)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == run_id
+    assert data["status"] in ["succeeded", "failed", "paused"]
 
-    # 6. 验证步骤已生成
+    # 4. 验证步骤已落库
     response = client.get(f"/api/agent-runs/{run_id}/steps", headers=api_key)
     assert response.status_code == 200
     steps = response.json()
     assert len(steps) > 0
 
-    # 7. 验证事件已记录
+    # 5. 验证事件已记录
     response = client.get(f"/api/agent-runs/{run_id}/events", headers=api_key)
     assert response.status_code == 200
     events = response.json()
     assert len(events) > 0
 
-    # 8. 验证报告已生成
+    # 6. 验证报告可读
     response = client.get(f"/api/agent-runs/{run_id}/report", headers=api_key)
     assert response.status_code == 200
     report = response.json()
     assert report["run_id"] == run_id
 
-    # 9. 验证子 Agent 任务
+    # 7. 验证子 Agent 任务接口可达
     response = client.get(f"/api/subagents/tasks", params={"run_id": run_id}, headers=api_key)
     assert response.status_code == 200
 
@@ -122,7 +119,7 @@ def test_e2e_agent_run_cancel(client, api_key):
         json={"user_request": "测试取消", "mode": "autonomous"},
         headers=api_key,
     )
-    run_id = response.data["id"]
+    run_id = response.json()["id"]
 
     response = client.post(f"/api/agent-runs/{run_id}/start", headers=api_key)
     assert response.status_code == 200

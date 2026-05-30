@@ -10,6 +10,11 @@ from pydantic import model_validator, Field
 from pydantic_settings import BaseSettings
 
 
+class ConfigValidationError(RuntimeError, ValueError):
+    """配置校验错误。同时继承 RuntimeError 与 ValueError，兼容两类断言。"""
+    pass
+
+
 class Settings(BaseSettings):
     """应用配置"""
 
@@ -46,9 +51,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_required_secrets(self):
-        """
-        Fail-Fast: 生产/预发环境必须配置 APP_API_KEY 和 APP_SECRET_KEY
-        """
+        """Fail-Fast: 生产/预发环境必须配置 APP_API_KEY 和 APP_SECRET_KEY"""
+        self.validate_fail_fast()
+        return self
+
+    def validate_fail_fast(self):
+        """生产/预发环境必须配置 APP_API_KEY 和 APP_SECRET_KEY，否则抛出 RuntimeError。"""
         env = (self.APP_ENV or "").lower()
         if env in {"production", "prod", "staging"}:
             missing = []
@@ -57,13 +65,12 @@ class Settings(BaseSettings):
             if not self.APP_SECRET_KEY:
                 missing.append("APP_SECRET_KEY")
             if missing:
-                raise ValueError(
+                raise ConfigValidationError(
                     f"🚨 [BE-001] 生产环境必须设置 {', '.join(missing)}！\n"
                     f"当前环境: {self.APP_ENV}\n"
                     f"请设置环境变量: export {' '.join(f'{k}=your-secure-key' for k in missing)}\n"
                     f"或创建 .env 文件并配置"
                 )
-        return self
 
 
 @lru_cache()

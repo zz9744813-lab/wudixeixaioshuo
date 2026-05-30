@@ -18,6 +18,8 @@ class CreateAgentRunRequest(BaseModel):
     budget_tokens: Optional[int] = None
     budget_cost: Optional[float] = None
     max_steps: int = 30
+    max_retries: int = 2
+    max_concurrency: int = 3
 
 class AgentRunResponse(BaseModel):
     id: int
@@ -31,8 +33,14 @@ class AgentRunResponse(BaseModel):
 async def create_agent_run(request: CreateAgentRunRequest, db: Session = Depends(get_db)):
     service = get_orchestrator_service(db)
     run = await service.start_run(
-        user_request=request.user_request, project_id=request.project_id, mode=request.mode,
-        budget_tokens=request.budget_tokens, budget_cost=request.budget_cost, max_steps=request.max_steps
+        user_request=request.user_request,
+        project_id=request.project_id,
+        mode=request.mode,
+        budget_tokens=request.budget_tokens,
+        budget_cost=request.budget_cost,
+        max_steps=request.max_steps,
+        max_retries=request.max_retries,
+        max_concurrency=request.max_concurrency,
     )
     return {"id": run.id, "status": run.status, "mode": run.mode, "user_request": run.user_request}
 
@@ -60,6 +68,39 @@ async def _execute_agent_run_in_background(run_id: int):
 async def start_agent_run(run_id: int):
     asyncio.create_task(_execute_agent_run_in_background(run_id))
     return {"message": "运行已启动", "run_id": run_id}
+
+@router.post("/{run_id}/resume")
+async def resume_agent_run(run_id: int, db: Session = Depends(get_db)):
+    service = get_orchestrator_service(db)
+    try:
+        run = await service.resume_run(run_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    return {"message": "运行已恢复", "run_id": run.id, "status": run.status}
+
+@router.get("/{run_id}/steps")
+async def get_agent_run_steps(run_id: int, db: Session = Depends(get_db)):
+    service = get_orchestrator_service(db)
+    status = service.get_run_status(run_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    return status["steps"]
+
+@router.get("/{run_id}/events")
+async def get_agent_run_events(run_id: int, db: Session = Depends(get_db)):
+    service = get_orchestrator_service(db)
+    status = service.get_run_status(run_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    return service.get_run_events(run_id)
+
+@router.get("/{run_id}/report")
+async def get_agent_run_report(run_id: int, db: Session = Depends(get_db)):
+    service = get_orchestrator_service(db)
+    report = service.get_run_report(run_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    return report
 
 @router.post("/{run_id}/cancel")
 async def cancel_agent_run(run_id: int, db: Session = Depends(get_db)):
