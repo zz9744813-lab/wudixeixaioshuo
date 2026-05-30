@@ -35,6 +35,7 @@ from app.routers import (
     production,
     projects,
     prompts,
+    reader_training,
     research,
     review,
     reviews,
@@ -110,6 +111,7 @@ app.include_router(subagents.router, prefix="/api", tags=["SubAgents"], dependen
 app.include_router(models.router, prefix="/api/models", tags=["Models"], dependencies=PROTECTED)
 app.include_router(llm_routes.router, prefix="/api/llm-routes", tags=["LLM Routes"], dependencies=PROTECTED)
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"], dependencies=PROTECTED)
+app.include_router(reader_training.router, prefix="/api/reader-training", tags=["Reader Training"], dependencies=PROTECTED)
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"], dependencies=PROTECTED)
 app.include_router(bible.router, prefix="/api", tags=["Bible"], dependencies=PROTECTED)
 app.include_router(worker.router, prefix="/api/worker", tags=["Worker"], dependencies=PROTECTED)

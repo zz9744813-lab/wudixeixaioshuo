@@ -1,6 +1,5 @@
-"""
-AutomationSchedulerService - 项目级自动化调度 (P8)
-按 AutomationPolicy 决定是否触发总编复盘 / 联网研究 / Prompt 进化。
+"""AutomationSchedulerService - 项目级自动化调度 (P8)
+按 AutomationPolicy 决定是否触发总编复盘 / 联网研究 / Prompt 进化 / 真人训练营批处理。
 每个子任务失败不影响其它。
 """
 
@@ -11,6 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.models.automation import AutomationPolicy
 from app.models.chapter import Chapter, ChapterStatus
+from app.models.feedback import Feedback
+from app.services.reader_training_service import ReaderTrainingService
+from app.services.event_bus import event_bus
 from app.utils.time_utils import utc_now
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,11 @@ class AutomationSchedulerService:
         except Exception as e:
             logger.warning(f"[Automation] Prompt 进化失败: {e}")
             result["evolution"] = {"error": str(e)}
+        try:
+            result["reader_training"] = await self.maybe_process_reader_training(project_id)
+        except Exception as e:
+            logger.warning(f"[Automation] 真人训练营批处理失败: {e}")
+            result["reader_training"] = {"error": str(e)}
         return result
 
     async def maybe_run_editor_review(self, project_id: int) -> dict:
@@ -110,3 +117,44 @@ class AutomationSchedulerService:
         self.db.commit()
         return {"triggered": True, "end_chapter": latest,
                 "min_samples": policy.min_samples_for_evolution}
+
+    # ========== P5: 真人训练营异步批处理 ==========
+
+    async def maybe_process_reader_training(self, project_id: int) -> dict:
+        """按 AutomationPolicy 配置周期跑读取 feedback batch。"""
+        policy = self._get_policy(project_id)
+        if not policy or not policy.enable_reader_training:
+            return {"triggered": False, "reason": "未启用"}
+
+        # 检查节流：距离上次处理至少 interval_minutes
+        now = utc_now()
+        last_at = policy.last_reader_training_at
+        if last_at is not None:
+            elapsed_m = (now - last_at).total_seconds() / 60
+            if elapsed_m < policy.reader_training_interval_minutes:
+                return {"triggered": False, "reason": f"未到间隔（{elapsed_m:.0f}m/{policy.reader_training_interval_minutes}m）"}
+
+        # 如果上次处理的 batch 已经覆盖所有 feedback，则跳过
+        pending_count = (
+            self.db.query(Feedback)
+            .filter(
+                Feedback.status == "queued",
+                Feedback.source == "reader",
+                Feedback.project_id == project_id,
+            )
+            .count()
+        )
+        if pending_count < policy.reader_training_min_batch:
+            return {"triggered": False, "reason": f"待处理{pending_count} < min_batch{policy.reader_training_min_batch}"}
+
+        reader_training_service = ReaderTrainingService(self.db)
+        result = await reader_training_service.process_pending_batch(
+            project_id=project_id,
+            min_batch=policy.reader_training_min_batch,
+        )
+        # 更新策略
+        if result.get("status") == "processed":
+            policy.last_reader_training_at = now
+            policy.last_reader_training_batch_id = result.get("batch_id", 0) or 0
+            self.db.commit()
+        return result

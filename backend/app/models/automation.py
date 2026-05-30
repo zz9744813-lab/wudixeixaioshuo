@@ -35,5 +35,11 @@ class AutomationPolicy(Base):
     last_evolution_chapter = Column(Integer, default=0)
     last_research_at = Column(DateTime, nullable=True)
 
+    enable_reader_training = Column(Integer, default=1)
+    reader_training_min_batch = Column(Integer, default=5)
+    reader_training_interval_minutes = Column(Integer, default=30)
+    last_reader_training_batch_id = Column(Integer, default=0)
+    last_reader_training_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
