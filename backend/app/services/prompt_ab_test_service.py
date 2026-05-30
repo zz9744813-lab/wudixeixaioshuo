@@ -1,10 +1,10 @@
-"""
-PromptABTestService - 真实 Prompt A/B 验证 (P6)
-对每个候选 Prompt 用真实低分样本跑生成/评审，用同一 Critic 打分，
-比较平均分，满足阈值才上线。绝不使用固定假提升。
+"""PromptABTestService - 真实 Prompt A/B 验证 (P6)
+按方案 P4：真人分 reader_score / dimension_scores 优先作为金标准。
 """
 
 import logging
+import re
+import json
 from typing import Dict, List, Optional
 
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class PromptABTestService:
-    """真实 A/B 验证服务"""
+    """真实 A/B 验证服务（真人分优先评分）"""
 
     def __init__(self, db: Session):
         self.db = db
@@ -35,21 +35,27 @@ class PromptABTestService:
     ) -> dict:
         """对候选 Prompt 做真实 A/B 验证。
 
+        评分优先级：
+        1. 样本自带 reader_score（真人总分，优先作为金标准）
+        2. dimension_scores reader_addiction/commercial_readability 均值
+        3. 用 Critic 跑分（系统自评，降级）
+
         返回 {"winner": {...} | None, "runs": [...], "baseline_avg": float}
-        winner.passed 为 True 时才允许上线。
         """
         use_samples = (samples or [])[:max_samples]
         if len(use_samples) < min_samples:
-            logger.warning(
-                f"A/B 样本不足（{len(use_samples)} < {min_samples}），跳过"
-            )
+            logger.warning(f"A/B 样本不足（{len(use_samples)} < {min_samples}），跳过")
             return {"winner": None, "runs": [], "baseline_avg": 0.0,
                     "reason": "样本不足"}
 
-        # 1. baseline 平均分
-        baseline_avg, _ = await self._score_prompt(
-            project_id, role, baseline_prompt, use_samples
+        # 金标准：优先真人分
+        baseline_gold_scores, baseline_detail = self._collect_gold_scores(
+            use_samples, role=role, prompt_text=baseline_prompt, project_id=project_id,
         )
+        use_reader_gold = baseline_detail.get("source") == "reader"
+        baseline_avg = round(
+            sum(baseline_gold_scores) / len(baseline_gold_scores), 2
+        ) if baseline_gold_scores else 0.0
 
         runs = []
         winner = None
@@ -58,23 +64,29 @@ class PromptABTestService:
             if not cand_prompt:
                 continue
 
-            cand_avg, cand_cost = await self._score_prompt(
-                project_id, role, cand_prompt, use_samples
-            )
+            if use_reader_gold:
+                cand_gold_scores, _ = self._collect_gold_scores(
+                    use_samples, role=role, prompt_text=cand_prompt, project_id=project_id,
+                )
+                cand_avg = round(
+                    sum(cand_gold_scores) / len(cand_gold_scores), 2
+                ) if cand_gold_scores else 0.0
+                cand_cost = 0.0  # 真人分无需额外 LLM 调用
+            else:
+                cand_avg, cand_cost = await self._score_prompt(
+                    project_id, role, cand_prompt, use_samples
+                )
+
             improvement = round(cand_avg - baseline_avg, 2)
             passed = improvement >= min_improvement
 
             record = self._persist_run(
-                project_id=project_id,
-                role=role,
-                candidate_index=idx,
+                project_id=project_id, role=role, candidate_index=idx,
                 sample_ids=[s.get("id") for s in use_samples],
-                baseline_avg=baseline_avg,
-                candidate_avg=cand_avg,
-                improvement=improvement,
-                passed=passed,
-                cost=cand_cost,
+                baseline_avg=baseline_avg, candidate_avg=cand_avg,
+                improvement=improvement, passed=passed, cost=cand_cost,
                 candidate=candidate,
+                gold_source=baseline_detail.get("source", "system"),
             )
             run_info = {
                 "run_id": record.id,
@@ -83,6 +95,7 @@ class PromptABTestService:
                 "candidate_avg_score": cand_avg,
                 "improvement": improvement,
                 "passed": passed,
+                "gold_source": baseline_detail.get("source", "system"),
             }
             runs.append(run_info)
 
@@ -93,34 +106,128 @@ class PromptABTestService:
             "winner": winner,
             "runs": runs,
             "baseline_avg": baseline_avg,
+            "gold_source": baseline_detail.get("source", "system"),
         }
 
-    async def _score_prompt(
-        self, project_id: int, role: str, prompt: str, samples: List[dict]
+    def _collect_gold_scores(
+        self, samples: List[dict], role: str, prompt_text: str, project_id: int,
     ) -> tuple:
-        """用候选 prompt 在每个样本上跑评审，返回 (平均分, 总成本)。
+        """收集样本金标准分数，优先 reader_score，其次 dimension_scores，降级系统评分。
 
-        以样本的章节内容为输入，调用 critic 角色做真实评分。
-        样本无内容时回退使用样本自带 score。
+        返回 (score_list, {"source": ..., "count": ...})
         """
+        reader_scores: List[float] = []
+        dim_scores: List[float] = []
+
+        for sample in samples:
+            # 1. 样本自带 reader_score
+            if "reader_score" in sample and sample["reader_score"] is not None:
+                try:
+                    reader_scores.append(float(sample["reader_score"]))
+                except (TypeError, ValueError):
+                    pass
+                continue
+
+            # 2. 查库：chapter_id → 真人反馈均值
+            chapter_id = sample.get("chapter_id") or sample.get("id")
+            if chapter_id and project_id:
+                try:
+                    from app.models.feedback import Feedback as _FB
+                    rows = (
+                        self.db.query(_FB.reader_score)
+                        .filter(
+                            _FB.chapter_id == int(chapter_id),
+                            _FB.reader_score.isnot(None),
+                            _FB.source == "reader",
+                        )
+                        .all()
+                    )
+                    if rows:
+                        vals = [float(r[0]) for r in rows]
+                        reader_scores.append(sum(vals) / len(vals))
+                        continue
+                except Exception:
+                    pass
+
+            # 3. dimension_scores 均值
+            dims = sample.get("dimension_scores") or {}
+            if isinstance(dims, dict) and dims:
+                vals = []
+                for k in ("reader_addiction", "commercial_readability", "emotional_hook"):
+                    v = dims.get(k)
+                    if v is not None:
+                        try:
+                            vals.append(float(v))
+                        except (TypeError, ValueError):
+                            pass
+                if vals:
+                    dim_scores.append(sum(vals) / len(vals))
+
+        if reader_scores:
+            return reader_scores, {"source": "reader", "count": len(reader_scores)}
+        if dim_scores:
+            return dim_scores, {"source": "dimension", "count": len(dim_scores)}
+
+        # 4. 降级：Critic 跑分
+        scores, _ = self._score_prompt_sync(role, prompt_text, samples)
+        if scores:
+            return scores, {"source": "system", "count": len(scores)}
+        return [], {"source": "none", "count": 0}
+
+    def _score_prompt_sync(
+        self, role: str, prompt: str, samples: List[dict],
+    ) -> tuple:
+        """同步调用 Critic 对样本打分，降级模式不记录成本。"""
+        scores: List[float] = []
+        for sample in samples:
+            content = sample.get("content") or sample.get("chapter_content") or ""
+            if not content:
+                raw = sample.get("score")
+                if raw is not None:
+                    try:
+                        scores.append(float(raw))
+                    except (TypeError, ValueError):
+                        pass
+                continue
+            try:
+                import asyncio
+                response = asyncio.get_event_loop().run_until_complete(
+                    llm_manager.generate(
+                        prompt=f"{prompt}\n\n## 待评审\n{content[:6000]}",
+                        role="critic", temperature=0.3, db=self.db,
+                        request_type="prompt_ab_test",
+                        project_id=sample.get("project_id") or 0,
+                    )
+                )
+                score = self._extract_score(response.get("content", ""))
+                if score is not None:
+                    scores.append(score)
+            except Exception as e:
+                logger.debug(f"A/B 降级评分失败: {e}")
+        avg = round(sum(scores) / len(scores), 2) if scores else 0.0
+        return scores, avg
+
+    async def _score_prompt(
+        self, project_id: int, role: str, prompt: str, samples: List[dict],
+    ) -> tuple:
+        """用候选 prompt 在每个样本上跑评审，返回 (平均分, 总成本)。"""
         scores = []
         total_cost = 0.0
         for sample in samples:
             content = sample.get("content") or sample.get("chapter_content") or ""
             if not content:
-                # 无正文，退回样本既有分数（真实历史分，非伪造）
-                if sample.get("score") is not None:
-                    scores.append(float(sample["score"]))
+                raw = sample.get("score")
+                if raw is not None:
+                    try:
+                        scores.append(float(raw))
+                    except (TypeError, ValueError):
+                        pass
                 continue
             try:
-                full_prompt = f"{prompt}\n\n## 待评审正文\n{content[:6000]}"
                 response = await llm_manager.generate(
-                    prompt=full_prompt,
-                    role="critic",
-                    temperature=0.3,
-                    db=self.db,
-                    request_type="prompt_ab_test",
-                    project_id=project_id,
+                    prompt=f"{prompt}\n\n## 待评审\n{content[:6000]}",
+                    role="critic", temperature=0.3, db=self.db,
+                    request_type="prompt_ab_test", project_id=project_id,
                 )
                 total_cost += response.get("cost", 0.0)
                 score = self._extract_score(response.get("content", ""))
@@ -128,15 +235,11 @@ class PromptABTestService:
                     scores.append(score)
             except Exception as e:
                 logger.warning(f"A/B 评分调用失败: {e}")
-
         avg = round(sum(scores) / len(scores), 2) if scores else 0.0
         return avg, total_cost
 
     def _extract_score(self, content: str) -> Optional[float]:
         """从评审输出中提取 overall_score。"""
-        import json
-        import re
-
         if not content:
             return None
         text = content.strip()
@@ -150,7 +253,6 @@ class PromptABTestService:
                     return float(val)
             except Exception:
                 pass
-        # 退化：匹配 "overall_score": 82
         m = re.search(r'overall_score["\s:]+(\d+(?:\.\d+)?)', content)
         if m:
             return float(m.group(1))
@@ -159,6 +261,7 @@ class PromptABTestService:
     def _persist_run(
         self, project_id, role, candidate_index, sample_ids,
         baseline_avg, candidate_avg, improvement, passed, cost, candidate,
+        gold_source: str = "system",
     ) -> PromptABTestRun:
         record = PromptABTestRun(
             project_id=project_id,
@@ -170,7 +273,10 @@ class PromptABTestService:
             improvement=improvement,
             passed=1 if passed else 0,
             decision="apply" if passed else "reject",
-            details={"candidate_index": candidate_index},
+            details={
+                "candidate_index": candidate_index,
+                "gold_source": gold_source,
+            },
             total_cost=cost,
             created_at=utc_now(),
         )

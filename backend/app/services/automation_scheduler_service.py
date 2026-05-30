@@ -23,6 +23,7 @@ class AutomationSchedulerService:
 
     def __init__(self, db: Session):
         self.db = db
+        self.reader_training_service = ReaderTrainingService(db)
 
     def _get_policy(self, project_id: int) -> Optional[AutomationPolicy]:
         return self.db.query(AutomationPolicy).filter(
@@ -58,7 +59,9 @@ class AutomationSchedulerService:
             logger.warning(f"[Automation] Prompt 进化失败: {e}")
             result["evolution"] = {"error": str(e)}
         try:
-            result["reader_training"] = await self.maybe_process_reader_training(project_id)
+            result["reader_training"] = await self.maybe_process_reader_training(
+                project_id
+            )
         except Exception as e:
             logger.warning(f"[Automation] 真人训练营批处理失败: {e}")
             result["reader_training"] = {"error": str(e)}
@@ -96,7 +99,6 @@ class AutomationSchedulerService:
             if elapsed_h < policy.research_interval_hours:
                 return {"triggered": False, "reason": "未到研究间隔"}
 
-        # 仅打标记，真正的研究任务由 ResearchAgent 异步执行（此处不强依赖）
         policy.last_research_at = now
         self.db.commit()
         return {"triggered": True, "scheduled_at": now.isoformat()}
@@ -115,26 +117,31 @@ class AutomationSchedulerService:
 
         policy.last_evolution_chapter = latest
         self.db.commit()
-        return {"triggered": True, "end_chapter": latest,
-                "min_samples": policy.min_samples_for_evolution}
+        return {
+            "triggered": True,
+            "end_chapter": latest,
+            "min_samples": policy.min_samples_for_evolution,
+        }
 
     # ========== P5: 真人训练营异步批处理 ==========
 
     async def maybe_process_reader_training(self, project_id: int) -> dict:
-        """按 AutomationPolicy 配置周期跑读取 feedback batch。"""
+        """按 AutomationPolicy 周期跑读取 feedback batch。"""
         policy = self._get_policy(project_id)
         if not policy or not policy.enable_reader_training:
             return {"triggered": False, "reason": "未启用"}
 
-        # 检查节流：距离上次处理至少 interval_minutes
+        # 节流：距离上次处理至少 interval_minutes
         now = utc_now()
         last_at = policy.last_reader_training_at
         if last_at is not None:
             elapsed_m = (now - last_at).total_seconds() / 60
             if elapsed_m < policy.reader_training_interval_minutes:
-                return {"triggered": False, "reason": f"未到间隔（{elapsed_m:.0f}m/{policy.reader_training_interval_minutes}m）"}
+                return {
+                    "triggered": False,
+                    "reason": f"未到间隔（{elapsed_m:.0f}m/{policy.reader_training_interval_minutes}m）",
+                }
 
-        # 如果上次处理的 batch 已经覆盖所有 feedback，则跳过
         pending_count = (
             self.db.query(Feedback)
             .filter(
@@ -145,16 +152,19 @@ class AutomationSchedulerService:
             .count()
         )
         if pending_count < policy.reader_training_min_batch:
-            return {"triggered": False, "reason": f"待处理{pending_count} < min_batch{policy.reader_training_min_batch}"}
+            return {
+                "triggered": False,
+                "reason": f"待处理{pending_count} < min_batch{policy.reader_training_min_batch}",
+            }
 
-        reader_training_service = ReaderTrainingService(self.db)
-        result = await reader_training_service.process_pending_batch(
+        result = await self.reader_training_service.process_pending_batch(
             project_id=project_id,
             min_batch=policy.reader_training_min_batch,
         )
-        # 更新策略
         if result.get("status") == "processed":
             policy.last_reader_training_at = now
-            policy.last_reader_training_batch_id = result.get("batch_id", 0) or 0
+            policy.last_reader_training_batch_id = (
+                result.get("batch_id", 0) or 0
+            )
             self.db.commit()
         return result

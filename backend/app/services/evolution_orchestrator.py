@@ -11,6 +11,7 @@ from app.models.evolution_auto import (
     PromptEvolutionRun,
     PromptEvolutionRunStatus,
 )
+from app.models.feedback import Feedback, FeedbackBatch
 from app.services.llm_router import LLMRouterAllProvidersFailed
 from app.services.prompt_meta_agent import PromptMetaAgent
 from app.services.quality_monitor_service import QualityMonitorService
@@ -209,3 +210,148 @@ class EvolutionOrchestrator:
         if target:
             target.is_active = True
         self.db.commit()
+
+    async def trigger_for_role(
+        self,
+        project_id: int,
+        role: str,
+        reason: str,
+        feedback_batch_id: Optional[int] = None,
+        trigger_window_days: int = 7,
+        min_samples: int = 2,
+        candidate_count: int = 2,
+        min_improvement: float = 3.0,
+        auto_apply: bool = False,
+    ) -> dict:
+        """根据反馈批次主动触发单角色的 Prompt 进化（P4 闭环接入）。"""
+        policy = (
+            self.db.query(PromptEvolutionPolicy)
+            .filter(
+                PromptEvolutionPolicy.role == role,
+                getattr(PromptEvolutionPolicy, "project_id", None) == project_id,
+            )
+            .order_by(PromptEvolutionPolicy.id.desc())
+            .first()
+        )
+        if policy is None:
+            policy = PromptEvolutionPolicy(
+                role=role,
+                project_id=project_id,
+                trigger_window_days=trigger_window_days,
+                candidate_count=candidate_count,
+                min_improvement=min_improvement,
+                min_samples=min_samples,
+                auto_apply=auto_apply,
+            )
+            self.db.add(policy)
+            self.db.commit()
+            self.db.refresh(policy)
+
+        samples = []
+        if feedback_batch_id:
+            try:
+                batch = self.db.query(FeedbackBatch).filter(
+                    FeedbackBatch.id == feedback_batch_id
+                ).first()
+                if batch:
+                    samples = [
+                        {
+                            "id": f"fb_{f.id}",
+                            "chapter_id": f.chapter_id,
+                            "reader_score": f.reader_score,
+                            "dimension_scores": f.dimension_scores or {},
+                            "feedback_batch_id": feedback_batch_id,
+                            "source": "reader_feedback",
+                        }
+                        for f in (batch.feedbacks or [])
+                    ]
+            except Exception:
+                pass
+
+        run = PromptEvolutionRun(
+            policy_id=policy.id,
+            role=role,
+            status=PromptEvolutionRunStatus.PENDING,
+            created_at=utc_now(),
+        )
+        self.db.add(run)
+        self.db.commit()
+        self.db.refresh(run)
+
+        try:
+            if not samples:
+                run.status = PromptEvolutionRunStatus.FAILED
+                run.error_message = "无可用反馈样本"
+                run.finished_at = utc_now()
+                self.db.commit()
+                return {"run_id": run.id, "status": run.status.value,
+                        "triggered": False, "reason": "无样本"}
+
+            diagnosis = {
+                "reason": reason,
+                "source": "reader_training",
+                "feedback_batch_id": feedback_batch_id,
+                "sample_count": len(samples),
+            }
+            run.status = PromptEvolutionRunStatus.PROPOSING
+            run.diagnosis = diagnosis
+            self.db.commit()
+
+            current_prompt = self._get_current_prompt(role)
+            candidates = await self.meta_agent.propose_candidates(
+                role=role,
+                current_prompt=current_prompt,
+                diagnosis=diagnosis,
+                candidate_count=min(candidate_count, len(samples)),
+            )
+            run.candidate_prompts_json = candidates
+
+            run.status = PromptEvolutionRunStatus.TESTING
+            self.db.commit()
+
+            from app.services.prompt_ab_test_service import PromptABTestService
+            ab = PromptABTestService(self.db)
+            candidate_payload = [
+                {"prompt": c.get("prompt") or c.get("content") or "", "raw": c}
+                if isinstance(c, dict) else {"prompt": str(c)}
+                for c in candidates
+            ]
+            ab_result = await ab.run_ab_test(
+                project_id=project_id,
+                role=role,
+                baseline_prompt=current_prompt,
+                candidate_prompts=candidate_payload,
+                samples=samples,
+                min_samples=max(1, min(min_samples, len(samples))),
+                min_improvement=min_improvement,
+            )
+            run.ab_test_result_json = ab_result
+
+            winner = ab_result.get("winner")
+            improvement = winner.get("improvement", 0) if winner else 0
+            if winner and winner.get("passed"):
+                if auto_apply:
+                    run.status = PromptEvolutionRunStatus.APPLIED
+                    run.applied_at = utc_now()
+                    self._apply_prompt(role, winner.get("candidate", {}))
+                else:
+                    run.status = PromptEvolutionRunStatus.APPLIED
+            else:
+                run.status = PromptEvolutionRunStatus.FAILED
+                run.error_message = (
+                    f"改进幅度 {improvement:.1f} 未达到阈值 {min_improvement}"
+                )
+        except Exception as exc:
+            run.status = PromptEvolutionRunStatus.FAILED
+            run.error_message = str(exc)
+        finally:
+            run.finished_at = utc_now()
+            self.db.commit()
+
+        return {
+            "run_id": run.id,
+            "role": role,
+            "status": run.status.value,
+            "reason": reason,
+            "feedback_batch_id": feedback_batch_id,
+        }

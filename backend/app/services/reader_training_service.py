@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.models.chapter import Chapter
 from app.models.feedback import Feedback, FeedbackBatch
 from app.services.event_bus import event_bus
+from app.services.evolution_orchestrator import EvolutionOrchestrator
 from app.services.openai_llm_service import llm_manager
 from app.utils.time_utils import utc_now
 
@@ -211,6 +212,13 @@ class ReaderTrainingService:
                 "critic_gap": critic_gap,
             })
 
+            await self._trigger_evolution_and_calibration(
+                batch=batch,
+                avg_reader=avg_reader,
+                avg_system=avg_system,
+                critic_gap=critic_gap,
+                derived_rules=derived_rules,
+            )
         return {
             "status": "processed",
             "batch_id": batch.id,
@@ -357,6 +365,47 @@ class ReaderTrainingService:
             if f.reaction in summary:
                 summary[f.reaction] += 1
         return summary
+
+    async def _trigger_evolution_and_calibration(
+        self,
+        batch: FeedbackBatch,
+        avg_reader: float,
+        avg_system: float,
+        critic_gap: float,
+        derived_rules: list,
+    ) -> None:
+        """按方案 P4：critic_gap 过大时异步触发 Evolution 校准，不阻塞 Worker。"""
+        try:
+            orchestrator = EvolutionOrchestrator(self.db)
+            result = await orchestrator.trigger_for_role(
+                project_id=batch.project_id,
+                role="critic",
+                reason=f"critic_gap_exceeded:{critic_gap}",
+                feedback_batch_id=batch.id,
+                trigger_window_days=7,
+                min_samples=2,
+                candidate_count=2,
+                min_improvement=3.0,
+                auto_apply=False,
+            )
+            batch.triggered_evolution = 1 if result.get("status") == "applied" else 0
+            self.db.commit()
+            await event_bus.publish("evolution.reader_triggered", {
+                "project_id": batch.project_id,
+                "batch_id": batch.id,
+                "role": "critic",
+                "critic_gap": critic_gap,
+                "run_id": result.get("run_id"),
+                "status": result.get("status"),
+            })
+        except Exception as e:
+            logger.warning(f"[ReaderTraining] 触发 Evolution 失败（不影响 Worker）: {e}")
+            try:
+                batch.triggered_evolution = 0
+                batch.error_message = (batch.error_message or "") + f"\nEvolution触发失败: {e}"
+                self.db.commit()
+            except Exception:
+                pass
 
     # ========== P2-5: 取规则 ==========
 
