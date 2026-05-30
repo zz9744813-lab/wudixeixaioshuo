@@ -5,6 +5,7 @@ LLM Routes API - LLM路由配置管理API
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -347,7 +348,7 @@ async def get_route_stats(
         cost_result = db.query(ModelCallLog).filter(
             ModelCallLog.role == data["role"]
         ).with_entities(
-            db.func.sum(ModelCallLog.estimated_cost)
+            func.sum(ModelCallLog.estimated_cost)
         ).scalar()
 
         total_cost = float(cost_result) if cost_result else 0.0

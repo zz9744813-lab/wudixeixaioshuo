@@ -18,6 +18,9 @@ import Logs from './pages/Logs';
 import WorkerDashboard from './pages/WorkerDashboard';
 import UsageDashboard from './pages/UsageDashboard';
 import PromptTemplates from './pages/PromptTemplates';
+import AgentOrchestratorPage from './pages/AgentOrchestratorPage';
+import AgentRunDetailPage from './pages/AgentRunDetailPage';
+import LLMRouterPage from './pages/LLMRouterPage';
 
 function App() {
   return (
@@ -41,6 +44,9 @@ function App() {
           <Route path="/logs" element={<Logs />} />
           <Route path="/usage" element={<UsageDashboard />} />
           <Route path="/prompts" element={<PromptTemplates />} />
+          <Route path="/agent-orchestrator" element={<AgentOrchestratorPage />} />
+          <Route path="/agent-runs/:id" element={<AgentRunDetailPage />} />
+          <Route path="/llm-routes" element={<LLMRouterPage />} />
         </Routes>
       </Layout>
     </Router>

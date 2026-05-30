@@ -3,6 +3,7 @@ Routers 导入集合
 """
 
 from app.routers import (
+    agent_runs,
     agents,
     bible,
     books,
@@ -24,6 +25,7 @@ from app.routers import (
     review,
     reviews,
     skills,
+    subagents,
     tasks,
     techniques,
     usage,
@@ -43,6 +45,8 @@ __all__ = [
     "production",
     "tasks",
     "agents",
+    "agent_runs",
+    "subagents",
     "models",
     "feedback",
     "evolution",

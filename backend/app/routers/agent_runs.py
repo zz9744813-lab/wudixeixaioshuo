@@ -1,10 +1,13 @@
 """Agent Runs Router"""
 from typing import List, Optional
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
-from app.database import get_db
-from app.services.orchestrator_service import get_orchestrator_service
+
+from app.database import SessionLocal, get_db
+from app.services.orchestrator_service import OrchestratorService, get_orchestrator_service
 
 router = APIRouter(prefix="/agent-runs", tags=["agent-runs"])
 
@@ -46,11 +49,16 @@ async def get_agent_run(run_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="运行记录不存在")
     return status
 
+async def _execute_agent_run_in_background(run_id: int):
+    db = SessionLocal()
+    try:
+        await OrchestratorService(db).execute_run(run_id)
+    finally:
+        db.close()
+
 @router.post("/{run_id}/start")
-async def start_agent_run(run_id: int, db: Session = Depends(get_db)):
-    service = get_orchestrator_service(db)
-    import asyncio
-    asyncio.create_task(service.execute_run(run_id))
+async def start_agent_run(run_id: int):
+    asyncio.create_task(_execute_agent_run_in_background(run_id))
     return {"message": "运行已启动", "run_id": run_id}
 
 @router.post("/{run_id}/cancel")

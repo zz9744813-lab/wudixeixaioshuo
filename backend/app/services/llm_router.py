@@ -295,11 +295,13 @@ class LLMRouter:
         # 解密API Key
         api_key = decrypt_api_key(provider.api_key_encrypted)
 
+        model_name = provider.default_model
+
         # 创建服务实例
         service = OpenAILLMService(
             base_url=provider.base_url,
             api_key=api_key,
-            model_name=route.model_name or provider.default_model,
+            model_name=model_name,
             timeout=route.timeout_seconds or provider.timeout_seconds or 120,
             retry_times=route.max_retries or provider.retry_times or 2,
             provider_id=provider.id,
@@ -315,7 +317,7 @@ class LLMRouter:
 
             response = await service.generate(
                 prompt=prompt,
-                model=route.model_name or provider.default_model,
+                model=model_name,
                 temperature=temperature or provider.default_temperature or 0.7,
                 max_tokens=max_tokens or provider.default_max_tokens or 4000,
                 system_prompt=system_prompt,

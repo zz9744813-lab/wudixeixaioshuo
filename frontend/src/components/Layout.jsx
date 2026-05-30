@@ -22,6 +22,7 @@ const NAV_GROUPS = [
       { to: '/factory', label: '写作工厂', icon: 'Factory' },
       { to: '/worker', label: '自动写作控制台', icon: 'Cpu' },
       { to: '/agents', label: 'Agent 控制台', icon: 'Bot' },
+      { to: '/agent-orchestrator', label: '自主 Orchestrator', icon: 'Workflow' },
       { to: '/tasks', label: '任务队列', icon: 'ListChecks' },
     ],
   },
@@ -29,6 +30,7 @@ const NAV_GROUPS = [
     group: '配置',
     items: [
       { to: '/models', label: '模型配置', icon: 'Settings2' },
+      { to: '/llm-routes', label: 'LLM 路由池', icon: 'Route' },
       { to: '/prompts', label: 'Prompt 模板', icon: 'FileText' },
     ],
   },
