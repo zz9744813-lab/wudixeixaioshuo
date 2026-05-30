@@ -32,8 +32,11 @@ class ChiefEditorAgent:
         chapter_id: int,
         chapter_index: int,
         chapter_title: str = "",
+        reader_rules_text: str = "",
     ) -> dict:
         context = self._gather_context(project_id, chapter_index)
+        if reader_rules_text:
+            context["reader_rules_text"] = reader_rules_text
         directive = await self._llm_build_directive(
             project_id, chapter_index, chapter_title, context
         )
@@ -129,6 +132,11 @@ class ChiefEditorAgent:
             return None
 
     def _build_prompt(self, chapter_index, chapter_title, context) -> str:
+        reader_rules_text = context.get("reader_rules_text") or ""
+        reader_rules_section = (
+            f"真人读者偏好：\n{reader_rules_text[:1200]}\n\n"
+            if reader_rules_text else ""
+        )
         return (
             "你是网文总编，负责把控全书节奏。请基于全书状态，为下一章产出"
             "结构化的全局写作指令（不要写正文）。\n\n"
@@ -137,6 +145,7 @@ class ChiefEditorAgent:
             f"当前章节序号：{chapter_index}  标题：{chapter_title}\n"
             f"近章摘要：{json.dumps(context.get('recent_summaries'), ensure_ascii=False)[:1200]}\n"
             f"近期评分：{context.get('recent_scores')} 均分：{context.get('avg_recent_score')}\n"
+            f"{reader_rules_section}"
             f"活跃伏笔：{json.dumps(context.get('active_foreshadows'), ensure_ascii=False)[:800]}\n"
             f"可回收伏笔：{json.dumps(context.get('ready_payoffs'), ensure_ascii=False)[:400]}\n"
             f"主要角色：{json.dumps(context.get('main_characters'), ensure_ascii=False)[:800]}\n"
@@ -178,6 +187,13 @@ class ChiefEditorAgent:
 
     def _fallback_directive(self, chapter_index, chapter_title, context) -> dict:
         bs = context.get("book_state", {}) or {}
+        risk_warnings = (
+            ["近期评分偏低，需强化爽点与节奏"]
+            if context.get("avg_recent_score") and context["avg_recent_score"] < 75
+            else []
+        )
+        if context.get("reader_rules_text"):
+            risk_warnings.append("必须优先吸收真人读者偏好，避免重复触发读者已指出的问题")
         return {
             "global_position": {
                 "volume": bs.get("current_volume") or "",
@@ -196,11 +212,7 @@ class ChiefEditorAgent:
             ][:3],
             "character_arc_goals": {},
             "commercial_goals": {"main_hook": "", "爽点类型": "", "avoid": []},
-            "risk_warnings": (
-                ["近期评分偏低，需强化爽点与节奏"]
-                if context.get("avg_recent_score") and context["avg_recent_score"] < 75
-                else []
-            ),
+            "risk_warnings": risk_warnings,
         }
 
     def format_directive_for_prompt(self, directive: dict) -> str:
