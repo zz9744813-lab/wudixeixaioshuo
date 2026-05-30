@@ -42,6 +42,7 @@ from app.models.production import (
     ProductionPolicy,
     ProductionStats,
 )
+from app.models.prompt_template import PromptTemplate
 from app.models.review import (
     FinalReview,
     ReviewProfile,
@@ -86,6 +87,7 @@ __all__ = [
     "ProductionPolicy",
     "ProductionLog",
     "ProductionStats",
+    "PromptTemplate",
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",

@@ -76,6 +76,11 @@ class Book(Base):
         back_populates="book",
         cascade="all, delete-orphan"
     )
+    analysis_profiles = relationship(
+        "BookAnalysisProfile",
+        back_populates="book",
+        cascade="all, delete-orphan"
+    )
 
 
 class BookChapter(Base):
