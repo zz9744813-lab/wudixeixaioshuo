@@ -285,9 +285,20 @@ DATABASE_URL=sqlite:///data/novel_agent.db
 UPLOAD_DIR=/app/data/uploads
 ARTIFACTS_DIR=/app/data/artifacts
 
-# 前端
+# 前端（构建期变量，浏览器从此地址请求后端）
+# 开发/本机访问: http://localhost:8000/api
+# VPS 部署: 必须填后端公网地址（不能用 localhost，否则远程浏览器请求自己的电脑）
 REACT_APP_API_URL=http://localhost:8000/api
+
+# CORS（后端允许的来源）
+# VPS 部署需包含前端公网地址，例如 http://107.172.138.14:3005
+CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 ```
+
+> VPS 部署示例：`REACT_APP_API_URL=http://107.172.138.14:8000/api`，
+> `CORS_ORIGINS=http://107.172.138.14:3005,http://localhost:3005`。
+> `REACT_APP_*` 是构建期变量，改后须重新构建前端镜像：
+> `docker compose build --no-cache frontend && docker compose up -d --force-recreate`。
 
 ## 注意事项
 
