@@ -155,9 +155,14 @@ class PipelineService:
             task_info["project_id"],
             task_info["chapter_index"]
         )
+        knowledge_task = self._get_knowledge_context(
+            task_info["project_id"],
+            task_info["chapter_title"],
+            task_info["chapter_index"],
+        )
 
-        bible_data, memory_context, style_profile_context = await asyncio.gather(
-            bible_task, memory_task, style_task
+        bible_data, memory_context, style_profile_context, knowledge_context = await asyncio.gather(
+            bible_task, memory_task, style_task, knowledge_task
         )
 
         # ===== Step 1: Planner =====
@@ -170,7 +175,7 @@ class PipelineService:
         })
 
         planner_result = await self._run_planner(
-            task_info, bible_data, memory_context, style_profile_context
+            task_info, bible_data, memory_context, style_profile_context, knowledge_context
         )
 
         await event_bus.publish("agent.step.completed", {
@@ -201,7 +206,7 @@ class PipelineService:
         })
 
         draft_result = await self._run_draft(
-            task_info, bible_data, chapter_plan, memory_context, style_profile_context
+            task_info, bible_data, chapter_plan, memory_context, style_profile_context, knowledge_context
         )
 
         await event_bus.publish("agent.step.completed", {
@@ -237,7 +242,7 @@ class PipelineService:
             "step_index": 3,
         })
 
-        critic_result = await self._run_critic(task_info, draft_content, bible_data)
+        critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context)
 
         await event_bus.publish("agent.step.completed", {
             "task_id": task_info["task_id"],
@@ -268,7 +273,7 @@ class PipelineService:
 
         if score < 80:
             rewrite_result = await self._run_rewrite_if_needed(
-                task_info, draft_content, critic_result, bible_data, score, memory_context
+                task_info, draft_content, critic_result, bible_data, score, memory_context, knowledge_context
             )
 
             if rewrite_result.get("success"):
@@ -347,7 +352,8 @@ class PipelineService:
     # ===== 各 Agent 执行方法 =====
 
     async def _run_planner(
-        self, task_info: Dict, bible_data: Dict, memory_context: str, style_profile_context: Optional[Dict] = None
+        self, task_info: Dict, bible_data: Dict, memory_context: str,
+        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None
     ) -> Dict:
         """执行 Planner Agent"""
         db = SessionLocal()
@@ -360,6 +366,9 @@ class PipelineService:
 
             # 格式化风格档案规则
             style_rules = self._format_style_profile_for_planner(style_profile_context)
+
+            # 联网研究知识
+            knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="planner")
 
             # 渲染 Prompt
             template_service = PromptTemplateService(db)
@@ -374,6 +383,7 @@ class PipelineService:
                 "tech_instructions": tech_instructions,
                 "playbook_rules": "\n".join(playbook.get("rules", ["无"])),
                 "style_rules": style_rules,
+                "knowledge_context": knowledge_text,
             }
 
             prompt = template_service.render(
@@ -382,6 +392,7 @@ class PipelineService:
                 fallback=self._build_planner_fallback(variables),
                 project_id=task_info["project_id"],
             )
+            prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
 
             # 调用 LLM
             started_at = utc_now()
@@ -412,7 +423,8 @@ class PipelineService:
             db.close()
 
     async def _run_draft(
-        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str, style_profile_context: Optional[Dict] = None
+        self, task_info: Dict, bible_data: Dict, chapter_plan: Dict, memory_context: str,
+        style_profile_context: Optional[Dict] = None, knowledge_context: Optional[Dict] = None
     ) -> Dict:
         """执行 Draft Agent - 支持目标字数和长章分段生成"""
         db = SessionLocal()
@@ -424,6 +436,9 @@ class PipelineService:
 
             # 格式化风格档案规则
             style_rules = self._format_style_profile_for_draft(style_profile_context)
+
+            # 联网研究知识
+            knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="draft")
 
             # 获取目标字数
             target_words = self._get_target_words(task_info, bible_data, chapter_plan)
@@ -437,6 +452,8 @@ class PipelineService:
                     task_info, bible_data, chapter_plan, memory_context,
                     tech_instructions, playbook, target_words
                 )
+                # 分段模式下保留知识注入痕迹，便于 GenerationStep 审计
+                draft_prompt = knowledge_text
             else:
                 # 普通单次生成
                 template_service = PromptTemplateService(db)
@@ -453,6 +470,7 @@ class PipelineService:
                     "target_words": target_words,
                     "min_words": min_words,
                     "max_words": max_words,
+                    "knowledge_context": knowledge_text,
                 }
 
                 prompt = template_service.render(
@@ -461,6 +479,7 @@ class PipelineService:
                     fallback=self._build_draft_fallback(variables),
                     project_id=task_info["project_id"],
                 )
+                prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
 
                 # 确保 prompt 中包含字数要求
                 if "目标字数" not in prompt:
@@ -479,12 +498,13 @@ class PipelineService:
                 )
 
                 content = response.get("content", "")
+                draft_prompt = prompt
 
             # 计算实际字数（中文字数）
             actual_word_count = self._count_chinese_words(content)
 
             # 保存步骤
-            self._save_step(db, task_info, "Draft", "", {"content": content[:500]})
+            self._save_step(db, task_info, "Draft", draft_prompt, {"content": content[:500]})
 
             # 保存字数信息到结果
             return {
@@ -762,13 +782,16 @@ class PipelineService:
             db.close()
 
     async def _run_critic(
-        self, task_info: Dict, content: str, bible_data: Dict
+        self, task_info: Dict, content: str, bible_data: Dict, knowledge_context: Optional[Dict] = None
     ) -> Dict:
         """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注 + 一致性检查"""
         db = SessionLocal()
         try:
             # 获取模板服务
             template_service = PromptTemplateService(db)
+
+            # 联网研究审稿依据
+            knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="critic")
 
             # 生成一致性检查prompt片段 (B4)
             consistency_prompt = ""
@@ -787,6 +810,7 @@ class PipelineService:
                 "chapter_title": task_info['chapter_title'],
                 "content": content,
                 "consistency_requirements": consistency_prompt,
+                "knowledge_context": knowledge_text,
             }
 
             # 使用模板或 fallback
@@ -796,6 +820,7 @@ class PipelineService:
                 fallback=self._build_critic_rubric_prompt(task_info['chapter_title'], content, consistency_prompt),
                 project_id=task_info["project_id"],
             )
+            prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
 
             response = await llm_manager.generate(
                 prompt=prompt,
@@ -992,7 +1017,8 @@ class PipelineService:
 
     async def _run_rewrite_if_needed(
         self, task_info: Dict, content: str, critic_result: Dict,
-        bible_data: Dict, current_score: int, memory_context: str
+        bible_data: Dict, current_score: int, memory_context: str,
+        knowledge_context: Optional[Dict] = None
     ) -> Dict:
         """如果需要，执行 Rewrite - 使用 must_fix_items 和 rewrite_plan"""
         steps = []
@@ -1000,6 +1026,9 @@ class PipelineService:
         total_cost = 0.0
         final_content = content
         final_score = current_score
+
+        # 联网研究知识（改稿同样注入）
+        knowledge_text = self._format_knowledge_for_prompt(knowledge_context, role="rewrite")
 
         # 提取结构化 Critic 结果
         must_fix_items = critic_result.get("must_fix_items", [])
@@ -1037,6 +1066,7 @@ class PipelineService:
                     current_round_plan,
                     bible_data
                 )
+                prompt = self._append_knowledge_to_prompt(prompt, knowledge_text)
 
                 response = await llm_manager.generate(
                     prompt=prompt,
@@ -1071,7 +1101,7 @@ class PipelineService:
                     "rewrite_round": rewrite_count,
                 })
 
-                new_critic_result = await self._run_critic(task_info, new_content, bible_data)
+                new_critic_result = await self._run_critic(task_info, new_content, bible_data, knowledge_context)
                 new_score = new_critic_result.get("score", final_score)
 
                 steps.append({
@@ -1381,6 +1411,49 @@ class PipelineService:
         return True
 
     # ===== 辅助方法 =====
+
+    async def _get_knowledge_context(
+        self,
+        project_id: int,
+        chapter_title: str,
+        chapter_index: int,
+        chapter_plan: Optional[dict] = None,
+    ) -> Dict:
+        """获取联网研究知识上下文（独立 session）"""
+        db = SessionLocal()
+        try:
+            from app.services.knowledge_context_service import KnowledgeContextService
+            service = KnowledgeContextService(db)
+            return service.get_context_for_chapter(
+                project_id=project_id,
+                chapter_title=chapter_title,
+                chapter_index=chapter_index,
+                chapter_plan=chapter_plan,
+            )
+        except Exception as e:
+            logger.warning(f"联网研究知识上下文获取失败: {e}")
+            return {"patterns": [], "reader_insights": []}
+        finally:
+            db.close()
+
+    def _format_knowledge_for_prompt(self, knowledge_context: Optional[Dict], role: str = "draft") -> str:
+        """把知识上下文格式化为 Prompt 片段"""
+        if not knowledge_context:
+            return ""
+        try:
+            from app.services.knowledge_context_service import KnowledgeContextService
+            return KnowledgeContextService.format_context(knowledge_context, role)
+        except Exception as e:
+            logger.warning(f"知识上下文格式化失败: {e}")
+            return ""
+
+    def _append_knowledge_to_prompt(self, prompt: str, knowledge_text: str) -> str:
+        """把知识片段追加到 Prompt（避免模板未使用变量时丢失注入）"""
+        if not knowledge_text:
+            return prompt
+        if knowledge_text.strip() in prompt:
+            return prompt
+        return f"{prompt}\n\n{knowledge_text}"
 
     async def _get_bible_data(self, project_id: int) -> Dict:
         """获取 Bible 数据（独立 session）"""
