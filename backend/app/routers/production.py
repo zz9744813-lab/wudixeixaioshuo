@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models.production import ProductionPolicy
 from app.services.production_scheduler import ProductionScheduler
 
-router = APIRouter(prefix="/production", tags=["production"])
+router = APIRouter(tags=["production"])
 
 
 # ========== Request/Response Models ==========
