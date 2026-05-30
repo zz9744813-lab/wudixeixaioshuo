@@ -44,9 +44,53 @@ class Feedback(Base):
     is_processed = Column(Integer, default=0)  # 是否已处理
     is_applied = Column(Integer, default=0)  # 是否已应用
 
+    # === 异步真人训练营扩展字段 ===
+    reader_score = Column(Float, nullable=True)        # 真人总分 0-100
+    dimension_scores = Column(JSON, nullable=True)     # 维度分
+    anchor = Column(JSON, nullable=True)               # 段落批注 [{para, quote, comment, type}]
+    reaction = Column(String(50), nullable=True)       # hooked / meh / dropped
+    applied_from_chapter = Column(Integer, nullable=True)  # 规则从哪一章开始影响
+    batch_id = Column(Integer, ForeignKey("feedback_batches.id"), nullable=True)
+    status = Column(String(50), default="queued")      # queued / batched / applied / failed
+
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
     processed_at = Column(DateTime)
+
+    # 关系
+    batch = relationship("FeedbackBatch", back_populates="feedbacks")
+
+
+class FeedbackBatch(Base):
+    """真人反馈批次 - 多条反馈批处理后形成"""
+    __tablename__ = "feedback_batches"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, index=True, nullable=False)
+    chapter_id = Column(Integer, index=True, nullable=True)
+
+    feedback_ids = Column(JSON, default=list)
+    feedback_count = Column(Integer, default=0)
+
+    avg_reader_score = Column(Float, nullable=True)
+    avg_system_score = Column(Float, nullable=True)
+    critic_gap = Column(Float, nullable=True)
+
+    derived_rules = Column(JSON, default=list)
+    dimension_summary = Column(JSON, default=dict)
+    reaction_summary = Column(JSON, default=dict)
+
+    triggered_evolution = Column(Integer, default=0)
+    triggered_critic_calibration = Column(Integer, default=0)
+
+    status = Column(String(50), default="processed")  # waiting / processing / processed / failed
+    error_message = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=utc_now)
+    processed_at = Column(DateTime, nullable=True)
+
+    # 关系
+    feedbacks = relationship("Feedback", back_populates="batch")
 
 
 class UserPreference(Base):

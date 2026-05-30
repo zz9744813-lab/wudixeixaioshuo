@@ -15,7 +15,7 @@ from app.models.consistency import (
     TimelineEvent,
 )
 from app.models.evolution import EvolutionLog, EvolutionRun, VersionHistory
-from app.models.feedback import Feedback, UserPreference
+from app.models.feedback import Feedback, FeedbackBatch, UserPreference
 from app.models.memory import (
     CharacterMemory,
     ChapterMemory,
