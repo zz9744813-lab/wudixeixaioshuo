@@ -11,7 +11,8 @@ WORKER-002: 抽离写作流水线，实现短事务架构
 import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any
+import re
+from typing import Optional, Dict, Any, List
 
 from app.database import SessionLocal
 from app.models.chapter import Chapter, ChapterStatus, ChapterVersion
@@ -108,6 +109,10 @@ class PipelineService:
                 self._save_pipeline_result(db, task_info, result)
             finally:
                 db.close()
+
+            # 章节保存成功后更新长期记忆（失败不影响主流程）
+            if result.get("success") and result.get("final_content"):
+                await self._update_long_term_memory(task_info, result["final_content"])
 
             return result
 
@@ -1290,6 +1295,24 @@ class PipelineService:
         except Exception as e:
             logger.error(f"Learning 失败: {e}")
             return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+
+    async def _update_long_term_memory(self, task_info: Dict, final_content: str):
+        """章节完成后更新长期记忆（独立 session，失败仅记日志不阻断）"""
+        from app.services.memory_update_agent import MemoryUpdateAgent
+        db = SessionLocal()
+        try:
+            await MemoryUpdateAgent(db).update_from_chapter(
+                project_id=task_info["project_id"],
+                chapter_id=task_info["chapter_id"],
+                chapter_index=task_info["chapter_index"],
+                chapter_title=task_info.get("chapter_title", ""),
+                chapter_content=final_content,
+                db=db,
+            )
+        except Exception as e:
+            logger.error(f"[Task {task_info['task_id']}] 长期记忆更新失败: {e}")
         finally:
             db.close()
 

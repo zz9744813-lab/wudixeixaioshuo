@@ -25,9 +25,9 @@ MAX_CLAIM_ATTEMPTS = 3  # 最大领取尝试次数
 class TaskService:
     """任务服务 - 负责任务系统的核心操作"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, worker_id: Optional[str] = None):
         self.db = db
-        self.worker_id = self._generate_worker_id()
+        self.worker_id = worker_id or self._generate_worker_id()
 
     def _generate_worker_id(self) -> str:
         """生成唯一的 Worker ID"""

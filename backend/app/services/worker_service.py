@@ -7,6 +7,7 @@ Worker Service - 24小时自动写作后台任务调度器 (WORKER-002 重构版
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional
@@ -56,6 +57,8 @@ class WritingWorker:
         self._task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
         self._heartbeat_task: Optional[asyncio.Task] = None
+        # 稳定的 worker_id，领取与心跳共用，避免心跳过滤匹配不上
+        self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
         # WORKER-002: PipelineService 实例
         self.pipeline_service = PipelineService()
 
@@ -135,7 +138,7 @@ class WritingWorker:
                         # WORKER-003: 短 session 更新心跳
                         db = SessionLocal()
                         try:
-                            task_service = TaskService(db)
+                            task_service = TaskService(db, worker_id=self.worker_id)
                             task_service.update_heartbeat(task_id)
                         finally:
                             db.close()
@@ -176,7 +179,7 @@ class WritingWorker:
         task_info = None
         db = SessionLocal()
         try:
-            task_service = TaskService(db)
+            task_service = TaskService(db, worker_id=self.worker_id)
             gen_task = task_service.claim_task_safe()
 
             if not gen_task:
@@ -323,6 +326,10 @@ class WritingWorker:
             }
         finally:
             db.close()
+
+    def reset_daily_stats(self):
+        """重置 Worker 内存态（统计由 DailyUsageStatsService 按日持久化，此处仅清理当前任务态）"""
+        self.current_task = None
 
 
 # 全局 Worker 实例
