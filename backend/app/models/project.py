@@ -137,6 +137,12 @@ class Project(Base):
         back_populates="project",
         cascade="all, delete-orphan",
     )
+    # Agent运行记录
+    agent_runs = relationship(
+        "AgentRun",
+        back_populates="project",
+        cascade="all, delete-orphan",
+    )
     # 一致性检查规则 (B4)
     consistency_rules = relationship(
         "ConsistencyRule",

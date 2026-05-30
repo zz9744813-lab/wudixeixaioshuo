@@ -26,6 +26,7 @@ from app.routers import (
     feedback,
     foreshadows,
     health,
+    llm_routes,
     memory,
     models,
     production,
@@ -152,6 +153,12 @@ app.include_router(
     models.router,
     prefix="/api/models",
     tags=["Models"],
+    dependencies=[Depends(require_api_key)],
+)
+app.include_router(
+    llm_routes.router,
+    prefix="/api/llm-routes",
+    tags=["LLM Routes"],
     dependencies=[Depends(require_api_key)],
 )
 app.include_router(

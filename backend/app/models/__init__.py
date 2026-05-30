@@ -48,6 +48,31 @@ from app.models.review import (
     ReviewProfile,
     ReviewResult,
 )
+from app.models.agent_run import (
+    AgentRun,
+    AgentRunStatus,
+    AgentRunMode,
+    AgentPlan,
+    AgentPlanStatus,
+    AgentStep,
+    AgentStepStatus,
+    SubAgentTask,
+    SubAgentTaskStatus,
+)
+from app.models.provider_route_config import ProviderRouteConfig
+from app.models.research import (
+    ResearchRun,
+    ResearchRunStatus,
+    ResearchSource,
+    KnowledgePattern,
+    ReaderInsight,
+    TrendReport,
+)
+from app.models.evolution_auto import (
+    PromptEvolutionPolicy,
+    PromptEvolutionRun,
+    PromptEvolutionRunStatus,
+)
 
 __all__ = [
     "Project",
@@ -101,4 +126,27 @@ __all__ = [
     "ChapterMemory",
     "WorldMemory",
     "RelationshipMemory",
+    # Agent Run models (P0)
+    "AgentRun",
+    "AgentRunStatus",
+    "AgentRunMode",
+    "AgentPlan",
+    "AgentPlanStatus",
+    "AgentStep",
+    "AgentStepStatus",
+    "SubAgentTask",
+    "SubAgentTaskStatus",
+    # Provider Route models (P0)
+    "ProviderRouteConfig",
+    # Research models (P1)
+    "ResearchRun",
+    "ResearchRunStatus",
+    "ResearchSource",
+    "KnowledgePattern",
+    "ReaderInsight",
+    "TrendReport",
+    # Evolution Auto models (P1)
+    "PromptEvolutionPolicy",
+    "PromptEvolutionRun",
+    "PromptEvolutionRunStatus",
 ]
