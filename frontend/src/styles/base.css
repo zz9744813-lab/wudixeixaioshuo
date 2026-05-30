@@ -1,65 +1,98 @@
-/* ============================================
-   基础样式 (Base Styles)
-   全局重置 + 基线样式
-   ============================================ */
+* { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg-app); color:var(--text);
+  font-family:var(--font-sans); font-size:var(--fs-base);
+  -webkit-font-smoothing:antialiased; }
 
-@import './tokens.css';
+/* 所有指标数字统一等宽 + 紧字距 —— 控制台识别点 */
+.num, .metric, .stat-value { font-variant-numeric:tabular-nums;
+  letter-spacing:-0.02em; font-weight:500; }
 
-* {
-  box-sizing: border-box;
-}
+/* 焦点环（无障碍） */
+:focus-visible { outline:none; box-shadow:var(--focus-ring); border-radius:var(--r-sm); }
 
-html {
-  font-size: var(--fs-base);
-  line-height: var(--lh-normal);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+/* 细滚动条，融入深色 */
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:5px;border:2px solid var(--bg-app);}
+::-webkit-scrollbar-track{background:transparent;}
 
-body {
-  margin: 0;
-  font-family: var(--font-sans);
-  background: var(--bg-app);
+@media (prefers-reduced-motion:reduce){ *{transition:none!important;animation:none!important;} }
+
+/* ===== 控制台组件样式（从设计方案添加）===== */
+
+/* 按钮 - 硬边、克制 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
   color: var(--text);
-  min-height: 100vh;
+  font: 500 var(--fs-base)/1 var(--font-sans);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
 }
+.btn:hover { background: var(--bg-surface); border-color: var(--accent); }
+.btn--primary { background: var(--accent); border-color: var(--accent); color: #0a0c12; }
+.btn--primary:hover { background: var(--accent-hover); }
+.btn--ghost { background: transparent; border-color: transparent; color: var(--text-secondary); }
+.btn--ghost:hover { background: var(--bg-elevated); color: var(--text); }
+.btn--danger { background: transparent; border-color: var(--danger); color: var(--danger); }
 
-/* 焦点环 */
-*:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-
-/* 减少动画 */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-/* 滚动条样式 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--bg-subtle);
+/* 状态徽章 - 小圆点 + 低饱和底 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
   border-radius: var(--r-sm);
+  font-variant-numeric: tabular-nums;
 }
+.badge--running { background: var(--success-weak); color: var(--success); }
+.badge--pending { background: var(--warning-weak); color: var(--warning); }
+.badge--idle { background: var(--bg-elevated); color: var(--text-muted); }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: var(--r-sm);
-}
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot--ok { background: var(--success); }
+.dot--run { background: var(--accent); }
+.dot--warn { background: var(--warning); }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+/* 卡片 / 面板 */
+.panel {
+  background: var(--bg-surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
 }
+.panel__title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+.panel--active { border-left: 2px solid var(--accent); }
 
-/* 选中文本 */
-::selection {
-  background: var(--accent-weak);
-  color: var(--accent);
+/* 表格 - 紧凑可读 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
 }
+.table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-transform: none;
+  padding: 6px 10px;
+  border-bottom: 0.5px solid var(--border);
+}
+.table td {
+  padding: 8px 10px;
+  border-bottom: 0.5px solid var(--border);
+  color: var(--text-secondary);
+}
+.table td.num, .table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.table tbody tr:hover { background: var(--bg-elevated); }

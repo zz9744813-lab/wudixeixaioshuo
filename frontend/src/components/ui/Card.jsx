@@ -2,21 +2,20 @@ import React from 'react';
 import '../../styles/primitives.css';
 
 /**
- * Card 组件
- * @param {boolean} hover - 是否启用悬停效果
- * @param {ReactNode} children
- * @param {string} className
+ * Card 组件（控制台风格）
  */
 export function Card({
   hover = false,
   children,
   className = '',
+  active = false,
   ...props
 }) {
   const hoverClass = hover ? 'card--hover' : '';
+  const activeClass = active ? 'panel--active' : '';
 
   return (
-    <div className={`card ${hoverClass} ${className}`} {...props}>
+    <div className={`panel card ${hoverClass} ${activeClass} ${className}`} {...props}>
       {children}
     </div>
   );
