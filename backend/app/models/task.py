@@ -117,6 +117,9 @@ class GenerationStep(Base):
     score = Column(Float)  # 评分
     score_breakdown = Column(JSON)  # 评分详情
 
+    # 上下文可观测元数据 (P9)
+    context_metadata = Column(JSON, default=dict)
+
     # 模型信息
     model_name = Column(String(200))
     provider_name = Column(String(100))

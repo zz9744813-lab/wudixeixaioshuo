@@ -669,6 +669,16 @@ class PipelineService:
                     f"选中 {best.get('candidate_id')} | 理由: {selection.get('reason')}\n"
                     f"排序: {selection.get('ranking')}"
                 )[:1000]},
+                context_metadata={
+                    "parallel_candidates": [
+                        {"candidate_id": c.get("candidate_id"),
+                         "strategy": c.get("strategy"),
+                         "score": c.get("score")}
+                        for c in candidates
+                    ],
+                    "selected_candidate_id": best.get("candidate_id"),
+                    "selection_reason": selection.get("reason"),
+                },
             )
         finally:
             save_db.close()
@@ -2097,7 +2107,8 @@ class PipelineService:
 
     def _save_step(
         self, db, task_info: Dict, agent_name: str,
-        prompt: str, response: Dict, score: int = None, score_breakdown: Dict = None
+        prompt: str, response: Dict, score: int = None, score_breakdown: Dict = None,
+        context_metadata: Dict = None
     ):
         """保存生成步骤"""
         # 计算步骤序号
@@ -2117,6 +2128,7 @@ class PipelineService:
             parsed_output=response.get("content", ""),
             score=score,
             score_breakdown=score_breakdown,
+            context_metadata=context_metadata or {},
             model_name=response.get("model", "unknown"),
             provider_name=response.get("provider", "unknown"),
             input_tokens=response.get("input_tokens", 0),
