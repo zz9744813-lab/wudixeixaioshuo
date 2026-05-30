@@ -12,17 +12,7 @@ from alembic import context
 
 # 导入应用的 Base 和模型
 from app.database import Base
-from app.models.book import Book
-from app.models.chapter import Chapter, ChapterVersion
-from app.models.evolution import EvolutionRun
-from app.models.feedback import Feedback
-from app.models.memory import CharacterMemory, WorldMemory, ChapterMemory, RelationshipMemory, MemoryQueryLog
-from app.models.model_config import ModelProvider, ModelRole, ModelCallLog
-from app.models.project import Project
-from app.models.prompt_template import PromptTemplate
-from app.models.task import GenerationTask
-from app.models.technique import TechniqueCard
-from app.models.usage_stats import DailyUsageStats
+import app.models  # noqa: F401  # 确保所有模型注册到 Base.metadata，供 Alembic autogenerate 使用
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

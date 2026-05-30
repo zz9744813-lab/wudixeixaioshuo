@@ -24,7 +24,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '7b6f2991235c'
-down_revision: Union[str, None] = 'cf572852293f'
+down_revision: Union[str, None] = 'add_consistency_models'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -321,16 +321,63 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # 删除所有新表（逆序）
+    # 删除所有新表（逆序），先删除索引以兼容 SQLite 批量迁移场景
+    op.drop_index('ix_prompt_evolution_runs_status', table_name='prompt_evolution_runs')
+    op.drop_index('ix_prompt_evolution_runs_role', table_name='prompt_evolution_runs')
+    op.drop_index('ix_prompt_evolution_runs_policy_id', table_name='prompt_evolution_runs')
+    op.drop_index('ix_prompt_evolution_runs_id', table_name='prompt_evolution_runs')
     op.drop_table('prompt_evolution_runs')
+
+    op.drop_index('ix_prompt_evolution_policies_role', table_name='prompt_evolution_policies')
+    op.drop_index('ix_prompt_evolution_policies_id', table_name='prompt_evolution_policies')
     op.drop_table('prompt_evolution_policies')
+
+    op.drop_index('ix_trend_reports_platform', table_name='trend_reports')
+    op.drop_index('ix_trend_reports_genre', table_name='trend_reports')
+    op.drop_index('ix_trend_reports_id', table_name='trend_reports')
     op.drop_table('trend_reports')
+
+    op.drop_index('ix_reader_insights_insight_type', table_name='reader_insights')
+    op.drop_index('ix_reader_insights_genre', table_name='reader_insights')
+    op.drop_index('ix_reader_insights_id', table_name='reader_insights')
     op.drop_table('reader_insights')
+
+    op.drop_index('ix_knowledge_patterns_pattern_type', table_name='knowledge_patterns')
+    op.drop_index('ix_knowledge_patterns_genre', table_name='knowledge_patterns')
+    op.drop_index('ix_knowledge_patterns_id', table_name='knowledge_patterns')
     op.drop_table('knowledge_patterns')
+
+    op.drop_index('ix_research_sources_research_run_id', table_name='research_sources')
+    op.drop_index('ix_research_sources_id', table_name='research_sources')
     op.drop_table('research_sources')
+
+    op.drop_index('ix_research_runs_run_id', table_name='research_runs')
+    op.drop_index('ix_research_runs_project_id', table_name='research_runs')
+    op.drop_index('ix_research_runs_id', table_name='research_runs')
     op.drop_table('research_runs')
+
+    op.drop_index('ix_provider_route_configs_role', table_name='provider_route_configs')
+    op.drop_index('ix_provider_route_configs_provider_id', table_name='provider_route_configs')
+    op.drop_index('ix_provider_route_configs_id', table_name='provider_route_configs')
     op.drop_table('provider_route_configs')
+
+    op.drop_index('ix_subagent_tasks_status', table_name='subagent_tasks')
+    op.drop_index('ix_subagent_tasks_parent_step_id', table_name='subagent_tasks')
+    op.drop_index('ix_subagent_tasks_run_id', table_name='subagent_tasks')
+    op.drop_index('ix_subagent_tasks_id', table_name='subagent_tasks')
     op.drop_table('subagent_tasks')
+
+    op.drop_index('ix_agent_steps_status', table_name='agent_steps')
+    op.drop_index('ix_agent_steps_plan_id', table_name='agent_steps')
+    op.drop_index('ix_agent_steps_run_id', table_name='agent_steps')
+    op.drop_index('ix_agent_steps_id', table_name='agent_steps')
     op.drop_table('agent_steps')
+
+    op.drop_index('ix_agent_plans_run_id', table_name='agent_plans')
+    op.drop_index('ix_agent_plans_id', table_name='agent_plans')
     op.drop_table('agent_plans')
+
+    op.drop_index('ix_agent_runs_status', table_name='agent_runs')
+    op.drop_index('ix_agent_runs_project_id', table_name='agent_runs')
+    op.drop_index('ix_agent_runs_id', table_name='agent_runs')
     op.drop_table('agent_runs')
