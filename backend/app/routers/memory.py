@@ -74,6 +74,19 @@ class ContextAssemblyRequest(BaseModel):
     mentioned_chars: Optional[List[str]] = None
 
 
+class SemanticSearchRequest(BaseModel):
+    query: str
+    top_k: int = 10
+    memory_types: Optional[List[str]] = None
+    min_score: float = 0.25
+
+
+class ConsolidateRequest(BaseModel):
+    start_chapter: int
+    end_chapter: int
+    scope_type: str = "volume"
+
+
 # ========== Character Memory Endpoints ==========
 
 @router.post("/projects/{project_id}/characters", response_model=dict)
@@ -413,6 +426,39 @@ def update_memory_from_chapter(
         "chapter_memory_created": True,
         "characters_updated": updated_chars
     }
+
+
+@router.post("/projects/{project_id}/semantic-search")
+async def semantic_search(
+    project_id: int, data: SemanticSearchRequest, db: Session = Depends(get_db)
+):
+    """语义记忆检索 (P4/P5)"""
+    from app.services.memory_semantic_search_service import MemorySemanticSearchService
+    service = MemorySemanticSearchService(db)
+    results = await service.search(
+        project_id=project_id,
+        query_text=data.query,
+        memory_types=data.memory_types,
+        top_k=data.top_k,
+        min_score=data.min_score,
+    )
+    return {"results": results, "count": len(results)}
+
+
+@router.post("/projects/{project_id}/consolidate")
+async def consolidate_memory(
+    project_id: int, data: ConsolidateRequest, db: Session = Depends(get_db)
+):
+    """手动触发记忆固化 (P5)"""
+    from app.services.memory_consolidation_service import MemoryConsolidationService
+    service = MemoryConsolidationService(db)
+    result = await service.consolidate_range(
+        project_id=project_id,
+        start_chapter=data.start_chapter,
+        end_chapter=data.end_chapter,
+        scope_type=data.scope_type,
+    )
+    return result
 
 
 # ========== Import to main router ==========
