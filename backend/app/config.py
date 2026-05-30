@@ -50,6 +50,13 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     EMBEDDING_DIM: int = 1536
 
+    # 并行 Draft / Critic (P7)
+    ENABLE_PARALLEL_DRAFT: bool = False
+    PARALLEL_DRAFT_CANDIDATES: int = 3
+    PARALLEL_DRAFT_MAX_CONCURRENCY: int = 3
+    PARALLEL_DRAFT_COST_LIMIT: float = 1.00
+    ENABLE_PARALLEL_CRITIC: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

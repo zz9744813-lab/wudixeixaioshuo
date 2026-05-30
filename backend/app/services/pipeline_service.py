@@ -212,9 +212,27 @@ class PipelineService:
             "step_index": 2,
         })
 
-        draft_result = await self._run_draft(
-            task_info, bible_data, chapter_plan, memory_context, style_profile_context, knowledge_context, editor_directive
-        )
+        draft_result = None
+        if self._is_parallel_draft_enabled(task_info["project_id"]):
+            try:
+                from app.config import settings
+                cand = int(getattr(settings, "PARALLEL_DRAFT_CANDIDATES", 3))
+                conc = int(getattr(settings, "PARALLEL_DRAFT_MAX_CONCURRENCY", 3))
+            except Exception:
+                cand, conc = 3, 3
+            draft_result = await self._run_parallel_draft_candidates(
+                task_info, bible_data, chapter_plan, memory_context,
+                style_profile_context, editor_directive, knowledge_context,
+                candidate_count=cand, max_concurrency=conc,
+            )
+            if not draft_result.get("success"):
+                logger.warning("并行 Draft 失败，降级到串行 Draft")
+                draft_result = None
+
+        if draft_result is None:
+            draft_result = await self._run_draft(
+                task_info, bible_data, chapter_plan, memory_context, style_profile_context, knowledge_context, editor_directive
+            )
 
         await event_bus.publish("agent.step.completed", {
             "task_id": task_info["task_id"],
@@ -249,7 +267,12 @@ class PipelineService:
             "step_index": 3,
         })
 
-        critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context, editor_directive)
+        if self._is_parallel_critic_enabled(task_info["project_id"]):
+            critic_result = await self._run_parallel_critics(
+                task_info, draft_content, bible_data, editor_directive, knowledge_context
+            )
+        else:
+            critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context, editor_directive)
 
         await event_bus.publish("agent.step.completed", {
             "task_id": task_info["task_id"],
@@ -543,6 +566,125 @@ class PipelineService:
             return {"success": False, "error": str(e)}
         finally:
             db.close()
+
+    def _is_parallel_draft_enabled(self, project_id: int) -> bool:
+        """是否启用并行 Draft（默认 env 控制）。"""
+        try:
+            from app.config import settings
+            return bool(getattr(settings, "ENABLE_PARALLEL_DRAFT", False))
+        except Exception:
+            return False
+
+    async def _run_parallel_draft_candidates(
+        self,
+        task_info: Dict,
+        bible_data: Dict,
+        chapter_plan: Dict,
+        memory_context: str,
+        style_profile_context: Optional[Dict] = None,
+        editor_directive: Optional[Dict] = None,
+        knowledge_context: Optional[Dict] = None,
+        candidate_count: int = 3,
+        max_concurrency: int = 3,
+    ) -> Dict:
+        """并行生成多个 Draft 候选，评分后选优。失败时返回 success=False 以便降级。"""
+        strategies = [
+            ("draft_candidate_1", "节奏最快", "本候选追求最快节奏，冲突密集、信息增量高，减少铺陈。"),
+            ("draft_candidate_2", "情绪最强", "本候选强化情绪张力与代入感，放大爽点与情绪钩子。"),
+            ("draft_candidate_3", "伏笔最密", "本候选注重埋设/呼应伏笔，强化与全书的长期关联。"),
+        ][:max(1, candidate_count)]
+
+        try:
+            from app.config import settings
+            cost_limit = float(getattr(settings, "PARALLEL_DRAFT_COST_LIMIT", 1.0))
+        except Exception:
+            cost_limit = 1.0
+
+        semaphore = asyncio.Semaphore(max(1, max_concurrency))
+
+        async def _gen(strategy):
+            cid, name, hint = strategy
+            async with semaphore:
+                hinted_plan = dict(chapter_plan or {})
+                hinted_plan["candidate_strategy"] = f"{name}：{hint}"
+                draft = await self._run_draft(
+                    task_info, bible_data, hinted_plan, memory_context,
+                    style_profile_context, knowledge_context, editor_directive
+                )
+                if not draft.get("success"):
+                    return None
+                content = draft.get("content", "")
+                critic = await self._run_critic(
+                    task_info, content, bible_data, knowledge_context, editor_directive
+                )
+                return {
+                    "candidate_id": cid,
+                    "strategy": name,
+                    "content": content,
+                    "word_count": draft.get("word_count", 0),
+                    "score": critic.get("score", 0),
+                    "score_breakdown": critic.get("score_breakdown", {}),
+                    "must_fix_items": critic.get("must_fix_items", []),
+                    "rewrite_plan": critic.get("rewrite_plan", []),
+                    "cost": draft.get("cost", 0.0) + critic.get("cost", 0.0),
+                    "tokens": draft.get("tokens", 0) + critic.get("tokens", 0),
+                }
+
+        try:
+            results = await asyncio.gather(*[_gen(s) for s in strategies])
+        except Exception as e:
+            logger.warning(f"并行 Draft 执行异常: {e}")
+            return {"success": False, "error": str(e)}
+
+        candidates = [r for r in results if r]
+        if not candidates:
+            return {"success": False, "error": "无有效候选"}
+
+        total_cost = sum(c["cost"] for c in candidates)
+        total_tokens = sum(c["tokens"] for c in candidates)
+        if total_cost > cost_limit:
+            logger.warning(f"并行 Draft 成本 {total_cost} 超过上限 {cost_limit}")
+
+        from app.services.draft_reducer_service import DraftReducerService
+        db = SessionLocal()
+        try:
+            reducer = DraftReducerService(db)
+            selection = await reducer.select_best_candidate(
+                project_id=task_info["project_id"],
+                chapter_id=task_info["chapter_id"],
+                candidates=candidates,
+                editor_directive=editor_directive,
+            )
+        finally:
+            db.close()
+
+        best = selection.get("selected") or candidates[0]
+        # 保存选择理由到 GenerationStep，便于追溯
+        save_db = SessionLocal()
+        try:
+            self._save_step(
+                save_db, task_info, "ParallelDraft",
+                f"候选策略: {[c['strategy'] for c in candidates]}",
+                {"content": (
+                    f"选中 {best.get('candidate_id')} | 理由: {selection.get('reason')}\n"
+                    f"排序: {selection.get('ranking')}"
+                )[:1000]},
+            )
+        finally:
+            save_db.close()
+
+        return {
+            "success": True,
+            "agent": "ParallelDraft",
+            "content": best.get("content", ""),
+            "selected_content": best.get("content", ""),
+            "selected_candidate_id": best.get("candidate_id"),
+            "word_count": best.get("word_count", 0),
+            "candidates": candidates,
+            "selection_reason": selection.get("reason"),
+            "tokens": total_tokens,
+            "cost": total_cost,
+        }
 
     def _get_target_words(self, task_info: Dict, bible_data: Dict, chapter_plan: Dict) -> int:
         """获取目标字数 - 优先级：章节大纲 > 项目默认 > 系统默认"""
@@ -921,6 +1063,85 @@ class PipelineService:
             }
         finally:
             db.close()
+
+    def _is_parallel_critic_enabled(self, project_id: int) -> bool:
+        try:
+            from app.config import settings
+            return bool(getattr(settings, "ENABLE_PARALLEL_CRITIC", False))
+        except Exception:
+            return False
+
+    async def _run_parallel_critics(
+        self,
+        task_info: Dict,
+        content: str,
+        bible_data: Dict,
+        editor_directive: Optional[Dict] = None,
+        knowledge_context: Optional[Dict] = None,
+    ) -> Dict:
+        """并行运行多类型 Critic，聚合评分与必修项。失败时降级单 Critic。"""
+        critic_focuses = [
+            ("commercial", "商业追读：聚焦追读欲、情绪钩子、爽点与章末钩子。"),
+            ("continuity", "连续性：聚焦设定一致、伏笔呼应、与前文衔接。"),
+            ("character", "角色一致性：聚焦人设、动机、对话辨识度。"),
+            ("style", "风格稳定：聚焦文风统一、节奏、可读性。"),
+        ]
+        semaphore = asyncio.Semaphore(4)
+
+        async def _one(focus):
+            kind, hint = focus
+            async with semaphore:
+                hinted = dict(task_info)
+                hinted["critic_focus"] = f"{kind}: {hint}"
+                result = await self._run_critic(
+                    hinted, content, bible_data, knowledge_context, editor_directive
+                )
+                return {
+                    "critic": kind,
+                    "score": result.get("score", 0),
+                    "score_breakdown": result.get("score_breakdown", {}),
+                    "must_fix_items": result.get("must_fix_items", []),
+                    "rewrite_plan": result.get("rewrite_plan", []),
+                    "tokens": result.get("tokens", 0),
+                    "cost": result.get("cost", 0.0),
+                }
+
+        try:
+            reports = await asyncio.gather(*[_one(f) for f in critic_focuses])
+        except Exception as e:
+            logger.warning(f"并行 Critic 失败，降级单 Critic: {e}")
+            return await self._run_critic(
+                task_info, content, bible_data, knowledge_context, editor_directive
+            )
+
+        valid = [r for r in reports if r]
+        scores = [r["score"] for r in valid if r["score"]]
+        overall = round(sum(scores) / len(scores), 1) if scores else 0
+
+        merged_dims = {}
+        merged_must_fix = []
+        merged_plan = []
+        for r in valid:
+            merged_dims.update(r.get("score_breakdown") or {})
+            merged_must_fix.extend(r.get("must_fix_items") or [])
+            merged_plan.extend(r.get("rewrite_plan") or [])
+
+        # 去重，保序
+        merged_must_fix = list(dict.fromkeys(merged_must_fix))
+        merged_plan = list(dict.fromkeys(merged_plan))
+
+        return {
+            "success": True,
+            "agent": "ParallelCritic",
+            "score": overall,
+            "score_breakdown": merged_dims,
+            "critic_reports": valid,
+            "must_fix_items": merged_must_fix,
+            "merged_must_fix_items": merged_must_fix,
+            "rewrite_plan": merged_plan,
+            "tokens": sum(r.get("tokens", 0) for r in valid),
+            "cost": sum(r.get("cost", 0.0) for r in valid),
+        }
 
     def _build_critic_rubric_prompt(self, chapter_title: str, content: str, consistency_prompt: str = "") -> str:
         """构建 Critic Rubric Prompt（当模板不可用时使用）"""
