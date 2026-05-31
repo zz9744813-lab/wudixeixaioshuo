@@ -3,16 +3,21 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import ConfirmModal from '../components/ConfirmModal';
 import Modal from '../components/ui/Modal';
+import { toArray } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Books.module.css';
 
 const PAGE_TITLE = '📚 拆书学习';
 const PAGE_ICON = 'BookOpen';
+const PAGE_SUBTITLE = '上传书籍 → 智能分章 → 拆书分析 → 提取技巧';
 
 const SOURCE_TYPES = [
   { value: 'txt', label: 'TXT 文本' },
@@ -151,52 +156,58 @@ export default function Books() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-        <Button variant="primary" onClick={() => { setCreateTitle(''); setCreateAuthor(''); setCreateGenre(''); setUploadFile(null); setShowCreate(true); }}>+ 添加书籍</Button>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+        actions={
+          <Button variant="primary" size="sm" onClick={() => { setCreateTitle(''); setCreateAuthor(''); setCreateGenre(''); setUploadFile(null); setShowCreate(true); }}>
+            + 添加书籍
+          </Button>
+        }
+      />
 
       <AsyncState loading={loading} error={error} onRetry={fetchBooks} isEmpty={books.length === 0} emptyTitle="暂无书籍"
-        emptyAction={<Button variant="primary" onClick={() => { setCreateTitle(''); setCreateAuthor(''); setCreateGenre(''); setUploadFile(null); setShowCreate(true); }}>+ 上传第一本书</Button>}>
-        <div className={styles.grid}>
-          {books.map((b) => {
-            const st = statusOf(b.status);
-            return (
-              <div key={b.id} className={styles.card}>
-                <div className={styles.cardTop}>
-                  <Link to={`/books/${b.id}`} className={styles.cardTitle}>{b.title}</Link>
-                  <Badge variant={st.variant}>{st.label}</Badge>
+        emptyHint="上传第一本书开始拆书学习">
+        <SectionCard title="书籍列表" subtitle={`共 ${books.length} 本书`}>
+          <div className={styles.grid}>
+            {books.map((b) => {
+              const st = statusOf(b.status);
+              return (
+                <div key={b.id} className={styles.card}>
+                  <div className={styles.cardTop}>
+                    <Link to={`/books/${b.id}`} className={styles.cardTitle}>{b.title}</Link>
+                    <Badge variant={st.variant}>{st.label}</Badge>
+                  </div>
+                  <div className={styles.cardBody}>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>作者</span><span>{b.author_alias || '未知'}</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>题材</span><span>{b.genre || '-'}</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>来源</span><span>{SOURCE_TYPES.find((t) => t.value === b.source_type)?.label || b.source_type}</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>章节/字数</span><span>{b.total_chapters || 0} 章 / {(b.total_words || 0).toLocaleString()} 字</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>创建时间</span><span>{b.created_at ? new Date(b.created_at).toLocaleDateString() : '-'}</span></div>
+                  </div>
+                  <div className={styles.cardActions}>
+                    <Link to={`/books/${b.id}`}><Button variant="secondary" size="sm">详情</Button></Link>
+                    {b.status === 'imported' && (
+                      <Button variant="primary" size="sm" onClick={() => handleSplit(b.id)}>智能分章</Button>
+                    )}
+                    {b.status === 'split_completed' && (
+                      <Button variant="primary" size="sm" onClick={() => handleAnalyze(b.id)}>拆书分析</Button>
+                    )}
+                    {b.status === 'completed' && (
+                      <Button variant="primary" size="sm" onClick={() => handleExtract(b.id)}>提取技巧</Button>
+                    )}
+                    {['splitting', 'analyzing'].includes(b.status) && (
+                      <Badge variant="warning">处理中...</Badge>
+                    )}
+                    <Button variant="danger" size="sm" onClick={() => handleDelete(b.id, b.title)}>删除</Button>
+                  </div>
                 </div>
-                <div className={styles.cardBody}>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>作者</span><span>{b.author_alias || '未知'}</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>题材</span><span>{b.genre || '-'}</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>来源</span><span>{SOURCE_TYPES.find((t) => t.value === b.source_type)?.label || b.source_type}</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>章节/字数</span><span>{b.total_chapters || 0} 章 / {(b.total_words || 0).toLocaleString()} 字</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>创建时间</span><span>{b.created_at ? new Date(b.created_at).toLocaleDateString() : '-'}</span></div>
-                </div>
-                <div className={styles.cardActions}>
-                  <Link to={`/books/${b.id}`}><Button variant="secondary" size="sm">详情</Button></Link>
-                  {b.status === 'imported' && (
-                    <Button variant="primary" size="sm" onClick={() => handleSplit(b.id)}>智能分章</Button>
-                  )}
-                  {b.status === 'split_completed' && (
-                    <Button variant="primary" size="sm" onClick={() => handleAnalyze(b.id)}>拆书分析</Button>
-                  )}
-                  {b.status === 'completed' && (
-                    <Button variant="primary" size="sm" onClick={() => handleExtract(b.id)}>提取技巧</Button>
-                  )}
-                  {['splitting', 'analyzing'].includes(b.status) && (
-                    <Badge variant="warning">处理中...</Badge>
-                  )}
-                  <Button variant="danger" size="sm" onClick={() => handleDelete(b.id, b.title)}>删除</Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </SectionCard>
       </AsyncState>
 
-      {/* Create / Upload Modal */}
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="添加书籍" size="md" footer={
         <div className={styles.modalActions}>
           <Button variant="primary" onClick={handleUpload} disabled={submitting}>{submitting ? '上传中…' : '上传文件'}</Button>

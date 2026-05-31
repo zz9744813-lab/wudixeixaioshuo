@@ -30,15 +30,11 @@
   text-align: center;
   padding: 32px;
 }
-.statsRow {
-  display: flex;
+.metricsRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   margin-bottom: 20px;
-  flex-wrap: wrap;
-}
-.statsRow > * {
-  flex: 1;
-  min-width: 160px;
 }
 .filterBar {
   display: flex;

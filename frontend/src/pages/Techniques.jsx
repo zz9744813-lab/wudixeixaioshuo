@@ -1,19 +1,31 @@
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { StatCard } from '../components/ui/StatCard';
-import Modal from '../components/ui/Modal';
-import { Table } from '../components/ui/Table';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { toObject, toArray } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import MetricCard from '../components/console/MetricCard';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Techniques.module.css';
 
 const PAGE_TITLE = '🎯 技巧库';
 const PAGE_ICON = 'FileText';
+const PAGE_SUBTITLE = '管理各角色的 Prompt 模板';
+
+const ROLE_LABELS = {
+  planner: 'Planner',
+  draft: 'Draft',
+  critic: 'Critic',
+  rewrite: 'Rewrite',
+  continuity: 'Continuity',
+  memory_update: 'Memory Update',
+};
 
 const CATEGORY_COLORS = {
   '人物塑造': 'success',
@@ -71,16 +83,19 @@ export default function Techniques() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-        <Link to="/books"><Button variant="secondary" size="sm">从书籍导入</Button></Link>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+        actions={
+          <Link to="/books"><Button variant="secondary" size="sm">从书籍导入</Button></Link>
+        }
+      />
 
-      <div className={styles.statsRow}>
-        {stats.map((s) => <StatCard key={s.label} {...s} />)}
+      <div className={styles.metricsRow}>
+        {stats.map((s) => <MetricCard key={s.label} label={s.label} value={s.value} unit={s.unit || ''} status="info" />)}
       </div>
 
-      <div className={styles.body}>
+      <SectionCard title="技巧列表" subtitle={selectedCategory ? `${selectedCategory} 分类` : '全部角色'}>
         <div className={styles.filterBar}>
           <span className={styles.filterLabel}>分类：</span>
           <div className={styles.categoryList}>
@@ -97,17 +112,11 @@ export default function Techniques() {
             ))}
           </div>
         </div>
-
         <AsyncState loading={loading} error={error} onRetry={reload} isEmpty={!techniques.length} emptyTitle="暂无技巧卡"
-                    emptyHint="请先上传书籍或添加技巧">
-          <Table
-            columns={columns}
-            rows={techniques}
-            rowKey="id"
-            onRowClick={(row) => openDetail(row.id)}
-          />
+          emptyHint="请先上传书籍或添加技巧">
+          <Table columns={columns} rows={techniques} rowKey="id" onRowClick={(row) => openDetail(row.id)} />
         </AsyncState>
-      </div>
+      </SectionCard>
 
       <Modal open={!!detailId} onClose={() => setDetailId(null)} title={detailData?.title || '技巧详情'}>
         {loadingDetail ? (
