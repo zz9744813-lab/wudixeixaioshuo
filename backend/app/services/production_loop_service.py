@@ -92,20 +92,42 @@ class ProductionLoopService:
             self.last_scheduled_count = len(results or [])
             self.last_error = None
 
+            if results:
+                await self._ensure_worker_running()
+
             # 项目级自动化调度
             project_ids = {r.get("project_id") for r in (results or []) if r.get("project_id")}
             if project_ids:
-                from app.services.automation_scheduler_service import (
-                    AutomationSchedulerService,
-                )
-                auto = AutomationSchedulerService(db)
-                for pid in project_ids:
-                    try:
-                        await auto.scan_project_automations(pid)
-                    except Exception as e:
-                        logger.warning(f"[ProductionLoop] 项目 {pid} 自动化失败: {e}")
+                try:
+                    from app.services.automation_scheduler_service import AutomationSchedulerService
+                    auto = AutomationSchedulerService(db)
+                    for pid in project_ids:
+                        try:
+                            await auto.scan_project_automations(pid)
+                        except Exception as e2:
+                            logger.warning(f"[ProductionLoop] 项目 {pid} 自动化失败: {e2}")
+                except Exception as e:
+                    logger.warning(f"[ProductionLoop] 自动化调度失败: {e}")
+        except Exception as e:
+            self.last_error = str(e)
+            logger.warning(f"[ProductionLoop] tick 异常: {e}")
         finally:
             db.close()
+
+    async def _ensure_worker_running(self):
+        """生产循环发现新任务后，确保 Worker 正在运行。"""
+        try:
+            from app.config import settings
+            auto_start = bool(getattr(settings, "AUTO_START_WORKER_ON_SCHEDULE", True))
+            if not auto_start:
+                return
+
+            from app.services.worker_service import worker, WorkerStatus
+            if worker.status != WorkerStatus.RUNNING:
+                await worker.start()
+                logger.info("[ProductionLoop] 已自动启动 Worker 处理排产任务")
+        except Exception as e:
+            logger.warning(f"[ProductionLoop] 自动启动 Worker 失败: {e}")
 
     def get_status(self) -> dict:
         return {

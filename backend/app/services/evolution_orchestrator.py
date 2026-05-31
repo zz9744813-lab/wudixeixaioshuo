@@ -228,7 +228,7 @@ class EvolutionOrchestrator:
             self.db.query(PromptEvolutionPolicy)
             .filter(
                 PromptEvolutionPolicy.role == role,
-                getattr(PromptEvolutionPolicy, "project_id", None) == project_id,
+                PromptEvolutionPolicy.project_id == project_id,
             )
             .order_by(PromptEvolutionPolicy.id.desc())
             .first()
@@ -240,7 +240,7 @@ class EvolutionOrchestrator:
                 trigger_window_days=trigger_window_days,
                 candidate_count=candidate_count,
                 min_improvement=min_improvement,
-                min_samples=min_samples,
+                min_sample_count=min_samples,
                 auto_apply=auto_apply,
             )
             self.db.add(policy)

@@ -2,6 +2,7 @@
 按方案 P4：真人分 reader_score / dimension_scores 优先作为金标准。
 """
 
+import asyncio
 import logging
 import re
 import json

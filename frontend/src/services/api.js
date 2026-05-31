@@ -41,6 +41,9 @@ api.interceptors.response.use(
   },
 );
 
+// 兼容旧页面写法：api.del(...)
+api.del = (url, config = {}) => api.delete(url, config);
+
 export const get = (url, config = {}) => api.get(url, config);
 export const post = (url, data = {}, config = {}) => api.post(url, data, config);
 export const put = (url, data = {}, config = {}) => api.put(url, data, config);

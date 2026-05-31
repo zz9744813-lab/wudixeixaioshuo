@@ -85,6 +85,44 @@ async def create_provider(provider: ProviderCreate, db: Session = Depends(get_db
     }
 
 
+class ProviderUpdate(BaseModel):
+    name: Optional[str] = None
+    provider_type: Optional[str] = None
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
+    default_model: Optional[str] = None
+    is_enabled: Optional[bool] = None
+
+@router.put("/providers/{provider_id}")
+async def update_provider(provider_id: int, provider: ProviderUpdate, db: Session = Depends(get_db)):
+    """更新模型提供商配置"""
+    db_provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
+    if not db_provider:
+        raise HTTPException(status_code=404, detail="Provider 不存在")
+
+    update_data = provider.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        if field == "api_key" and value:
+            db_provider.api_key_encrypted = encrypt_api_key(value)
+            db_provider.api_key_mask = mask_api_key(value)
+        elif hasattr(db_provider, field):
+            setattr(db_provider, field, value)
+
+    db_provider.updated_at = utc_now()
+    db.commit()
+    db.refresh(db_provider)
+
+    return {
+        "id": db_provider.id,
+        "name": db_provider.name,
+        "provider_type": db_provider.provider_type,
+        "base_url": db_provider.base_url,
+        "default_model": db_provider.default_model,
+        "is_enabled": db_provider.is_enabled == 1,
+        "last_test_result": db_provider.last_test_result,
+        "message": "Provider 已更新",
+    }
+
 @router.get("/providers/{provider_id}")
 async def get_provider(provider_id: int, db: Session = Depends(get_db)):
     """获取提供商详情"""

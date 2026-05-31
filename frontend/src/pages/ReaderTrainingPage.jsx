@@ -27,7 +27,7 @@ export default function ReaderTrainingPage() {
   const [bpInfo, setBpInfo] = React.useState(null);
 
   // ---- Chapter fetch ----
-  const chapterQuery = useFetch(cid ? `/chapters/${cid}` : '', { manual: true });
+  const chapterQuery = useFetch(pid && cid ? `/projects/${pid}/chapters/${cid}` : '', { auto: false });
   const [chapter, setChapter] = React.useState(null);
 
   // ---- Feedback form state ----
@@ -44,8 +44,8 @@ export default function ReaderTrainingPage() {
 
   // ---- Chapter data effects ----
   React.useEffect(() => {
-    if (cid) { chapterQuery.reload(); }
-  }, [cid]);
+    if (pid && cid) { chapterQuery.reload(); }
+  }, [pid, cid]);
 
   React.useEffect(() => {
     if (!chapterQuery.data) return;
@@ -189,9 +189,9 @@ export default function ReaderTrainingPage() {
           <div className={styles.chapterHeader}>
             <h3>{chapter?.title ? `第 ${chapter.chapter_index} 章：${chapter.title}` : '章节试读'}</h3>
           </div>
-          {chapter?.content ? (
+          {(chapter?.content || chapter?.final_content || '') ? (
             <div className={styles.textBody} onMouseUp={handleTextSelect} onScroll={handleScrollSave}>
-              {chapter.content.split('\n').map((p, i) => (
+                  {(chapter?.content || chapter?.final_content || '').split('\n').map((p, i) => (
                 <p key={i}>{p || '\u00A0'}</p>
               ))}
               {selectedText && showAnchorInput && (
