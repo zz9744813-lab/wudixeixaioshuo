@@ -34,7 +34,7 @@ export default function WritingFactory() {
     setLoadingProjects(true);
     try {
       const res = await api.get('/projects/');
-      setProjects(Array.isArray(res.data) ? res.data : []);
+      setProjects(toArray(res.data));
     } catch (err) {
       setError(err?.response?.data?.detail || err.message || '加载项目失败');
     } finally { setLoadingProjects(false); }

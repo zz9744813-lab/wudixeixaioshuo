@@ -33,11 +33,7 @@ function StepCard({ step }) {
   const meta = step.context_metadata || {};
   const dims = step.score_breakdown || {};
 
-  const readerRules = Array.isArray(meta.reader_rules_used)
-    ? meta.reader_rules_used
-    : typeof meta.reader_rules_used === 'string'
-      ? [meta.reader_rules_used]
-      : [];
+  const readerRules = toArray(meta?.reader_rules_used);
 
   return (
     <div className={styles.stepCard}>
@@ -72,7 +68,7 @@ function StepCard({ step }) {
             </MetaBlock>
           )}
 
-          {Array.isArray(meta.parallel_candidates) && meta.parallel_candidates.length > 0 && (
+          {toArray(meta?.parallel_candidates).length > 0 && (
             <MetaBlock title="并行候选 / 选择理由">
               <ul className={styles.list}>
                 {meta.parallel_candidates.map((c) => (
@@ -86,11 +82,11 @@ function StepCard({ step }) {
             </MetaBlock>
           )}
 
-          {Array.isArray(meta.critic_sources) && meta.critic_sources.length > 0 && (
+          {toArray(meta?.critic_sources).length > 0 && (
             <MetaBlock title="并行 Critic 来源">{meta.critic_sources.join('、')}</MetaBlock>
           )}
 
-          {Array.isArray(meta.memory_items) && meta.memory_items.length > 0 && (
+          {toArray(meta?.memory_items).length > 0 && (
             <MetaBlock title="召回的记忆">
               <ul className={styles.list}>
                 {meta.memory_items.map((m, i) => (

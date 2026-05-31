@@ -126,7 +126,7 @@ export default function WorkerDashboard() {
   const statsObj = toObject(stats);
   const dailyStats = statsObj?.worker?.daily_stats || {};
   const queueData = statsObj?.queue || {};
-  const queueItems = Array.isArray(queueData?.tasks) ? queueData.tasks : [];
+  const queueItems = toArray(queueData?.tasks);
   const progress = queueData?.progress || {};
   const healthObj = toObject(health);
 

@@ -54,7 +54,7 @@ export default function ExportPage() {
     try {
       const res = await api.get(`/export/history?project_id=${pid}`);
       const data = res.data || {};
-      setHistory(Array.isArray(data.exports) ? data.exports : []);
+      setHistory(toArray(data?.exports));
     } catch (err) {
       toast.error(getApiErrorMessage(err) || '加载导出记录失败', 5000);
       setHistory([]);

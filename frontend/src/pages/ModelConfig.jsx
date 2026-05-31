@@ -81,7 +81,7 @@ export default function ModelConfig() {
   const fetchProviders = useCallback(async () => {
     try {
       const res = await api.get('/models/providers');
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = toArray(res.data);
       setProviders(data);
       setDiagnostics((d) => ({ ...d, providersOk: true, providersCount: data.length }));
       return data;
@@ -96,7 +96,7 @@ export default function ModelConfig() {
   const fetchRoles = useCallback(async () => {
     try {
       const res = await api.get('/models/roles');
-      const data = Array.isArray(res.data) ? res.data : [];
+      const data = toArray(res.data);
       setRoles(data);
       setDiagnostics((d) => ({ ...d, rolesOk: true, rolesCount: data.length }));
       return data;
@@ -155,7 +155,7 @@ export default function ModelConfig() {
         toast.error(msg, 6000);
         return;
       }
-      const models = Array.isArray(res.data.models) ? res.data.models : [];
+      const models = toArray(res.data?.models);
       setDiscoveredModels(models);
       if (models.length > 0 && !defaultModel) {
         setDefaultModel(models[0].id);
@@ -199,7 +199,7 @@ export default function ModelConfig() {
         toast.error(msg, 6000);
         return;
       }
-      const models = Array.isArray(res.data.models) ? res.data.models : [];
+      const models = toArray(res.data?.models);
       setQsModels(models);
 
       if (models.length > 0) {

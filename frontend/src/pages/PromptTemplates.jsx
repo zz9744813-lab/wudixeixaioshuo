@@ -94,7 +94,7 @@ export default function PromptTemplates() {
     { key: 'created_at', label: '时间', render: (v) => v ? new Date(v).toLocaleDateString('zh-CN') : '-' },
   ];
 
-  const templatesCount = Array.isArray(templates) ? templates.length : 0;
+  const templatesCount = toArray(templates).length;
 
   return (
     <div className={styles.page}>

@@ -48,7 +48,7 @@ export default function ProjectDetail() {
       ]);
       setProject(pRes.data);
       setPlaybook(pbRes.data);
-      setFailures(Array.isArray(fRes.data) ? fRes.data : []);
+      setFailures(toArray(fRes.data));
     } catch (err) {
       const msg = err?.response?.data?.detail || err.message || '加载项目详情失败';
       setError(msg);
@@ -63,7 +63,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (playbook) {
-      setPlaybookRules(Array.isArray(playbook.rules) ? playbook.rules : []);
+      setPlaybookRules(toArray(playbook?.rules));
       setPlaybookStyle(playbook.style_boundaries || '');
       setPlaybookTone(playbook.tone_guidelines || '');
     }
@@ -136,7 +136,7 @@ export default function ProjectDetail() {
             <section className={styles.card}>
               <h2 className={styles.cardTitle}>📖 世界观摘要</h2>
               <p className={styles.bibleText}>{bible.world_setting || '暂无设定'}</p>
-              {Array.isArray(bible.characters) && bible.characters.length > 0 && (
+              {toArray(bible?.characters).length > 0 && (
                 <div className={styles.charChips}>
                   {bible.characters.slice(0, 12).map((c, i) => (
                     <span key={i} className={styles.charChip}>{typeof c === 'string' ? c : c?.name || JSON.stringify(c)}</span>
@@ -167,7 +167,7 @@ export default function ProjectDetail() {
           <section className={styles.card}>
             <div className={styles.cardHeader}>
               <h2 className={styles.cardTitle}>📝 写作手册（Playbook）</h2>
-              <Button variant="secondary" size="sm" onClick={() => { if (playbook) { setPlaybookRules(Array.isArray(playbook.rules) ? playbook.rules : []); setPlaybookStyle(playbook.style_boundaries || ''); setPlaybookTone(playbook.tone_guidelines || ''); } setShowPlaybook(true); }}>编辑</Button>
+              <Button variant="secondary" size="sm" onClick={() => { if (playbook) { setPlaybookRules(toArray(playbook?.rules)); setPlaybookStyle(playbook.style_boundaries || ''); setPlaybookTone(playbook.tone_guidelines || ''); } setShowPlaybook(true); }}>编辑</Button>
             </div>
             {playbook ? (
               <div className={styles.playbookBody}>

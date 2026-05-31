@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button';
 import { StatCard } from '../components/ui/StatCard';
 import ConfirmModal from '../components/ConfirmModal';
 import Modal from '../components/ui/Modal';
+import { toArray } from '../utils/nullSafety';
 import styles from './BookDetail.module.css';
 
 const PAGE_TITLE = '书籍详情';
@@ -101,7 +102,7 @@ export default function BookDetail() {
   if (!bookId) return <div className={styles.page}><p className={styles.err}>无效的书籍 ID</p></div>;
 
   const st = BOOK_STATUS[book?.status] || BOOK_STATUS.imported;
-  const chapters = Array.isArray(book?.chapters) ? book.chapters : [];
+  const chapters = toArray(book?.chapters);
   const analysisReport = book?.analysis_report || null;
 
   return (

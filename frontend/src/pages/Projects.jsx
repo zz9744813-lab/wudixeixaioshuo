@@ -43,7 +43,7 @@ export default function Projects() {
     setError('');
     try {
       const res = await api.get('/projects/');
-      setProjects(Array.isArray(res.data) ? res.data : []);
+      setProjects(toArray(res.data));
     } catch (err) {
       const msg = err?.response?.data?.detail || err.message || '加载项目列表失败';
       setError(msg);

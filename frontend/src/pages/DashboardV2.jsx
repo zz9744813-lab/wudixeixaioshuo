@@ -47,8 +47,8 @@ export default function DashboardV2() {
     if (statsRes.status === 'fulfilled') setWorker((w) => ({ ...w, stats: statsRes.value.data }));
     if (healthRes.status === 'fulfilled') setWorker((w) => ({ ...w, health: healthRes.value.data }));
 
-    if (providersRes.status === 'fulfilled') setProviders(Array.isArray(providersRes.value.data) ? providersRes.value.data : []);
-    if (rolesRes.status === 'fulfilled') setRoles(Array.isArray(rolesRes.value.data) ? rolesRes.value.data : []);
+    if (providersRes.status === 'fulfilled') setProviders(toArray(providersRes.value?.data));
+    if (rolesRes.status === 'fulfilled') setRoles(toArray(rolesRes.value?.data));
 
     setLoading(false);
   }, []);

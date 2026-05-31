@@ -9,7 +9,7 @@ const PAGE_TITLE = '📋 任务队列';
 
 export default function Tasks() {
   const { data, loading, error, reload } = useFetch('/tasks/');
-  const tasks = Array.isArray(data) ? data : [];
+  const tasks = toArray(data);
 
   return (
     <div className={styles.page}>

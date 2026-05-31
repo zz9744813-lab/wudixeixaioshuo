@@ -55,7 +55,7 @@ export default function Books() {
     setError('');
     try {
       const res = await api.get('/books/');
-      setBooks(Array.isArray(res.data) ? res.data : []);
+      setBooks(toArray(res.data));
     } catch (err) {
       const msg = err?.response?.data?.detail || err.message || '加载书籍列表失败';
       setError(msg);

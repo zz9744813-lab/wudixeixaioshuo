@@ -59,7 +59,7 @@ export default function BibleEditor() {
     setDetailData(null);
     try {
       const res = await api.get(`/bible/projects/${projectId}/bible/characters`);
-      const chars = Array.isArray(res.data.characters) ? res.data.characters : [];
+      const chars = toArray(res.data?.characters);
       const found = chars.find((c) => c.id === charId || c.name === charId);
       setDetailData(found);
     } catch {
@@ -109,7 +109,7 @@ export default function BibleEditor() {
     }
   };
 
-  const characters = Array.isArray(bible?.characters) ? bible.characters : [];
+  const characters = toArray(bible?.characters);
   const columns = [
     { key: 'name', label: '姓名', render: (v, row) => <span className={styles.charName}>{v}</span> },
     { key: 'role', label: '角色', render: (v) => <Badge variant={CHARACTER_ROLE_COLORS[v] || 'accent'}>{v}</Badge> },

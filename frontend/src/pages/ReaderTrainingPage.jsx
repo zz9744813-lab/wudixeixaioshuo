@@ -50,7 +50,7 @@ export default function ReaderTrainingPage() {
   React.useEffect(() => {
     if (!chapterQuery.data) return;
     const raw = chapterQuery.data;
-    const ch = Array.isArray(raw) ? raw[0] : raw;
+    const ch = raw.length ? raw[0] : raw;
     if (ch) setChapter(ch);
   }, [chapterQuery.data]);
 
