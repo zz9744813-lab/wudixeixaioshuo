@@ -13,6 +13,7 @@ const NAV_GROUPS = [
       { to: '/books', label: '拆书学习', icon: 'BookOpen' },
       { to: '/techniques', label: '技巧库', icon: 'Lightbulb' },
       { to: '/projects', label: '小说项目', icon: 'FolderKanban' },
+    { to: '/reader-training', label: '真人训练营', icon: 'Users' },
       { to: '/export', label: '小说导出', icon: 'Download' },
     ],
   },

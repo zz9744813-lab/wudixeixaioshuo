@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
+import { ToastProvider } from './contexts/ToastContext';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
@@ -24,10 +25,12 @@ import AgentRunDetailPage from './pages/AgentRunDetailPage';
 import LLMRouterPage from './pages/LLMRouterPage';
 import ResearchAgentPage from './pages/ResearchAgentPage';
 import EvolutionAutoPage from './pages/EvolutionAutoPage';
+import ReaderTrainingPage from './pages/ReaderTrainingPage';
+import ToastContainer from './pages/ToastContainer';
 
 function App() {
   return (
-    <Router>
+    <ToastProvider><Router>
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -53,9 +56,10 @@ function App() {
           <Route path="/llm-routes" element={<LLMRouterPage />} />
           <Route path="/research-agent" element={<ResearchAgentPage />} />
           <Route path="/evolution-auto" element={<EvolutionAutoPage />} />
-        </Routes>
+          <Route path="/reader-training" element={<ReaderTrainingPage />} />
+</Routes>
       </Layout>
-    </Router>
+    </Router></ToastProvider>
   );
 }
 
