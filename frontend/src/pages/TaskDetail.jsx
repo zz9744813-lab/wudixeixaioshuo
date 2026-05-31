@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../services/api';
+import { useToast } from '../contexts/ToastContext';
+import ProgressIndicator from '../components/ProgressIndicator';
+import ConfirmModal from '../components/ConfirmModal';
+import { useConfirm } from '../hooks/useConfirm';
 import styles from './TaskDetail.module.css';
 
 const AGENT_LABELS = {
@@ -28,6 +32,12 @@ function StepCard({ step }) {
   const [open, setOpen] = useState(false);
   const meta = step.context_metadata || {};
   const dims = step.score_breakdown || {};
+
+  const readerRules = Array.isArray(meta.reader_rules_used)
+    ? meta.reader_rules_used
+    : typeof meta.reader_rules_used === 'string'
+      ? [meta.reader_rules_used]
+      : [];
 
   return (
     <div className={styles.stepCard}>
@@ -90,6 +100,16 @@ function StepCard({ step }) {
             </MetaBlock>
           )}
 
+  {readerRules.length > 0 && (
+    <MetaBlock title="真人训练营规则引用">
+      <ul className={styles.list}>
+        {readerRules.map((r, i) => (
+          <li key={i}>{typeof r === "string" ? r : JSON.stringify(r)}</li>
+        ))}
+      </ul>
+    </MetaBlock>
+  )}
+
           {step.input_prompt && (
             <MetaBlock title="输入 Prompt">
               <pre className={styles.pre}>{step.input_prompt}</pre>
@@ -109,9 +129,19 @@ function StepCard({ step }) {
 
 export default function TaskDetail() {
   const { id } = useParams();
+  const toast = useToast();
+  const { confirm, state: confirmState, handleOk, handleCancel } = useConfirm({
+    title: '请确认',
+    message: '确定要执行此操作吗？',
+  });
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [sseTaskId, setSseTaskId] = useState(null);
+
+  useEffect(() => {
+    setSseTaskId(id ? Number(id) : null);
+  }, [id]);
 
   const fetchTask = useCallback(async () => {
     try {
@@ -136,14 +166,23 @@ export default function TaskDetail() {
     <div className={styles.page}>
       <header className={styles.header}>
         <Link to="/tasks" className={styles.back}>← 返回任务队列</Link>
-        <h1>任务 #{task.id}</h1>
+        <h1>任务 #{task?.id}</h1>
+        <div className={styles.progressWrap}>
+          <ProgressIndicator taskId={sseTaskId} />
+        </div>
         <div className={styles.summary}>
-          <span>类型 {task.task_type}</span>
-          <span>状态 {task.status}</span>
-          <span>章节 {task.chapter_id}</span>
-          <span>成本 ${(task.actual_cost || 0).toFixed?.(4) ?? task.actual_cost ?? 0}</span>
+          <span>类型 {task?.task_type}</span>
+          <span>状态 {task?.status}</span>
+          <span>章节 {task?.chapter_id}</span>
+          <span>成本 ${(task?.actual_cost || 0).toFixed?.(4) ?? task?.actual_cost ?? 0}</span>
         </div>
       </header>
+
+      <ConfirmModal
+        state={confirmState}
+        onOk={handleOk}
+        onCancel={handleCancel}
+      />
 
       <section className={styles.steps}>
         <h2>Agent 执行步骤</h2>

@@ -240,3 +240,10 @@
   padding: var(--sp-1, 4px) var(--sp-2, 8px);
   cursor: pointer;
 }
+
+.bpBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  margin-top: var(--sp-2, 8px);
+}

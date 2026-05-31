@@ -17,22 +17,20 @@ export default function ReaderTrainingPage() {
   const cid = Number(searchParams.get('chapter_id') || chapterId || 0);
   const toast = useToast();
 
+  // ---- Breakpoint state (declared first) ----
+  const [showBp, setShowBp] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem('reader_training:bp');
+      return !!raw;
+    } catch (_e) { return false; }
+  });
+  const [bpInfo, setBpInfo] = React.useState(null);
+
+  // ---- Chapter fetch ----
   const chapterQuery = useFetch(cid ? `/chapters/${cid}` : '', { manual: true });
   const [chapter, setChapter] = React.useState(null);
 
-  React.useEffect(() => {
-    if (cid) {
-      chapterQuery.reload();
-    }
-  }, [cid]);
-
-  React.useEffect(() => {
-    if (!chapterQuery.data) return;
-    const raw = chapterQuery.data;
-    const ch = Array.isArray(raw) ? raw[0] : raw;
-    if (ch) setChapter(ch);
-  }, [chapterQuery.data]);
-
+  // ---- Feedback form state ----
   const [readerScore, setReaderScore] = React.useState('');
   const [reaction, setReaction] = React.useState('');
   const [rawComment, setRawComment] = React.useState('');
@@ -44,6 +42,45 @@ export default function ReaderTrainingPage() {
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState(null);
 
+  // ---- Chapter data effects ----
+  React.useEffect(() => {
+    if (cid) { chapterQuery.reload(); }
+  }, [cid]);
+
+  React.useEffect(() => {
+    if (!chapterQuery.data) return;
+    const raw = chapterQuery.data;
+    const ch = Array.isArray(raw) ? raw[0] : raw;
+    if (ch) setChapter(ch);
+  }, [chapterQuery.data]);
+
+  // ---- Breakpoint restore effect ----
+  React.useEffect(() => {
+    if (bpInfo) return;
+    try {
+      const raw = localStorage.getItem('reader_training:bp');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const el = document.querySelector("." + styles.textBody);
+      if (el) {
+        const t = requestAnimationFrame(() => requestAnimationFrame(() => {
+          el.scrollTop = parsed.scrollTop || 0;
+        }));
+        return () => cancelAnimationFrame(t);
+      }
+      setBpInfo(parsed);
+    } catch (_e) { /* ignore */ }
+  }, [bpInfo]);
+
+  const handleScrollSave = () => {
+    const el = document.querySelector("." + styles.textBody);
+    if (!el) return;
+    const data = { scrollTop: el.scrollTop, at: Date.now() };
+    try { localStorage.setItem('reader_training:bp', JSON.stringify(data)); } catch (_e) {}
+    setBpInfo(data);
+  };
+
+  // ---- Handlers ----
   const handleTextSelect = () => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
@@ -57,12 +94,7 @@ export default function ReaderTrainingPage() {
     if (!anchorComment.trim()) return;
     setAnchors((a) => [
       ...a,
-      {
-        quote: selectedText,
-        comment: anchorComment.trim(),
-        type: anchorType,
-        para: anchors.length + 1,
-      },
+      { quote: selectedText, comment: anchorComment.trim(), type: anchorType, para: a.length + 1 },
     ]);
     setAnchorComment('');
     setSelectedText('');
@@ -75,14 +107,10 @@ export default function ReaderTrainingPage() {
 
   const handleSubmit = async () => {
     setSubmitError(null);
-    if (!pid) {
-      toast.error('请先选择项目', 4000);
-      return;
-    }
+    if (!pid) { toast.error('请先选择项目', 4000); return; }
     const score = readerScore === '' ? null : Math.min(100, Math.max(0, Number(readerScore)));
     if (score === null && !anchors.length && !reaction && !rawComment.trim()) {
-      toast.error('请至少填写评分、反应或评论', 4000);
-      return;
+      toast.error('请至少填写评分、反应或评论', 4000); return;
     }
     setSubmitting(true);
     try {
@@ -99,6 +127,9 @@ export default function ReaderTrainingPage() {
       setReaction('');
       setRawComment('');
       setAnchors([]);
+      localStorage.removeItem('reader_training:bp');
+      setBpInfo(null);
+      setShowBp(false);
     } catch (e) {
       const msg = e?.response?.data?.detail || e?.response?.data?.message || '提交失败，请重试';
       setSubmitError(msg);
@@ -114,6 +145,14 @@ export default function ReaderTrainingPage() {
     toast.info(`反应已选择：${label}`, 2000);
   };
 
+  const handleClearBreakpoint = () => {
+    localStorage.removeItem('reader_training:bp');
+    setBpInfo(null);
+    setShowBp(false);
+    toast.info('断点已清除', 2500);
+  };
+
+  // ---- Render guards ----
   if (chapterQuery.loading) {
     return <AsyncState loading error={null}><div /></AsyncState>;
   }
@@ -137,6 +176,12 @@ export default function ReaderTrainingPage() {
           <span className={styles.badge}>项目 {pid}</span>
           {cid ? <span className={styles.badge}>章节 {cid}</span> : null}
         </div>
+        {bpInfo && (
+          <div className={styles.bpBar}>
+            <span className={styles.badge}>断点已保存 (scroll: {bpInfo.scrollTop}px)</span>
+            <button type="button" className={styles.ghost} onClick={handleClearBreakpoint}>清除</button>
+          </div>
+        )}
       </header>
 
       <div className={styles.layout}>
@@ -145,13 +190,13 @@ export default function ReaderTrainingPage() {
             <h3>{chapter?.title ? `第 ${chapter.chapter_index} 章：${chapter.title}` : '章节试读'}</h3>
           </div>
           {chapter?.content ? (
-            <div className={styles.textBody} onMouseUp={handleTextSelect}>
+            <div className={styles.textBody} onMouseUp={handleTextSelect} onScroll={handleScrollSave}>
               {chapter.content.split('\n').map((p, i) => (
                 <p key={i}>{p || '\u00A0'}</p>
               ))}
               {selectedText && showAnchorInput && (
                 <div className={styles.anchorPopover}>
-                  <div className={styles.anchorQuote}>“{selectedText.slice(0, 60)}{selectedText.length > 60 ? '…' : ''}”</div>
+                  <div className={styles.anchorQuote}>"{selectedText.slice(0, 60)}{selectedText.length > 60 ? '…' : ''}"</div>
                   <textarea
                     value={anchorComment}
                     onChange={(e) => setAnchorComment(e.target.value)}
@@ -178,7 +223,7 @@ export default function ReaderTrainingPage() {
                     <div key={i} className={styles.anchorItem}>
                       <span className={styles.anchorType}>{a.type}</span>
                       <div className={styles.anchorBody}>
-                        <div className={styles.anchorQuote}>“{a.quote.slice(0, 40)}…”</div>
+                        <div className={styles.anchorQuote}>"{a.quote.slice(0, 40)}…"</div>
                         <div>{a.comment}</div>
                       </div>
                       <button type="button" onClick={() => handleRemoveAnchor(i)}>×</button>

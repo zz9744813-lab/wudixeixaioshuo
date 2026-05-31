@@ -14,6 +14,10 @@
   font-size: 13px;
 }
 
+.progressWrap {
+  margin-top: var(--space-2, 8px);
+}
+
 .header h1 {
   margin: 8px 0;
   font-size: 22px;
