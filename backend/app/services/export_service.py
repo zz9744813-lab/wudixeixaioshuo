@@ -555,7 +555,7 @@ class ExportService:
                     pdfmetrics.registerFont(TTFont('ChineseFont', font_path))
                     chinese_font = 'ChineseFont'
                     break
-                except:
+                except Exception:
                     continue
         except Exception as e:
             logger.warning(f"无法注册中文字体: {e}")

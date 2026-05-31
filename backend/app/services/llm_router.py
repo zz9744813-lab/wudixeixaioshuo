@@ -174,20 +174,48 @@ class LLMRouter:
         routes: List[ProviderRouteConfig],
         provider_id: int
     ) -> List[ProviderRouteConfig]:
-        """将指定provider移到列表最前面"""
-        prioritized = []
-        target = None
+        """排除指定provider，让critic选择不同provider；无其他provider时回退返回全部"""
+        filtered = [r for r in routes if r.provider_id != provider_id]
+        if filtered:
+            return filtered
+        return routes  # 回退：无其他provider时用原列表
 
-        for route in routes:
-            if route.provider_id == provider_id:
-                target = route
-            else:
-                prioritized.append(route)
+    def audit_role_coverage(self) -> Dict[str, Any]:
+        """审计所有必需角色的路由覆盖情况"""
+        import logging
+        logger = logging.getLogger(__name__)
 
-        if target:
-            prioritized.insert(0, target)
+        required_roles = {"planner", "draft", "critic", "rewrite", "continuity", "learning"}
 
-        return prioritized
+        configured_roles = set()
+        enabled_count = 0
+        try:
+            routes = self.db.query(ProviderRouteConfig).all()
+            for route in routes:
+                if route.enabled:
+                    configured_roles.add(route.role)
+                    enabled_count += 1
+        except Exception as e:
+            logger.warning(f"审计路由覆盖失败: {e}")
+            return {"error": str(e), "configured": list(configured_roles)}
+
+        missing = sorted(required_roles - configured_roles)
+        result = {
+            "required_roles": sorted(required_roles),
+            "configured_roles": sorted(configured_roles),
+            "missing_roles": missing,
+            "enabled_routes": enabled_count,
+            "ok": len(missing) == 0,
+        }
+
+        if missing:
+            logger.warning(f"LLM路由覆盖不足，缺少角色: {missing}")
+        else:
+            logger.info(f"LLM路由覆盖完整 ({len(required_roles)}/{len(required_roles)} 角色已配置)")
+
+        return result
+
+
 
     def _group_by_priority(
         self,

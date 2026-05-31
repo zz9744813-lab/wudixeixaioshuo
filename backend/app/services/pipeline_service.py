@@ -266,6 +266,7 @@ class PipelineService:
 
         draft_content = draft_result.get("content", "")
         draft_word_count = draft_result.get("word_count", 0)
+        draft_provider_id = draft_result.get("draft_provider_id")
 
         # 保存草稿版本（独立 session）
         await self._save_draft_version(task_info, draft_content, chapter_plan, draft_word_count)
@@ -288,7 +289,11 @@ class PipelineService:
                 task_info, draft_content, bible_data, editor_directive, knowledge_context, reader_rules
             )
         else:
-            critic_result = await self._run_critic(task_info, draft_content, bible_data, knowledge_context, editor_directive, reader_rules)
+            critic_result = await self._run_critic(
+                task_info, draft_content, bible_data,
+                knowledge_context, editor_directive, reader_rules,
+                preferred_provider_id=draft_provider_id
+            )
 
         await event_bus.publish("agent.step.completed", {
             "task_id": task_info["task_id"],
@@ -599,6 +604,7 @@ class PipelineService:
                 "word_count_pass": actual_word_count >= min_words,
                 "tokens": draft_tokens,
                 "cost": draft_cost,
+                "draft_provider_id": response.get("provider_id"),
             }
 
         except Exception as e:
@@ -898,7 +904,7 @@ class PipelineService:
             try:
                 data = json.loads(content)
                 return data.get("beats", [])
-            except:
+            except Exception as e:
                 # 解析失败时创建默认 beats
                 return [{"index": i+1, "title": f"段落{i+1}", "estimated_words": target_words//segments_count}
                         for i in range(segments_count)]
@@ -1014,8 +1020,10 @@ class PipelineService:
 
     async def _run_critic(
         self, task_info: Dict, content: str, bible_data: Dict, knowledge_context: Optional[Dict] = None,
-        editor_directive: Optional[Dict] = None, reader_rules: Optional[Dict] = None
-    ) -> Dict:
+                editor_directive: Optional[Dict] = None,
+                reader_rules: Optional[Dict] = None,
+                preferred_provider_id: Optional[int] = None,
+                ) -> Dict:
         """执行 Critic Agent - 九维 Rubric 锚点评分 + 行级批注 + 一致性检查"""
         db = SessionLocal()
         try:
@@ -1071,6 +1079,7 @@ class PipelineService:
                 db=db,
                 request_type="worker_critic",
                 project_id=task_info["project_id"],
+                preferred_provider_id=preferred_provider_id,
             )
 
             content_text = response.get("content", "")

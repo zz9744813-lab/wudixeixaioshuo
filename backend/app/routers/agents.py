@@ -39,7 +39,8 @@ async def get_agent_status(db: Session = Depends(get_db)):
     try:
         health = await llm_manager.health_check("default")
         llm_status = health.get("status", "unknown")
-    except:
+    except Exception as e:
+        logger.info(f"LLM health unavailable, fallback mock: {e}")
         llm_status = "mock"
 
     return {

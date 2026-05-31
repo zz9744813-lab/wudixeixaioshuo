@@ -9,7 +9,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import init_db
+from app.database import init_db, SessionLocal
 from app.deps.auth import require_api_key
 from app.middleware import LoggingMiddleware, setup_exception_handlers
 from app.routers import (
@@ -47,6 +47,7 @@ from app.routers import (
     worker,
 )
 from app.services.openai_llm_service import llm_manager
+from app.services.llm_router import get_llm_router
 from app.utils.logging import setup_logging
 
 
@@ -55,6 +56,14 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     setup_logging()
     init_db()
+    # P2: 启动时审计 LLM 路由覆盖
+    db = SessionLocal()
+    try:
+        router = get_llm_router(db)
+        router.audit_role_coverage()
+    finally:
+        db.close()
+
     # P8: 按配置自动启动常驻生产循环
     try:
         if getattr(settings, "AUTO_START_PRODUCTION_LOOP", False):

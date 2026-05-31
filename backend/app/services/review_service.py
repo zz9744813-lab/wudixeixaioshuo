@@ -210,7 +210,8 @@ class ReviewService:
                     json_str = content
 
                 result_data = json.loads(json_str)
-            except:
+            except Exception as e:
+                logger.warning(f"[Review] JSON parse failed, defaults used: {e}")
                 # 解析失败，使用默认
                 result_data = {
                     "score": 75,
@@ -465,7 +466,8 @@ class ReviewService:
                     json_str = content
 
                 plan = json.loads(json_str)
-            except:
+            except Exception as e:
+                logger.warning(f"[RewritePlan] JSON parse failed, defaults used: {e}")
                 plan = {
                     "priority": "high",
                     "focus_areas": low_dimensions,
@@ -525,3 +527,4 @@ class ReviewService:
             "by_status": by_status,
             "by_role": by_role
         }
+

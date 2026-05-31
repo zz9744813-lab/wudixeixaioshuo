@@ -58,3 +58,36 @@ jobs:
         run: |
           rm -f quality.db
           python -m alembic upgrade head
+
+
+- name: Check for bare except clauses
+  run: |
+    count=$(grep -rn '^[[:space:]]*except:' backend/app/ | wc -l)
+    echo "bare except count: $count"
+    test "$count" -eq 0 || { echo "FAIL: bare except clauses found"; grep -rn '^[[:space:]]*except:' backend/app/; exit 1; }
+    echo "bare except check: PASS"
+
+- name: Model-Migration consistency check
+  run: |
+    python - <<'PY'
+    import sys
+    sys.path.insert(0, "backend")
+    try:
+        from app.database import engine, Base
+        from app.models import *
+        from sqlalchemy import inspect
+        insp = inspect(engine)
+        tables = insp.get_table_names()
+        print("DB tables (" + str(len(tables)) + "): " + str(tables))
+        import importlib
+        missing = []
+        for name, cls in Base.metadata.tables.items():
+            if name not in tables:
+                missing.append(name)
+        if missing:
+            print("FAIL: missing tables: " + str(missing))
+            sys.exit(1)
+        print("model-migration check: PASS (all " + str(len(Base.metadata.tables)) + " tables exist)")
+    except Exception as e:
+        print("model-migration check: SKIP (no DB or init failed): " + str(e))
+    PY

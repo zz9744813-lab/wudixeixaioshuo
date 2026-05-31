@@ -102,7 +102,7 @@ class ModelCallLogService:
             try:
                 db.rollback()
                 db.close()
-            except:
+            except Exception:
                 pass
             return None
 
