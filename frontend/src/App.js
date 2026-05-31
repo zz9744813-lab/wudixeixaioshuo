@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ToastProvider } from './contexts/ToastContext';
 import Dashboard from './pages/Dashboard';
+import DashboardV2 from './pages/DashboardV2';
 import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Books from './pages/Books';
@@ -34,7 +35,8 @@ function App() {
       <Layout>
       <ToastContainer />
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard-v2" element={<DashboardV2 />} />
+<Route path="/" element={<Dashboard />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/books" element={<Books />} />
