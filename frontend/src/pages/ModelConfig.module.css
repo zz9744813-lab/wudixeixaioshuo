@@ -204,3 +204,14 @@
   color: var(--danger);
   font-size: var(--fs-xs, 12px);
 }
+
+.fullWidth {
+  width: 100%;
+}
+
+.errorText {
+  width: 100%;
+  color: var(--danger);
+  font-size: var(--fs-xs, 12px);
+  margin: 4px 0 0;
+}

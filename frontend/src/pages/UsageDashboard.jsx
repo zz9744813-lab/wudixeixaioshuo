@@ -63,7 +63,7 @@ export default function UsageDashboard() {
               <option value={30}>近 30 天</option>
               <option value={90}>近 90 天</option>
             </select>
-            <Link to="/model-config"><Button variant="secondary" size="sm">模型配置</Button></Link>
+            <Link to="/models"><Button variant="secondary" size="sm">模型配置</Button></Link>
           </span>
         }
       />

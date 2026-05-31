@@ -68,7 +68,7 @@ export default function ModelConfig() {
   const [qsType, setQsType] = useState('openai');
   const [qsUrl, setQsUrl] = useState('');
   const [qsKey, setQsKey] = useState('');
-  const [qsModel, setQsModel] = useState('gpt-3.5-turbo');
+  const [qsModel, setQsModel] = useState('');
 
   const updateDiagnostics = useCallback(() => {
     try {
@@ -77,7 +77,7 @@ export default function ModelConfig() {
     } catch {}
   }, []);
 
-  // P0-2: fetchProviders 返回值用于保存后判断
+  // P0-2: fetchProviders 返回最新数组
   const fetchProviders = useCallback(async () => {
     try {
       const res = await api.get('/models/providers');
@@ -92,15 +92,18 @@ export default function ModelConfig() {
     }
   }, []);
 
+  // P0-2: fetchRoles 也返回数组
   const fetchRoles = useCallback(async () => {
     try {
       const res = await api.get('/models/roles');
       const data = Array.isArray(res.data) ? res.data : [];
       setRoles(data);
       setDiagnostics((d) => ({ ...d, rolesOk: true, rolesCount: data.length }));
+      return data;
     } catch (err) {
       const msg = getApiErrorMessage(err);
-      setDiagnostics((d) => ({ ...d, rolesOk: false, lastError: d.lastError ? d.lastError + ' | ' + msg : msg }));
+      setDiagnostics((d) => ({ ...d, rolesOk: false, lastError: d.lastError ? `${d.lastError} | ${msg}` : msg }));
+      return [];
     }
   }, []);
 
@@ -131,7 +134,7 @@ export default function ModelConfig() {
     setShowProviderModal(true);
   };
 
-  // P0-4: 模型发现
+  // P0-4: 模型发现 - Provider 弹窗
   const handleDiscoverModels = async () => {
     if (!baseUrl.trim() || !apiKey.trim()) {
       toast.error('请先填写 Base URL 和 API Key');
@@ -147,7 +150,7 @@ export default function ModelConfig() {
         api_key: apiKey.trim(),
       });
       if (!res.data?.ok) {
-        const msg = res.data?.error?.message || '模型发现失败';
+        const msg = res.data?.error?.message || res.data?.note || '模型发现失败';
         setDiscoverError(msg);
         toast.error(msg, 6000);
         return;
@@ -157,7 +160,15 @@ export default function ModelConfig() {
       if (models.length > 0 && !defaultModel) {
         setDefaultModel(models[0].id);
       }
-      toast.success(`已拉取 ${models.length} 个模型`);
+
+      if (models.length > 0) {
+        toast.success(`已拉取 ${models.length} 个模型`);
+      } else {
+        const note = res.data?.note || '没有拉取到模型，请手动填写模型名';
+        setDiscoverError(note);
+        toast.warning(note, 6000);
+        setManualModelMode(true);
+      }
     } catch (err) {
       const msg = getApiErrorMessage(err);
       setDiscoverError(msg);
@@ -167,7 +178,7 @@ export default function ModelConfig() {
     }
   };
 
-  // P0-4: Quick Setup 模型发现
+  // P0-4: 模型发现 - Quick Setup
   const handleQuickDiscoverModels = async () => {
     if (!qsUrl.trim() || !qsKey.trim()) {
       toast.error('请先填写 Base URL 和 API Key');
@@ -183,17 +194,23 @@ export default function ModelConfig() {
         api_key: qsKey.trim(),
       });
       if (!res.data?.ok) {
-        const msg = res.data?.error?.message || '模型发现失败';
+        const msg = res.data?.error?.message || res.data?.note || '模型发现失败';
         setQsDiscoverError(msg);
         toast.error(msg, 6000);
         return;
       }
       const models = Array.isArray(res.data.models) ? res.data.models : [];
       setQsModels(models);
+
       if (models.length > 0) {
         setQsModel(models[0].id);
+        toast.success(`已拉取 ${models.length} 个模型`);
+      } else {
+        const note = res.data?.note || '没有拉取到模型，请手动填写模型名';
+        setQsDiscoverError(note);
+        toast.warning(note, 6000);
+        setQsManualModelMode(true);
       }
-      toast.success(`已拉取 ${models.length} 个模型`);
     } catch (err) {
       const msg = getApiErrorMessage(err);
       setQsDiscoverError(msg);
@@ -228,7 +245,7 @@ export default function ModelConfig() {
       setShowProviderModal(false);
       // P0-2: 使用返回值判断
       const latestProviders = await fetchProviders();
-      const exists = latestProviders.some((p) => p.id === savedId);
+      const exists = latestProviders.some((p) => Number(p.id) === Number(savedId));
       if (savedId && !exists) {
         toast.warning('Provider 已保存，但重新读取列表时未出现。请检查数据库、API 地址或鉴权配置。', 8000);
       }
@@ -336,7 +353,7 @@ export default function ModelConfig() {
         !showQuickSetup ? (
           <Button variant="primary" size="sm" onClick={() => {
             setQsName('默认配置'); setQsType('openai'); setQsUrl(''); setQsKey('');
-            setQsModel('gpt-3.5-turbo'); setQsModels([]); setQsDiscoverError('');
+            setQsModel(''); setQsModels([]); setQsDiscoverError('');
             setQsManualModelMode(false); setShowQuickSetup(true);
           }}>一键快速配置</Button>
         ) : (
@@ -351,23 +368,25 @@ export default function ModelConfig() {
             <label><span>API Key</span><input value={qsKey} onChange={(e) => setQsKey(e.target.value)} type="password" placeholder="sk-..." /></label>
             <label>
               <span>默认模型</span>
-              <div className={styles.modelField}>
-                {!qsManualModelMode && qsModels.length > 0 ? (
-                  <select value={qsModel} onChange={(e) => setQsModel(e.target.value)} className={styles.modelSelect}>
-                    {qsModels.map((m) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
-                  </select>
-                ) : (
-                  <input value={qsModel} onChange={(e) => setQsModel(e.target.value)} placeholder="gpt-4o-mini" className={styles.modelInput} />
-                )}
-                <Button variant="ghost" size="sm" onClick={handleQuickDiscoverModels} disabled={qsDiscovering || !qsUrl || !qsKey}>
-                  {qsDiscovering ? '拉取中…' : '测试并拉取模型'}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => setQsManualModelMode((v) => !v)}>
-                  {qsManualModelMode ? '使用模型列表' : '高级：手动输入'}
-                </Button>
-                {qsDiscoverError && <span className={styles.discoverErr}>{qsDiscoverError}</span>}
-              </div>
+              {!qsManualModelMode && qsModels.length > 0 ? (
+                <select value={qsModel} onChange={(e) => setQsModel(e.target.value)}>
+                  {qsModels.map((m) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
+                </select>
+              ) : (
+                <input value={qsModel} onChange={(e) => setQsModel(e.target.value)} placeholder="gpt-4o-mini" />
+              )}
             </label>
+            <div className={styles.fullWidth}>
+              <Button variant="secondary" size="sm" onClick={handleQuickDiscoverModels} disabled={qsDiscovering || !qsUrl || !qsKey}>
+                {qsDiscovering ? '拉取中…' : '测试并拉取模型'}
+              </Button>
+            </div>
+            <div className={styles.fullWidth}>
+              <Button variant="ghost" size="sm" onClick={() => setQsManualModelMode((v) => !v)}>
+                {qsManualModelMode ? '使用模型列表' : '高级：手动输入模型名'}
+              </Button>
+            </div>
+            {qsDiscoverError && <p className={styles.errorText}>{qsDiscoverError}</p>}
             <div className={styles.formActions}>
               <Button variant="primary" onClick={handleQuickSetup} disabled={submitting}>{submitting ? '配置中…' : '一键保存并配置所有角色'}</Button>
             </div>
@@ -381,7 +400,9 @@ export default function ModelConfig() {
       }>
         <div className={styles.tableWrap}>
           <table className={styles.table}>
-            <thead><tr><th>名称</th><th>类型</th><th>Base URL</th><th>默认模型</th><th>启用</th><th>最后测试</th><th>操作</th></tr></thead>
+            <thead>
+              <tr><th>名称</th><th>类型</th><th>Base URL</th><th>默认模型</th><th>启用</th><th>最后测试</th><th>操作</th></tr>
+            </thead>
             <tbody>
               {providers.map((p) => (
                 <tr key={p.id}>
@@ -439,23 +460,25 @@ export default function ModelConfig() {
           <label><span>API Key（留空不修改）</span><input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder={editingId ? '留空不修改' : 'sk-...'} /></label>
           <label>
             <span>默认模型 *</span>
-            <div className={styles.modelField}>
-              {!manualModelMode && discoveredModels.length > 0 ? (
-                <select value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} className={styles.modelSelect}>
-                  {discoveredModels.map((m) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
-                </select>
-              ) : (
-                <input value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} placeholder="gpt-4o-mini / deepseek-chat" className={styles.modelInput} />
-              )}
-              <Button variant="ghost" size="sm" onClick={handleDiscoverModels} disabled={discovering || !baseUrl || !apiKey}>
-                {discovering ? '拉取中…' : '测试并拉取模型'}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => setManualModelMode((v) => !v)}>
-                {manualModelMode ? '使用模型列表' : '高级：手动输入'}
-              </Button>
-              {discoverError && <span className={styles.discoverErr}>{discoverError}</span>}
-            </div>
+            {!manualModelMode && discoveredModels.length > 0 ? (
+              <select value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)}>
+                {discoveredModels.map((m) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
+              </select>
+            ) : (
+              <input value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} placeholder="gpt-4o-mini / deepseek-chat" />
+            )}
           </label>
+          <div className={styles.fullWidth}>
+            <Button variant="secondary" size="sm" onClick={handleDiscoverModels} disabled={discovering || !baseUrl || !apiKey}>
+              {discovering ? '拉取中…' : '测试并拉取模型'}
+            </Button>
+          </div>
+          <div className={styles.fullWidth}>
+            <Button variant="ghost" size="sm" onClick={() => setManualModelMode((v) => !v)}>
+              {manualModelMode ? '使用模型列表' : '高级：手动输入模型名'}
+            </Button>
+          </div>
+          {discoverError && <p className={styles.errorText}>{discoverError}</p>}
           <label className={styles.checkLabel}><input type="checkbox" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} /><span>启用</span></label>
         </div>
       </Modal>

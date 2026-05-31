@@ -6,17 +6,21 @@ import { Button } from '../components/ui/Button';
 import { Table } from '../components/ui/Table';
 import { useToast } from '../contexts/ToastContext';
 import { toArray, toObject } from '../utils/nullSafety';
+import api, { API_BASE_URL, getApiErrorMessage } from '../services/api';
 
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
 import EmptyPanel from '../components/console/EmptyPanel';
-import { API_BASE_URL } from '../services/api';
 import styles from './ExportPage.module.css';
 
 const PAGE_TITLE = '小说导出中心';
 const PAGE_SUBTITLE = '多格式导出 → 一键下载';
 
 const apiBase = API_BASE_URL.replace(/\/$/, '');
+
+function getDownloadUrl(filename) {
+  return `${apiBase}/export/download/${encodeURIComponent(filename)}`;
+}
 
 const FORMAT_LABELS = {
   md: 'Markdown',
@@ -48,10 +52,11 @@ export default function ExportPage() {
   const fetchHistory = async (pid) => {
     setLoadingHistory(true);
     try {
-      const res = await fetch(`/api/export/history?project_id=${pid}`);
-      const data = await res.json();
-      setHistory(data.exports || []);
-    } catch {
+      const res = await api.get(`/export/history?project_id=${pid}`);
+      const data = res.data || {};
+      setHistory(Array.isArray(data.exports) ? data.exports : []);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || '加载导出记录失败', 5000);
       setHistory([]);
     } finally {
       setLoadingHistory(false);
@@ -63,20 +68,20 @@ export default function ExportPage() {
     if (!formatId) { toast.error('请选择导出格式'); return; }
     setSubmitting(true);
     try {
-      const res = await fetch('/api/export/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: Number(projectId), format: formatId, include_outline: true, include_metadata: true }),
+      const res = await api.post('/export/', {
+        project_id: Number(projectId),
+        format: formatId,
+        include_outline: true,
+        include_metadata: true,
       });
-      const data = await res.json();
-      const filename = data.filename;
+      const filename = res.data?.filename;
       if (filename) {
-        window.open(`${apiBase}/export/download/${encodeURIComponent(filename)}`, '_blank');
+        window.open(getDownloadUrl(filename), '_blank');
       }
-      toast.success(data?.message || '导出成功');
+      toast.success(res.data?.message || '导出成功');
       fetchHistory(projectId);
     } catch (err) {
-      toast.error(err?.response?.data?.detail || '导出失败', 6000);
+      toast.error(getApiErrorMessage(err) || '导出失败', 6000);
     } finally {
       setSubmitting(false);
     }
@@ -84,11 +89,11 @@ export default function ExportPage() {
 
   const handleDelete = async (filename) => {
     try {
-      await fetch(`/api/export/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      await api.delete(`/export/${encodeURIComponent(filename)}`);
       toast.success('文件已删除');
       fetchHistory(projectId);
-    } catch {
-      toast.error('删除失败');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err) || '删除失败', 6000);
     }
   };
 
@@ -97,7 +102,7 @@ export default function ExportPage() {
     { key: 'format', label: '格式', render: (v) => <Badge variant="accent">{FORMAT_LABELS[v] || v}</Badge> },
     { key: 'created_at', label: '导出时间', render: (v) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
     { key: 'filename', label: '文件', render: (v) => v ? (
-      <a href={`${apiBase}/export/download/${encodeURIComponent(v)}`} target="_blank" rel="noreferrer">下载</a>
+      <a href={getDownloadUrl(v)} target="_blank" rel="noreferrer">下载</a>
     ) : '-' },
     { key: 'word_count', label: '字数', align: 'right', render: (v) => (v ? Number(v).toLocaleString() : '-') + ' 字' },
     { key: 'status', label: '状态', render: (v) => <Badge variant={v === 'success' ? 'success' : 'danger'}>{v || '-'}</Badge> },
