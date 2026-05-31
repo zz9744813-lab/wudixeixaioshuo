@@ -1,0 +1,22 @@
+.root {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  background: rgba(16, 24, 39, 0.6);
+  border: 0.5px solid var(--border, #22304b);
+  border-radius: var(--r-md, 14px);
+  backdrop-filter: blur(6px);
+}
+.items {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.cost {
+  margin-left: auto;
+  font-size: var(--fs-xs, 12px);
+  color: var(--text-secondary, #91a0bd);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

@@ -1,0 +1,48 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-xs, 12px);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  border: 0.5px solid transparent;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+.label {
+  color: inherit;
+}
+.success {
+  color: var(--console-success, #73f0aa);
+  background: rgba(115, 240, 170, 0.08);
+  border-color: rgba(115, 240, 170, 0.25);
+}
+.warning {
+  color: var(--console-warning, #ffd27d);
+  background: rgba(255, 210, 125, 0.08);
+  border-color: rgba(255, 210, 125, 0.25);
+}
+.danger {
+  color: var(--console-danger, #ff8cad);
+  background: rgba(255, 140, 173, 0.08);
+  border-color: rgba(255, 140, 173, 0.25);
+}
+.info {
+  color: var(--console-info, #7dc9ff);
+  background: rgba(125, 201, 255, 0.08);
+  border-color: rgba(125, 201, 255, 0.25);
+}
+.muted {
+  color: var(--text-muted, #5f6b80);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}

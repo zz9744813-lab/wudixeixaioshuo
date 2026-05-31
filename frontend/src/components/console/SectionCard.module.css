@@ -1,0 +1,39 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--bg-surface, #101827);
+  border: 0.5px solid var(--border, #22304b);
+  border-radius: var(--r-md, 14px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.14);
+}
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.texts {
+  min-width: 0;
+}
+.title {
+  margin: 0;
+  font-size: var(--fs-base, 14px);
+  font-weight: 700;
+  color: var(--text, #f5f8ff);
+}
+.subtitle {
+  margin: 2px 0 0;
+  font-size: var(--fs-xs, 12px);
+  color: var(--text-secondary, #91a0bd);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.body {
+  min-width: 0;
+}

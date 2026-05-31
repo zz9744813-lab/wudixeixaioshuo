@@ -3,13 +3,19 @@ import api from '../services/api';
 import { getApiErrorMessage } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { StatCard } from '../components/ui/StatCard';
 import ConfirmModal from '../components/ConfirmModal';
 import { toObject } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import StatusPill from '../components/console/StatusPill';
+import MetricCard from '../components/console/MetricCard';
+import HealthCard from '../components/console/HealthCard';
+import SectionCard from '../components/console/SectionCard';
+import ServiceStatusBar from '../components/console/ServiceStatusBar';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './WorkerDashboard.module.css';
 
 const PAGE_TITLE = '24小时自动写作控制台';
@@ -37,7 +43,6 @@ export default function WorkerDashboard() {
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // P0-5: 三个接口独立加载，不因一个失败整页崩溃
   const fetchStatus = useCallback(async () => {
     setStatusError('');
     try {
@@ -125,42 +130,33 @@ export default function WorkerDashboard() {
   const progress = queueData?.progress || {};
   const healthObj = toObject(health);
 
+  const backendOk = !statusError && healthObj?.db_ok !== false;
+  const workerOk = workerSt === 'running' || workerSt === 'idle';
+  const databaseOk = healthObj?.db_ok === true || healthObj?.database === 'connected';
+
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-        <Badge variant={stInfo.variant}>{stInfo.label}</Badge>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        icon={<span style={{ fontSize: 18 }}>⚙️</span>}
+        status={<StatusPill status={workerOk ? 'success' : 'warning'} label={stInfo.label} />}
+      />
 
-      {/* 服务诊断栏 */}
-      <div className={styles.healthBar}>
-        <span className={styles.healthItem}>
-          后端状态: {loadingStatus ? '检测中…' : statusError ? <span style={{color:'var(--color-danger)'}}>{statusError}</span> : <span style={{color:'var(--color-success)'}}>在线</span>}
-        </span>
-        <span className={styles.healthItem}>
-          Worker: {loadingStats ? '检测中…' : statsError ? <span style={{color:'var(--color-danger)'}}>统计异常</span> : <span style={{color:'var(--color-success)'}}>正常</span>}
-        </span>
-        <span className={styles.healthItem}>
-          数据库: {loadingHealth ? '检测中…' : healthError ? <span style={{color:'var(--color-danger)'}}>{healthError}</span> : !healthObj?.db_ok ? <span style={{color:'var(--color-danger)'}}>异常</span> : <span style={{color:'var(--color-success)'}}>正常</span>}
-        </span>
-        {healthObj?.warnings?.length > 0 && (
-          <span className={styles.healthWarn}>警告: {healthObj.warnings.join('; ')}</span>
-        )}
+      <ServiceStatusBar
+        backend={backendOk ? 'ok' : 'error'}
+        worker={workerSt}
+        database={databaseOk ? 'ok' : 'error'}
+        costText={`今日预算 $${(dailyStats?.cost || 0).toFixed(4)}`}
+      />
+
+      <div className={styles.metricsGrid}>
+        <MetricCard label="今日已写" value={(dailyStats.words_written || 0).toLocaleString()} unit="字" status="success" />
+        <MetricCard label="今日完成" value={dailyStats.tasks_completed || 0} unit="个" status="success" />
+        <MetricCard label="今日失败" value={dailyStats.tasks_failed || 0} unit="个" status={dailyStats.tasks_failed ? 'danger' : 'muted'} />
+        <MetricCard label="队列进度" value={`${progress.percentage || 0}%`} unit="" status={progress.percentage >= 80 ? 'success' : 'info'} />
       </div>
 
-      {/* Stats */}
-      <AsyncState loading={loadingStatus} error={statusError} onRetry={fetchStatus} hideError={!!statsError}>
-        <div className={styles.statsGrid}>
-          <StatCard label="今日已写" value={(dailyStats.words_written || 0).toLocaleString()} unit="字" />
-          <StatCard label="今日完成" value={dailyStats.tasks_completed || 0} unit="个" />
-          <StatCard label="今日失败" value={dailyStats.tasks_failed || 0} unit="个" />
-          <StatCard label="队列进度" value={`${progress.percentage || 0}%`} />
-        </div>
-      </AsyncState>
-
-      {/* Controls */}
-      <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Worker 控制</h2>
+      <SectionCard title="Worker 控制" subtitle="启动 / 暂停 / 恢复 / 停止">
         <div className={styles.controlRow}>
           <Button variant="primary" onClick={() => sendControl('start')} disabled={actionLoading || workerSt === 'running'}>
             {actionLoading ? '操作中…' : '▶ 启动'}
@@ -181,39 +177,50 @@ export default function WorkerDashboard() {
         {status?.current_task && (
           <p className={styles.currentTask}>当前任务：{typeof status.current_task === 'string' ? status.current_task : JSON.stringify(status.current_task)}</p>
         )}
-      </section>
+      </SectionCard>
 
-      {/* Queue */}
-      {statsError ? (
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>📋 写作队列</h2>
-          <div className={styles.errorBox}>
-            <strong>队列统计加载失败</strong>
-            <p>接口: <code>GET /api/worker/stats</code></p>
-            <p>错误: {statsError}</p>
-            <Button variant="secondary" size="sm" onClick={fetchStats}>重试</Button>
+      <div className={styles.bottomGrid}>
+        <SectionCard title="模型与服务状态">
+          <div className={styles.healthGrid}>
+            <HealthCard title="Backend" status={backendOk ? 'ok' : 'error'} description={backendOk ? 'API 正常运行' : '后端服务异常'} />
+            <HealthCard title="Worker" status={workerOk ? 'ok' : 'error'} description={stInfo.label} meta={`挂起任务 ${statsObj?.queue?.pending || 0}`} />
+            <HealthCard title="Database" status={databaseOk ? 'ok' : 'error'} description={databaseOk ? '连接正常' : '数据库异常'} meta={healthObj?.database_url_masked || healthObj?.database || ''} />
           </div>
-        </section>
-      ) : (
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>📋 写作队列 ({queueItems.length})</h2>
-          <AsyncState loading={false} error={null} isEmpty={queueItems.length === 0} emptyTitle="队列为空" hideLoading hideError>
+          {(healthError || statusError) && (
+            <div className={styles.errorBox}>
+              <strong>诊断失败</strong>
+              {statusError && <p>Status: {statusError}</p>}
+              {healthError && <p>Health: {healthError}</p>}
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title="写作队列" subtitle={`${queueItems.length} 个任务`}>
+          {queueItems.length === 0 ? (
+            <EmptyPanel title="队列为空" description="当前没有待执行或进行中的任务" />
+          ) : (
             <div className={styles.queueList}>
               {queueItems.map((item, idx) => (
                 <div key={item.id || item.chapter_id || idx} className={styles.queueItem}>
-                  <span className={styles.queueIdx}>#{idx + 1}</span>
-                  <span className={styles.queueName}>{item.project_name || `项目 ${item.project_id}`}</span>
+                  <div className={styles.queueHeader}>
+                    <span className={styles.queueTitle}>#{idx + 1} {item.project_name || `项目 ${item.project_id}`}</span>
+                    <Badge variant={item.status === 'completed' ? 'success' : item.status === 'failed' ? 'danger' : item.status === 'running' ? 'warning' : 'accent'}>
+                      {item.status || 'pending'}
+                    </Badge>
+                  </div>
                   <span className={styles.queueChapter}>第 {item.chapter_index || item.chapter_id} 章</span>
-                  <Badge variant={item.status === 'completed' ? 'success' : item.status === 'failed' ? 'danger' : item.status === 'running' ? 'warning' : 'accent'}>
-                    {item.status || 'pending'}
-                  </Badge>
                   {item.error && <span className={styles.queueError}>{item.error}</span>}
+                  {item.progress != null && (
+                    <div className={styles.progressWrap}>
+                      <div className={styles.progressBar} style={{ width: `${Math.min(100, item.progress)}%` }} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </AsyncState>
-        </section>
-      )}
+          )}
+        </SectionCard>
+      </div>
 
       <ConfirmModal state={confirmState} onOk={handleOk} onCancel={handleCancel} />
     </div>

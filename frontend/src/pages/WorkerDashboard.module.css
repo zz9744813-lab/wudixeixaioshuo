@@ -1,6 +1,61 @@
 .page {
   max-width: 1280px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.bottomGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.healthGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.queueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.queueTitle {
+  font-weight: 600;
+  color: var(--text, #f5f8ff);
+}
+
+.progressWrap {
+  height: 4px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.progressBar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent, #5b8cff), var(--accent-2, #8b5cf6));
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+@media (max-width: 1200px) {
+  .bottomGrid { grid-template-columns: 1fr; }
+  .metricsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .metricsGrid { grid-template-columns: 1fr; }
+  .healthGrid { grid-template-columns: 1fr; }
 }
 .header {
   margin-bottom: 24px;

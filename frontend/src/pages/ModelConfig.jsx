@@ -1,18 +1,20 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useFetch } from '../hooks/useFetch';
 import api, { getApiRuntimeInfo, hasApiKey, getApiErrorMessage } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { Icon } from '../components/ui/Icon';
-import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import ConfirmModal from '../components/ConfirmModal';
+
+import PageHeader from '../components/console/PageHeader';
+import StatusPill from '../components/console/StatusPill';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './ModelConfig.module.css';
 
 const PAGE_TITLE = '⚙️ 模型配置中心';
-const PAGE_ICON = 'Settings';
+const PAGE_SUBTITLE = '运行态诊断 + Quick Setup + Provider 管理 + 角色映射';
 
 const PROVIDER_TYPES = [
   { value: 'openai', label: 'OpenAI 兼容' },
@@ -32,6 +34,7 @@ export default function ModelConfig() {
   const [editingId, setEditingId] = useState(null);
   const [testingId, setTestingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
   const [diagnostics, setDiagnostics] = useState({
     apiBaseUrl: '',
     hasApiKey: false,
@@ -42,6 +45,9 @@ export default function ModelConfig() {
     lastSaveMessage: '',
     lastError: '',
   });
+
+  const toast = useToast();
+  const { confirm, state: confirmState, handleOk, handleCancel } = useConfirm();
 
   // Form state
   const [name, setName] = useState('');
@@ -57,9 +63,6 @@ export default function ModelConfig() {
   const [qsUrl, setQsUrl] = useState('');
   const [qsKey, setQsKey] = useState('');
   const [qsModel, setQsModel] = useState('gpt-3.5-turbo');
-
-  const toast = useToast();
-  const { confirm, state: confirmState, handleOk, handleCancel } = useConfirm();
 
   const updateDiagnostics = useCallback(() => {
     try {
@@ -218,72 +221,94 @@ export default function ModelConfig() {
   const typeLabel = (t) => (PROVIDER_TYPES.find((x) => x.value === t)?.label) || t;
 
   const diagOk = diagnostics.providersOk && diagnostics.rolesOk;
+  const diagClass = diagOk ? 'ok' : 'warn';
 
   return (
     <div className={styles.page}>
-    <div className={styles.diagBar}>
-      <span className={styles.diagItem}>API: <code>{diagnostics.apiBaseUrl || '未检测'}</code></span>
-      <span className={styles.diagItem}>Key: <Badge variant={diagnostics.hasApiKey ? 'success' : 'danger'}>{diagnostics.hasApiKey ? '已注入' : '未注入'}</Badge></span>
-      <span className={styles.diagItem}>Provider: <Badge variant={diagnostics.providersOk ? 'success' : 'danger'}>{diagnostics.providersOk ? '正常' : '异常'} ({diagnostics.providersCount})</Badge></span>
-      <span className={styles.diagItem}>角色: <Badge variant={diagnostics.rolesOk ? 'success' : 'danger'}>{diagnostics.rolesOk ? '正常' : '异常'} ({diagnostics.rolesCount})</Badge></span>
-      {diagnostics.lastSaveMessage && <span className={styles.diagItem + ' ' + styles.diagSuccess}>✓ {diagnostics.lastSaveMessage.slice(0, 50)}</span>}
-      {diagnostics.lastError && <span className={styles.diagItem + ' ' + styles.diagErr}>✗ {diagnostics.lastError.slice(0, 50)}</span>}
-    </div>
-    <header className={styles.header}>
-      <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-    </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+        status={
+          <StatusPill status={diagOk ? 'success' : 'warning'} label={diagOk ? '配置正常' : '配置待检'} />
+        }
+      />
 
-    {/* Quick Setup */}
-    <section className={styles.card}>
-      <h2 className={styles.cardTitle}>⚡ 快速配置中转站</h2>
-      {!showQuickSetup ? (
-        <div className={styles.quickRow}>
-          <span className={styles.quickHint}>一键配置所有角色模型映射，只需提供一个 API Key。</span>
-          <Button variant="primary" onClick={() => { setQsName('默认配置'); setQsType('openai'); setQsUrl(''); setQsKey(''); setQsModel('gpt-3.5-turbo'); setShowQuickSetup(true); }}>一键快速配置</Button>
-        </div>
-      ) : (
-        <div className={styles.formGrid}>
-          <label>
-            <span>配置名</span>
-            <input value={qsName} onChange={(e) => setQsName(e.target.value)} placeholder="默认配置" />
-          </label>
-          <label>
-            <span>Provider 类型</span>
-            <select value={qsType} onChange={(e) => { setQsType(e.target.value); if (e.target.value === 'openai') setQsUrl('https://api.openai.com/v1'); else if (e.target.value === 'anthropic') setQsUrl('https://api.anthropic.com'); else setQsUrl('http://localhost:8000/v1'); }}>
-              {PROVIDER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
-          <label>
-            <span>Base URL</span>
-            <input value={qsUrl} onChange={(e) => setQsUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
-          </label>
-          <label>
-            <span>API Key</span>
-            <input value={qsKey} onChange={(e) => setQsKey(e.target.value)} type="password" placeholder="sk-..." />
-          </label>
-          <label>
-            <span>默认模型</span>
-            <input value={qsModel} onChange={(e) => setQsModel(e.target.value)} placeholder="gpt-4o-mini" />
-          </label>
-          <div className={styles.formActions}>
-            <Button variant="primary" onClick={handleQuickSetup} disabled={submitting}>{submitting ? '配置中…' : '一键保存并配置所有角色'}</Button>
-            <Button variant="secondary" onClick={() => setShowQuickSetup(false)}>取消</Button>
-          </div>
+      {/* Diagnostics bar */}
+      <div className={styles.diagBar}>
+        <span className={styles.diagItem}>API: <code>{diagnostics.apiBaseUrl || '未检测'}</code></span>
+        <span className={styles.diagItem}>Key: <StatusPill status={diagnostics.hasApiKey ? 'success' : 'danger'} label={diagnostics.hasApiKey ? '已注入' : '未注入'} /></span>
+        <span className={styles.diagItem}>Provider: <StatusPill status={diagnostics.providersOk ? 'success' : 'danger'} label={`${diagnostics.providersOk ? '正常' : '异常'} (${diagnostics.providersCount})`} /></span>
+        <span className={styles.diagItem}>角色: <StatusPill status={diagnostics.rolesOk ? 'success' : 'danger'} label={`${diagnostics.rolesOk ? '正常' : '异常'} (${diagnostics.rolesCount})`} /></span>
+        {diagnostics.lastSaveMessage && <span className={`${styles.diagItem} ${styles.diagSuccess}`}>✓ {diagnostics.lastSaveMessage.slice(0, 60)}</span>}
+        {diagnostics.lastError && <span className={`${styles.diagItem} ${styles.diagErr}`}>✗ {diagnostics.lastError.slice(0, 60)}</span>}
+      </div>
+
+      {error && !loading && (
+        <div className={styles.pageError}>
+          <strong>加载失败</strong>
+          <p>{error}</p>
+          <Button variant="secondary" size="sm" onClick={fetchAll}>重试</Button>
         </div>
       )}
-    </section>
 
-    {/* Provider List */}
-    <section className={styles.card}>
-      <div className={styles.cardHeader}>
-        <h2 className={styles.cardTitle}>📡 Provider 列表</h2>
-        <Button variant="primary" size="sm" onClick={handleOpenProvider}>+ 新增 Provider</Button>
-      </div>
-      <AsyncState loading={loading} error={error} onRetry={fetchAll} isEmpty={providers.length === 0} emptyTitle="暂无 Provider，请先添加或快速配置">
+      {/* Quick Setup */}
+      <SectionCard
+        title="⚡ 快速配置中转站"
+        subtitle="一键配置所有角色模型映射"
+        actions={
+          !showQuickSetup ? (
+            <Button variant="primary" size="sm" onClick={() => { setQsName('默认配置'); setQsType('openai'); setQsUrl(''); setQsKey(''); setQsModel('gpt-3.5-turbo'); setShowQuickSetup(true); }}>
+              一键快速配置
+            </Button>
+          ) : (
+            <Button variant="secondary" size="sm" onClick={() => setShowQuickSetup(false)}>取消</Button>
+          )
+        }
+      >
+        {showQuickSetup && (
+          <div className={styles.formGrid}>
+            <label>
+              <span>配置名</span>
+              <input value={qsName} onChange={(e) => setQsName(e.target.value)} placeholder="默认配置" />
+            </label>
+            <label>
+              <span>Provider 类型</span>
+              <select value={qsType} onChange={(e) => { setQsType(e.target.value); if (e.target.value === 'openai') setQsUrl('https://api.openai.com/v1'); else if (e.target.value === 'anthropic') setQsUrl('https://api.anthropic.com'); else setQsUrl('http://localhost:8000/v1'); }}>
+                {PROVIDER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </label>
+            <label>
+              <span>Base URL</span>
+              <input value={qsUrl} onChange={(e) => setQsUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
+            </label>
+            <label>
+              <span>API Key</span>
+              <input value={qsKey} onChange={(e) => setQsKey(e.target.value)} type="password" placeholder="sk-..." />
+            </label>
+            <label>
+              <span>默认模型</span>
+              <input value={qsModel} onChange={(e) => setQsModel(e.target.value)} placeholder="gpt-4o-mini" />
+            </label>
+            <div className={styles.formActions}>
+              <Button variant="primary" onClick={handleQuickSetup} disabled={submitting}>{submitting ? '配置中…' : '一键保存并配置所有角色'}</Button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Provider List */}
+      <SectionCard
+        title="📡 Provider 列表"
+        actions={
+          <Button variant="primary" size="sm" onClick={handleOpenProvider}>+ 新增 Provider</Button>
+        }
+      >
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
-              <tr><th>名称</th><th>类型</th><th>Base URL</th><th>默认模型</th><th>启用</th><th>最后测试</th><th>操作</th></tr>
+              <tr>
+                <th>名称</th><th>类型</th><th>Base URL</th><th>默认模型</th><th>启用</th><th>最后测试</th><th>操作</th>
+              </tr>
             </thead>
             <tbody>
               {providers.map((p) => (
@@ -310,13 +335,13 @@ export default function ModelConfig() {
             </tbody>
           </table>
         </div>
-      </AsyncState>
-    </section>
+        {providers.length === 0 && !loading && (
+          <EmptyPanel title="暂无 Provider" description="请先添加或快速配置一个 Provider" />
+        )}
+      </SectionCard>
 
-    {/* Role Mapping */}
-    <section className={styles.card}>
-      <h2 className={styles.cardTitle}>🔗 角色模型映射</h2>
-      <AsyncState loading={loading} error={null} isEmpty={roles.length === 0} emptyTitle="暂无角色映射" hideLoading>
+      {/* Role Mapping */}
+      <SectionCard title="🔗 角色模型映射">
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
@@ -335,47 +360,49 @@ export default function ModelConfig() {
             </tbody>
           </table>
         </div>
-      </AsyncState>
-    </section>
+        {roles.length === 0 && !loading && (
+          <EmptyPanel title="暂无角色映射" description="请先配置 Provider，然后使用快速配置" />
+        )}
+      </SectionCard>
 
-    {/* Provider Edit/Create Modal */}
-    <Modal open={showProviderModal} onClose={() => setShowProviderModal(false)} title={editingId ? '编辑 Provider' : '新增 Provider'} size="md" footer={
-      <div className={styles.modalActions}>
-        <Button variant="primary" onClick={handleSaveProvider} disabled={submitting}>{submitting ? '保存中…' : '保存'}</Button>
-        <Button variant="secondary" onClick={() => setShowProviderModal(false)}>取消</Button>
-      </div>
-    }>
-      <div className={styles.formGrid}>
-        <label>
-          <span>名称 *</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="My OpenAI" />
-        </label>
-        <label>
-          <span>Provider 类型 *</span>
-          <select value={providerType} onChange={(e) => setProviderType(e.target.value)}>
-            {PROVIDER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
-        </label>
-        <label>
-          <span>Base URL *</span>
-          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
-        </label>
-        <label>
-          <span>API Key（留空不修改）</span>
-          <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder={editingId ? '留空不修改' : 'sk-...'} />
-        </label>
-        <label>
-          <span>默认模型 *</span>
-          <input value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} placeholder="gpt-4o-mini" />
-        </label>
-        <label className={styles.checkLabel}>
-          <input type="checkbox" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />
-          <span>启用</span>
-        </label>
-      </div>
-    </Modal>
+      {/* Provider Edit/Create Modal */}
+      <Modal open={showProviderModal} onClose={() => setShowProviderModal(false)} title={editingId ? '编辑 Provider' : '新增 Provider'} size="md" footer={
+        <div className={styles.modalActions}>
+          <Button variant="primary" onClick={handleSaveProvider} disabled={submitting}>{submitting ? '保存中…' : '保存'}</Button>
+          <Button variant="secondary" onClick={() => setShowProviderModal(false)}>取消</Button>
+        </div>
+      }>
+        <div className={styles.formGrid}>
+          <label>
+            <span>名称 *</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="My OpenAI" />
+          </label>
+          <label>
+            <span>Provider 类型 *</span>
+            <select value={providerType} onChange={(e) => setProviderType(e.target.value)}>
+              {PROVIDER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </label>
+          <label>
+            <span>Base URL *</span>
+            <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
+          </label>
+          <label>
+            <span>API Key（留空不修改）</span>
+            <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} type="password" placeholder={editingId ? '留空不修改' : 'sk-...'} />
+          </label>
+          <label>
+            <span>默认模型 *</span>
+            <input value={defaultModel} onChange={(e) => setDefaultModel(e.target.value)} placeholder="gpt-4o-mini" />
+          </label>
+          <label className={styles.checkLabel}>
+            <input type="checkbox" checked={isEnabled} onChange={(e) => setIsEnabled(e.target.checked)} />
+            <span>启用</span>
+          </label>
+        </div>
+      </Modal>
 
-    <ConfirmModal state={confirmState} onOk={handleOk} onCancel={handleCancel} />
+      <ConfirmModal state={confirmState} onOk={handleOk} onCancel={handleCancel} />
     </div>
   );
 }
