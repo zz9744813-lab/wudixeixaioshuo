@@ -30,3 +30,18 @@
   text-align: center;
   padding: 32px;
 }
+
+
+/* WorkerDashboard extended */
+.statsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.card { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px; }
+.cardTitle { font-size: var(--fs-md, 14px); font-weight: 600; margin: 0 0 10px; }
+.controlRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.currentTask { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); margin: '8px 0 0'; }
+.queueList { display: flex; flex-direction: column; gap: 8px; }
+.queueItem { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--r-sm, 6px); font-size: var(--fs-sm, 13px); }
+.queueIdx { color: var(--text-muted, #5f6b80); font-weight: 600; min-width: 28px; }
+.queueName { flex: 1; }
+.queueChapter { color: var(--text-secondary, #8b95a8); }
+.queueError { color: var(--danger, #e24b4a); font-size: 12px; margin-left: 8px; }

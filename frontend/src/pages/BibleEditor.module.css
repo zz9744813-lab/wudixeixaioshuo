@@ -30,3 +30,139 @@
   text-align: center;
   padding: 32px;
 }
+.projectBar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.select {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  min-width: 200px;
+}
+.section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--border);
+}
+.sectionTitle {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.charList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.charRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+}
+.charName {
+  font-weight: 600;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.charRole {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+.cellActions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.worldPreview {
+  background: var(--bg-elevated);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  white-space: pre-wrap;
+  line-height: 1.5;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.worldActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.input {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  min-width: 220px;
+}
+.detailSkeleton {
+  min-height: 120px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+  border-radius: var(--r-sm);
+}
+.detailBody {
+  display: grid;
+  gap: 10px;
+}
+.detailBody h4 {
+  margin: 4px 0 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.detailDesc {
+  font-size: var(--fs-md);
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+.formBody {
+  display: grid;
+  gap: 12px;
+}
+.formInput {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  width: 100%;
+}
+.textarea {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  width: 100%;
+  resize: vertical;
+}
+.filterLabel {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}

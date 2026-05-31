@@ -1,15 +1,20 @@
-.page {
+﻿.page {
   max-width: 1280px;
   margin: 0 auto;
 }
 .header {
   margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .title {
   font-size: var(--fs-xl);
   font-weight: 600;
   color: var(--text);
-  margin: 0 0 6px;
+  margin: 0 0 0;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -29,4 +34,78 @@
   color: var(--text-muted);
   text-align: center;
   padding: 32px;
+}
+.statsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.statsRow > * {
+  flex: 1;
+  min-width: 160px;
+}
+.section {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--border);
+}
+.sectionTitle {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 10px;
+}
+.practiceList {
+  padding-left: 18px;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  line-height: 1.7;
+  margin: 0;
+}
+.formBody {
+  display: grid;
+  gap: 12px;
+}
+.formLabel {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.formInput {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  width: 100%;
+}
+.detailSkeleton {
+  min-height: 120px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+  border-radius: var(--r-sm);
+}
+.detailBody {
+  display: grid;
+  gap: 10px;
+}
+.detailDesc {
+  font-size: var(--fs-md);
+  color: var(--text);
+  line-height: 1.5;
+}
+.detailMeta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.actionRow {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
 }

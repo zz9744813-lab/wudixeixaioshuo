@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -29,4 +29,87 @@
   color: var(--text-muted);
   text-align: center;
   padding: 32px;
+}
+.statsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.statsRow > * {
+  flex: 1;
+  min-width: 160px;
+}
+.filterBar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.filterLabel {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.categoryList {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.catChip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 0.5px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.catChip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.catChipActive {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+}
+.detailSkeleton {
+  min-height: 120px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+  border-radius: var(--r-sm);
+}
+.detailBody {
+  display: grid;
+  gap: 10px;
+}
+.detailDesc {
+  font-size: var(--fs-md);
+  color: var(--text);
+  line-height: 1.6;
+}
+.detailSection h4 {
+  margin: 4px 0 6px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.detailSection p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.detailMeta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--border);
 }

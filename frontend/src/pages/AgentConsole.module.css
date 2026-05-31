@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -29,4 +29,65 @@
   color: var(--text-muted);
   text-align: center;
   padding: 32px;
+}
+.statsRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.statsRow > * {
+  flex: 1;
+  min-width: 180px;
+}
+.section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 0.5px solid var(--border);
+}
+.section + .section {
+  margin-top: 16px;
+}
+.sectionTitle {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+.formRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.select, .input {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  min-width: 180px;
+}
+.hint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  margin-top: 8px;
+}
+.detailSkeleton {
+  min-height: 120px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+  border-radius: var(--r-sm);
+}
+.detailBody {
+  display: grid;
+  gap: 10px;
+}
+.detailMeta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  flex-wrap: wrap;
 }

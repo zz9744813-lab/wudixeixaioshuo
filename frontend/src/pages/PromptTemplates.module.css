@@ -1,4 +1,4 @@
-.page {
+﻿.page {
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -29,4 +29,80 @@
   color: var(--text-muted);
   text-align: center;
   padding: 32px;
+}
+.toolbar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.roleFilter {
+  padding: 6px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.detailSkeleton {
+  min-height: 120px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 100%);
+  border-radius: var(--r-sm);
+}
+.detailBody {
+  display: grid;
+  gap: 10px;
+}
+.detailBlock {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--text);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--bg-elevated);
+  border-radius: var(--r-sm);
+  padding: 10px;
+  border: 0.5px solid var(--border);
+}
+.metaRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+.formBody {
+  display: grid;
+  gap: 12px;
+}
+.formLabel {
+  display: grid;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+.formInput {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  width: 100%;
+}
+.textarea {
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  border: 0.5px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  width: 100%;
+  resize: vertical;
+}
+.hint {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
 }
