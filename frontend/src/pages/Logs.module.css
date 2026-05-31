@@ -1,13 +1,18 @@
 .page {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
+
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
 }
+
 .title {
   font-size: var(--fs-xl);
   font-weight: 600;
@@ -17,11 +22,13 @@
   align-items: center;
   gap: 10px;
 }
+
 .actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
+
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -31,61 +38,82 @@
   cursor: pointer;
   user-select: none;
 }
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .metricsGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .metricsGrid { grid-template-columns: 1fr; }
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
   margin-bottom: 20px;
 }
-@media (max-width: 900px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 560px) {
-  .stats { grid-template-columns: 1fr; }
-}
+
+@media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+
 .filters {
   display: flex;
   gap: 10px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
+  align-items: center;
 }
-.select,
-.input {
+
+.select, .input {
   background: var(--bg-surface);
-  border: 0.5px solid var(--border-strong);
+  border: 0.5px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text);
-  padding: 8px 10px;
+  padding: 6px 10px;
   font-size: var(--fs-sm);
-  font-family: var(--font-sans);
+  font-family: inherit;
+}
+
+.input:focus, .select:focus {
   outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-weak);
 }
-.select:focus,
-.input:focus {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-}
+
 .input[type='date']::-webkit-calendar-picker-indicator {
   filter: invert(0.8);
   cursor: pointer;
 }
+
 .btnGhost {
   background: transparent;
-  border: 0.5px solid var(--border-strong);
+  border: 0.5px solid var(--border);
   border-radius: var(--r-sm);
   color: var(--text-secondary);
-  padding: 8px 12px;
+  padding: 6px 12px;
   font-size: var(--fs-sm);
-  font-family: var(--font-sans);
   cursor: pointer;
 }
+
 .btnGhost:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--primary);
+  color: var(--primary);
 }
+
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   display: inline-block;
+}
+
+.expandedBody {
+  display: grid;
+  gap: 8px;
+  padding: 8px 0;
 }
