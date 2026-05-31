@@ -43,6 +43,16 @@
 }
 
 /* ===== 浅色（备用，给 ThemeSwitcher 的"浅色"用）===== */
+
+/* ===== 增强令牌（UI Redesign Plan v16）===== */
+--sidebar-bg: var(--bg-sunken);
+--sidebar-hover: var(--bg-elevated);
+--sidebar-active: var(--accent-weak);
+--header-h: 56px;
+--card-shadow: 0 1px 0 rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.18);
+--transition-fast: .15s ease;
+--transition-base: .2s ease;
+
 [data-theme="light"] {
   --bg-app:#f4f6fb; --bg-surface:#fff; --bg-elevated:#fff; --bg-sunken:#f1f5f9;
   --border:#e5e7eb; --border-strong:#d1d5db;

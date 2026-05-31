@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5b8cff"/>
+      <stop offset="100%" style="stop-color:#3b5fb8"/>
+    </linearGradient>
+    <linearGradient id="pen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffd27d"/>
+      <stop offset="100%" style="stop-color:#ffb347"/>
+    </linearGradient>
+  </defs>
+  <!-- 圆角方底 -->
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#bg)"/>
+  <!-- 齿轮圆 -->
+  <circle cx="32" cy="32" r="20" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" stroke-dasharray="8 5"/>
+  <!-- 羽毛笔杆 -->
+  <line x1="38" y1="20" x2="26" y2="44" stroke="url(#pen)" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- 笔尖 -->
+  <polygon points="26,44 22,50 30,48" fill="url(#pen)"/>
+  <!-- N 字母 -->
+  <text x="22" y="28" font-family="Georgia, serif" font-size="14" font-weight="bold" fill="rgba(255,255,255,0.9)">N</text>
+</svg>
