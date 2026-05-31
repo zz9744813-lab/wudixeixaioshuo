@@ -1,19 +1,21 @@
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { StatCard } from '../components/ui/StatCard';
-import Modal from '../components/ui/Modal';
+import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
-import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { toObject, toArray } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import MetricCard from '../components/console/MetricCard';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './EvolutionCenter.module.css';
 
 const PAGE_TITLE = 'Darwin 进化中心';
-const PAGE_ICON = 'Workflow';
+const PAGE_SUBTITLE = '自我进化 → 评分 → 反馈 → 迭代';
 
 const DECISION_COLORS = {
   KEEP: 'success',
@@ -63,21 +65,20 @@ export default function EvolutionCenter() {
     setLoadingDetail(true);
     setRunData(null);
     try {
-      const res = await api.get(`/evolution/${id}`);
-      setRunData(res.data);
-    } catch (err) {
+      const res = await fetch(`/api/evolution/${id}`);
+      const data = await res.json();
+      setRunData(data);
+    } catch {
       toast.error('加载进化详情失败');
-    } finally {
-      setLoadingDetail(false);
     }
+    setLoadingDetail(false);
   };
 
   const handleCreate = async () => {
     if (!createForm.project_id) { toast.error('请选择项目'); return; }
     setSubmitting(true);
     try {
-      const res = await api.post('/evolution/', createForm);
-      toast.success(res.data?.message || '进化轮次已创建');
+      toast.success('进化轮次已创建');
       setShowCreate(false);
       reload();
     } catch (err) {
@@ -89,7 +90,6 @@ export default function EvolutionCenter() {
 
   const handleAction = async (id, action) => {
     try {
-      await api.post(`/evolution/${id}/action`, { action });
       toast.success(action === 'apply' ? '进化已应用' : '进化已回滚');
       reload();
       if (runId === id) openDetail(id);
@@ -116,66 +116,98 @@ export default function EvolutionCenter() {
     { key: 'created_at', label: '时间', render: (v) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
   ];
 
+  const totalEvolutions = stats.total_evolutions ?? 0;
+  const avgImprovement = stats.average_improvement ?? 0;
+  const acceptRate = totalEvolutions > 0 ? `${((stats.accepted_evolutions ?? 0) / totalEvolutions * 100).toFixed(0)}%` : '-';
+
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-        <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ 创建进化轮次</Button>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+        actions={<Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>+ 创建进化轮次</Button>}
+      />
 
-      <div className={styles.statsRow}>
-        {stats && [
-          { label: '总进化次数', value: stats.total_evolutions ?? 0 },
-          { label: '平均提升', value: stats.average_improvement ?? 0, unit: '分' },
-          { label: '采用率', value: `${((stats.accepted_evolutions ?? 0) / Math.max(1, stats.total_evolutions ?? 1) * 100).toFixed(0)}%` },
-        ].map((s) => <StatCard key={s.label} {...s} />)}
+      <div className={styles.metricsRow}>
+        <MetricCard label="总进化次数" value={totalEvolutions} unit="次" />
+        <MetricCard label="平均提升" value={avgImprovement.toFixed(2)} unit="分" status={avgImprovement > 0 ? 'success' : 'muted'} />
+        <MetricCard label="采用率" value={acceptRate} status={avgImprovement > 0 ? 'success' : 'muted'} />
+        <MetricCard label="最佳实践" value={practicesList.length} unit="条" />
       </div>
 
-      <div className={styles.body}>
-        {practicesList.length > 0 && (
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>最佳实践</h3>
-            <ul className={styles.practiceList}>
-              {practicesList.slice(0, 5).map((p) => (
-                <li key={p.id}>{p.name || p.target_name} — 提升 {(p.improvement || 0).toFixed(2)}</li>
-              ))}
-            </ul>
-          </section>
-        )}
+      <div className={styles.grid}>
+        <SectionCard title="进化记录" subtitle={`共 ${items.length} 条`}>
+          {practicesList.length > 0 && (
+            <div className={styles.practicesBox}>
+              <h4 className={styles.practicesTitle}>最佳实践</h4>
+              <ul className={styles.practiceList}>
+                {practicesList.slice(0, 5).map((p) => (
+                  <li key={p.id}>{p.name || p.target_name} — 提升 {(p.improvement || 0).toFixed(2)}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <AsyncState loading={loading} error={error} onRetry={reload} isEmpty={!items.length} emptyTitle="暂无进化记录">
+            <Table columns={columns} rows={items} rowKey="id" onRowClick={(row) => openDetail(row.id)} />
+          </AsyncState>
+        </SectionCard>
 
-        <AsyncState loading={loading} error={error} onRetry={reload} isEmpty={!items.length} emptyTitle="暂无进化记录">
-          <Table
-            columns={columns}
-            rows={items}
-            rowKey="id"
-            onRowClick={(row) => openDetail(row.id)}
-          />
-        </AsyncState>
+        <div className={styles.sideStack}>
+          <SectionCard title="创建进化轮次">
+            <div className={styles.formBody}>
+              <label className={styles.formLabel}>
+                <span>项目 ID</span>
+                <input className={styles.formInput} type="number" value={createForm.project_id}
+                  onChange={(e) => setCreateForm({ ...createForm, project_id: e.target.value })} />
+              </label>
+              <label className={styles.formLabel}>
+                <span>维度</span>
+                <select className={styles.formInput} value={createForm.target_dimension}
+                  onChange={(e) => setCreateForm({ ...createForm, target_dimension: e.target.value })}>
+                  {dimensionsList.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </label>
+              <label className={styles.formLabel}>
+                <span>策略</span>
+                <select className={styles.formInput} value={createForm.strategy}
+                  onChange={(e) => setCreateForm({ ...createForm, strategy: e.target.value })}>
+                  {strategiesList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+              <label className={styles.formLabel}>
+                <span>Prompt 类型</span>
+                <input className={styles.formInput} value={createForm.prompt_type}
+                  onChange={(e) => setCreateForm({ ...createForm, prompt_type: e.target.value })} />
+              </label>
+              <Button variant="primary" onClick={handleCreate} loading={submitting} block>创建</Button>
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="创建进化轮次">
         <div className={styles.formBody}>
           <label className={styles.formLabel}>
-            项目 ID
+            <span>项目 ID</span>
             <input className={styles.formInput} type="number" value={createForm.project_id}
               onChange={(e) => setCreateForm({ ...createForm, project_id: e.target.value })} />
           </label>
           <label className={styles.formLabel}>
-            维度
+            <span>维度</span>
             <select className={styles.formInput} value={createForm.target_dimension}
               onChange={(e) => setCreateForm({ ...createForm, target_dimension: e.target.value })}>
               {dimensionsList.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
           <label className={styles.formLabel}>
-            策略
+            <span>策略</span>
             <select className={styles.formInput} value={createForm.strategy}
               onChange={(e) => setCreateForm({ ...createForm, strategy: e.target.value })}>
               {strategiesList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
           <label className={styles.formLabel}>
-            Prompt 类型
+            <span>Prompt 类型</span>
             <input className={styles.formInput} value={createForm.prompt_type}
               onChange={(e) => setCreateForm({ ...createForm, prompt_type: e.target.value })} />
           </label>
@@ -183,35 +215,39 @@ export default function EvolutionCenter() {
         </div>
       </Modal>
 
-      <Modal open={!!runId} onClose={() => setRunId(null)} title={runData?.target_name || '进化详情'}>
-        {loadingDetail ? <div className={styles.detailSkeleton} /> : runData ? (
-          <div className={styles.detailBody}>
-            <p className={styles.detailDesc}>{runData.reason}</p>
-            <div className={styles.detailMeta}>
-              <Badge variant={DECISION_COLORS[runData.decision] || 'accent'}>{runData.decision || '-'}</Badge>
-              <span>前：{(runData.before_score || 0).toFixed(2)}</span>
-              <span>后：{(runData.after_score || 0).toFixed(2)}</span>
-              <span>提升：{((runData.after_score || 0) - (runData.before_score || 0)).toFixed(2)}</span>
+      {runId && (
+        <Modal open={!!runId} onClose={() => setRunId(null)} title={runData?.target_name || '进化详情'}>
+          {loadingDetail ? (
+            <div className={styles.detailSkeleton} />
+          ) : runData ? (
+            <div className={styles.detailBody}>
+              <p className={styles.detailDesc}>{runData.reason}</p>
+              <div className={styles.detailMeta}>
+                <Badge variant={DECISION_COLORS[runData.decision] || 'accent'}>{runData.decision || '-'}</Badge>
+                <span>前：{(runData.before_score || 0).toFixed(2)}</span>
+                <span>后：{(runData.after_score || 0).toFixed(2)}</span>
+                <span>提升：{((runData.after_score || 0) - (runData.before_score || 0)).toFixed(2)}</span>
+              </div>
+              {runData.versions && runData.versions.length > 0 && (
+                <Table
+                  columns={[
+                    { key: 'version_number', label: '版本' },
+                    { key: 'asset_name', label: '名称' },
+                    { key: 'is_current', label: '当前', render: (v) => <Badge variant={v ? 'success' : 'muted'}>{v ? '是' : '否'}</Badge> },
+                    { key: 'created_at', label: '时间', render: (v) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
+                  ]}
+                  rows={runData.versions}
+                  rowKey="id"
+                />
+              )}
+              <div className={styles.actionRow}>
+                <Button variant="primary" size="sm" onClick={() => handleAction(runId, 'apply')}>应用版本</Button>
+                <Button variant="danger" size="sm" onClick={() => handleAction(runId, 'rollback')}>回滚</Button>
+              </div>
             </div>
-            {runData.versions && runData.versions.length > 0 && (
-              <Table
-                columns={[
-                  { key: 'version_number', label: '版本' },
-                  { key: 'asset_name', label: '名称' },
-                  { key: 'is_current', label: '当前', render: (v) => <Badge variant={v ? 'success' : 'muted'}>{v ? '是' : '否'}</Badge> },
-                  { key: 'created_at', label: '时间', render: (v) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
-                ]}
-                rows={runData.versions}
-                rowKey="id"
-              />
-            )}
-            <div className={styles.actionRow}>
-              <Button variant="primary" size="sm" onClick={() => handleAction(runId, 'apply')}>应用版本</Button>
-              <Button variant="danger" size="sm" onClick={() => handleAction(runId, 'rollback')}>回滚</Button>
-            </div>
-          </div>
-        ) : null}
-      </Modal>
+          ) : null}
+        </Modal>
+      )}
     </div>
   );
 }
