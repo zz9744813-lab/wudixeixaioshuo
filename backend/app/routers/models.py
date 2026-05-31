@@ -269,71 +269,87 @@ class QuickSetupRequest(BaseModel):
 
 @router.post("/quick-setup")
 async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
-    """
-    快速配置 LLM
-    一键创建提供商并为所有角色配置默认模型
-    """
-    # 创建提供商
-    api_key_encrypted = encrypt_api_key(config.api_key)
-    api_key_mask = mask_api_key(config.api_key)
+  """
+  快速配置 LLM
+  一键创建提供商并为所有角色配置默认模型（upsert 模式）
+  """
+  api_key_encrypted = encrypt_api_key(config.api_key)
+  api_key_mask = mask_api_key(config.api_key)
 
+  # P0-4: Upsert – 按 name + provider_type + base_url 查找已有 Provider
+  existing_provider = db.query(ModelProvider).filter(
+    ModelProvider.name == config.name,
+    ModelProvider.provider_type == config.provider_type,
+    ModelProvider.base_url == config.base_url,
+  ).first()
+
+  if existing_provider:
+    # 更新已有 Provider
+    existing_provider.api_key_encrypted = api_key_encrypted
+    existing_provider.api_key_mask = api_key_mask
+    existing_provider.default_model = config.default_model
+    existing_provider.is_enabled = 1
+    existing_provider.is_default = 1
+    # 清除其他 Provider 的 is_default
+    db.query(ModelProvider).filter(
+      ModelProvider.id != existing_provider.id
+    ).update({"is_default": 0})
+    provider = existing_provider
+  else:
+    # 新建 Provider
     provider = ModelProvider(
-        name=config.name,
-        provider_type=config.provider_type,
-        base_url=config.base_url,
-        api_key_encrypted=api_key_encrypted,
-        api_key_mask=api_key_mask,
-        default_model=config.default_model,
-        is_enabled=1,
-        is_default=1,
+      name=config.name,
+      provider_type=config.provider_type,
+      base_url=config.base_url,
+      api_key_encrypted=api_key_encrypted,
+      api_key_mask=api_key_mask,
+      default_model=config.default_model,
+      is_enabled=1,
+      is_default=1,
     )
     db.add(provider)
-    db.commit()
-    db.refresh(provider)
+  db.commit()
+  db.refresh(provider)
 
-    # 创建角色映射
-    roles = [
-        "planner", "draft", "critic", "rewrite", "continuity",
-        "learning", "study", "split", "analyze", "default",
-        # P4新增角色
-        "memory_update", "memory_retrieval", "foreshadow",
-        "logic_critic", "style_critic", "commercial_critic"
-    ]
+  # 角色映射 (upsert)
+  roles_list = [
+    "planner", "draft", "critic", "rewrite", "continuity",
+    "learning", "study", "split", "analyze", "default",
+    "memory_update", "memory_retrieval", "foreshadow",
+    "logic_critic", "style_critic", "commercial_critic",
+  ]
 
-    for role in roles:
-        # 检查是否已存在
-        existing = db.query(ModelRole).filter(
-            ModelRole.role == role,
-            ModelRole.project_id == None
-        ).first()
+  configured_roles = []
+  for role in roles_list:
+    existing = db.query(ModelRole).filter(
+      ModelRole.role == role,
+      ModelRole.project_id == None,
+    ).first()
 
-        if existing:
-            # 更新现有配置
-            existing.provider_id = provider.id
-            existing.model_name = config.default_model
-        else:
-            # 创建新配置
-            role_config = ModelRole(
-                role=role,
-                provider_id=provider.id,
-                model_name=config.default_model,
-                temperature=0.7 if role in ["draft", "rewrite"] else 0.3,
-                max_tokens=4000,
-                priority=1,
-            )
-            db.add(role_config)
+    if existing:
+      existing.provider_id = provider.id
+      existing.model_name = config.default_model
+    else:
+      role_config = ModelRole(
+        role=role,
+        provider_id=provider.id,
+        model_name=config.default_model,
+        temperature=0.7 if role in ["draft", "rewrite"] else 0.3,
+        max_tokens=4000,
+        priority=1,
+      )
+      db.add(role_config)
+      configured_roles.append(role)
 
-    db.commit()
+  db.commit()
 
-    return {
-        "message": "LLM 配置成功",
-        "provider_id": provider.id,
-        "provider_name": provider.name,
-        "model": config.default_model,
-        "roles_configured": roles,
-    }
-
-
+  return {
+    "message": "LLM 配置成功",
+    "provider_id": provider.id,
+    "provider_name": provider.name,
+    "model": config.default_model,
+    "roles_configured": roles_list,
+  }
 @router.post("/roles")
 async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
     """创建角色映射"""
@@ -370,4 +386,165 @@ async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
         "model_name": role_config.model_name,
         "provider_id": role_config.provider_id,
         "message": "角色映射已创建",
+    }
+"""
+@app:routers models.py 已完成 P0-3 模型自动发现端点
+"""
+
+# P0-3: 模型自动发现
+class ModelDiscoverRequest(BaseModel):
+  provider_type: str = Field(..., pattern="^(openai|anthropic|gemini|openrouter|custom)$")
+  base_url: str
+  api_key: str
+
+@router.post("/discover")
+async def discover_models(req: ModelDiscoverRequest):
+  """临时发现模型列表 – 不保存数据库"""
+  try:
+    import httpx
+
+    if req.provider_type in ("openai", "openrouter", "custom"):
+      url = req.base_url.rstrip("/") + "/models"
+      headers = {"Authorization": f"Bearer {req.api_key}"}
+      async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.get(url, headers=headers)
+        resp.raise_for_status()
+        data = resp.json()
+
+      models = []
+      for m in data.get("data", []):
+        models.append({
+          "id": m.get("id", ""),
+          "name": m.get("id", ""),
+          "owned_by": m.get("owned_by", ""),
+        })
+
+      return {
+        "ok": True,
+        "provider_type": req.provider_type,
+        "base_url": req.base_url,
+        "count": len(models),
+        "models": models,
+      }
+
+    elif req.provider_type == "anthropic":
+      return {
+        "ok": True,
+        "provider_type": req.provider_type,
+        "base_url": req.base_url,
+        "count": 0,
+        "models": [],
+        "note": "Anthropic 暂不支持自动拉取模型列表，请手动填写模型名",
+      }
+
+    elif req.provider_type == "gemini":
+      return {
+        "ok": True,
+        "provider_type": req.provider_type,
+        "base_url": req.base_url,
+        "count": 0,
+        "models": [],
+        "note": "Gemini 暂不支持自动拉取模型列表，请手动填写模型名",
+      }
+
+  except Exception as e:
+    return {
+      "ok": False,
+      "error": {
+        "type": "ModelDiscoveryError",
+        "message": f"无法拉取模型列表：{str(e)}",
+      },
+    }
+
+
+@router.get("/providers/{provider_id}/models")
+async def get_provider_models(provider_id: int, db: Session = Depends(get_db)):
+  """读取已保存 Provider 的模型列表"""
+  from app.services.secret_service import decrypt_api_key
+  provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
+  if not provider:
+    raise HTTPException(status_code=404, detail="Provider 不存在")
+
+  try:
+    import httpx
+    url = provider.base_url.rstrip("/") + "/models"
+    api_key = decrypt_api_key(provider.api_key_encrypted)
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+      resp = await client.get(url, headers=headers)
+      resp.raise_for_status()
+      data = resp.json()
+
+    models = []
+    for m in data.get("data", []):
+      models.append({
+        "id": m.get("id", ""),
+        "name": m.get("id", ""),
+        "owned_by": m.get("owned_by", ""),
+      })
+
+    return {
+      "ok": True,
+      "provider_id": provider_id,
+      "provider_name": provider.name,
+      "count": len(models),
+      "models": models,
+    }
+
+  except Exception as e:
+    return {
+      "ok": False,
+      "error": {
+        "type": "ModelFetchError",
+        "message": f"无法获取模型列表：{str(e)}",
+      },
+    }
+
+
+@router.post("/providers/{provider_id}/refresh-models")
+async def refresh_provider_models(provider_id: int, db: Session = Depends(get_db)):
+  """刷新模型列表缓存"""
+  from app.services.secret_service import decrypt_api_key
+  provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
+  if not provider:
+    raise HTTPException(status_code=404, detail="Provider 不存在")
+
+  try:
+    import httpx
+    url = provider.base_url.rstrip("/") + "/models"
+    api_key = decrypt_api_key(provider.api_key_encrypted)
+    headers = {"Authorization": f"Bearer {api_key}"}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+      resp = await client.get(url, headers=headers)
+      resp.raise_for_status()
+      data = resp.json()
+
+    models = []
+    for m in data.get("data", []):
+      models.append({
+        "id": m.get("id", ""),
+        "name": m.get("id", ""),
+        "owned_by": m.get("owned_by", ""),
+      })
+
+    provider.last_models_refresh = utc_now()
+    db.commit()
+
+    return {
+      "ok": True,
+      "provider_id": provider_id,
+      "count": len(models),
+      "models": models,
+      "refreshed_at": provider.last_models_refresh.isoformat() if provider.last_models_refresh else None,
+    }
+
+  except Exception as e:
+    return {
+      "ok": False,
+      "error": {
+        "type": "ModelRefreshError",
+        "message": f"刷新失败：{str(e)}",
+      },
     }

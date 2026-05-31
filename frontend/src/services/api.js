@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // P0-1: 运行时配置优先级：window.__APP_CONFIG__ > 构建时环境变量 > fallback
-const runtimeConfig = typeof window !== 'undefined' ? window.__APP_CONFIG__ || {} : {};
+const runtimeConfig =
+  typeof window !== 'undefined' ? window.__APP_CONFIG__ || {} : {};
 export const API_BASE_URL =
   runtimeConfig.API_BASE_URL ||
   process.env.REACT_APP_API_URL ||
@@ -21,8 +22,19 @@ export function getApiErrorMessage(error) {
   );
 }
 
+// P0-1: 运行时 API Key 注入
 const getApiKey = () =>
-  process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
+  runtimeConfig.APP_API_KEY ||
+  process.env.REACT_APP_API_KEY ||
+  localStorage.getItem('APP_API_KEY') ||
+  '';
+
+export const hasApiKey = () => Boolean(getApiKey());
+
+export const getApiRuntimeInfo = () => ({
+  apiBaseUrl: API_BASE_URL,
+  hasApiKey: hasApiKey(),
+});
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -46,7 +58,12 @@ api.interceptors.response.use(
     const message = getApiErrorMessage(error);
     if (typeof window !== 'undefined') {
       const ev = new CustomEvent('app:api-error', {
-        detail: { status, message, url: error?.config?.url, method: error?.config?.method },
+        detail: {
+          status,
+          message,
+          url: error?.config?.url,
+          method: error?.config?.method,
+        },
       });
       window.dispatchEvent(ev);
     }
@@ -58,8 +75,10 @@ api.interceptors.response.use(
 api.del = (url, config = {}) => api.delete(url, config);
 
 export const get = (url, config = {}) => api.get(url, config);
-export const post = (url, data = {}, config = {}) => api.post(url, data, config);
-export const put = (url, data = {}, config = {}) => api.put(url, data, config);
+export const post = (url, data = {}, config = {}) =>
+  api.post(url, data, config);
+export const put = (url, data = {}, config = {}) =>
+  api.put(url, data, config);
 export const del = (url, config = {}) => api.delete(url, config);
 
 export default api;
