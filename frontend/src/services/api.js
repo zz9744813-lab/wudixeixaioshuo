@@ -5,48 +5,45 @@ export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8
 const getApiKey = () =>
   process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
 
-// 创建 axios 实例
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 300000, // 5分钟 - 支持长耗时同步生成接口
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: 300000, // 5 min for long writes/analysis
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// 请求拦截器 - 自动注入 X-API-Key
 api.interceptors.request.use(
   (config) => {
     const key = getApiKey();
-    if (key) {
-      config.headers['X-API-Key'] = key;
-    }
+    if (key) config.headers['X-API-Key'] = key;
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error),
 );
 
-// 响应拦截器 - 统一错误处理
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error('🔒 未授权: API Key 无效或缺失');
-    }
-    if (error.response?.status === 413) {
-      console.error('📦 文件过大');
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+    const message =
+      (typeof data === 'string' && data) ||
+      data?.detail ||
+      data?.message ||
+      error.message ||
+      '请求失败，请重试';
+    if (typeof window !== 'undefined') {
+      const ev = new CustomEvent('app:api-error', {
+        detail: { status, message, url: error?.config?.url, method: error?.config?.method },
+      });
+      window.dispatchEvent(ev);
     }
     return Promise.reject(error);
-  }
+  },
 );
 
-// 便捷方法
 export const get = (url, config = {}) => api.get(url, config);
 export const post = (url, data = {}, config = {}) => api.post(url, data, config);
 export const put = (url, data = {}, config = {}) => api.put(url, data, config);
 export const del = (url, config = {}) => api.delete(url, config);
 
-// 导出原始axios实例供特殊需求
 export default api;

@@ -1,0 +1,28 @@
+.progress-root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2, 8px);
+  padding: var(--sp-1, 4px) var(--sp-2, 8px);
+  border-radius: var(--r-pill, 999px);
+  border: 1px solid var(--border, #1c2230);
+  background: var(--bg-surface, #11151f);
+  color: var(--text-secondary, #8b95a8);
+  font-size: var(--fs-xs, 11px);
+  line-height: 1.4;
+}
+.progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-muted, #5f6b80);
+}
+.progress-dot.on {
+  background: var(--success, #1d9e75);
+  box-shadow: 0 0 0 2px var(--success-weak, #0f2a22);
+}
+.progress-dot.off {
+  background: var(--danger, #e24b4a);
+}
+.progress-text {
+  white-space: nowrap;
+}
