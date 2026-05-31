@@ -112,7 +112,7 @@ class PromptABTestService:
     def _collect_gold_scores(
         self, samples: List[dict], role: str, prompt_text: str, project_id: int,
     ) -> tuple:
-        """收集样本金标准分数，优先 reader_score，其次 dimension_scores，降级系统评分。
+        """收集样本金标准分数，优先 reader_score，其次 dimension_scores/score 字段，降级系统评分。
 
         返回 (score_list, {"source": ..., "count": ...})
         """
@@ -128,7 +128,7 @@ class PromptABTestService:
                     pass
                 continue
 
-            # 2. 查库：chapter_id → 真人反馈均值
+            # 2. 查库：chapter_id/id → 真人反馈均值
             chapter_id = sample.get("chapter_id") or sample.get("id")
             if chapter_id and project_id:
                 try:
@@ -162,6 +162,16 @@ class PromptABTestService:
                             pass
                 if vals:
                     dim_scores.append(sum(vals) / len(vals))
+                    continue
+
+            # 4. legacy score 字段（测试样本/历史分）
+            raw = sample.get("score")
+            if raw is not None:
+                try:
+                    dim_scores.append(float(raw))
+                except (TypeError, ValueError):
+                    pass
+                continue
 
         if reader_scores:
             return reader_scores, {"source": "reader", "count": len(reader_scores)}
@@ -177,7 +187,11 @@ class PromptABTestService:
     def _score_prompt_sync(
         self, role: str, prompt: str, samples: List[dict],
     ) -> tuple:
-        """同步调用 Critic 对样本打分，降级模式不记录成本。"""
+        """同步调用 Critic 对样本打分，降级模式不记录成本。
+
+        注意：不能在已有运行中 event loop 内调用（会抛 RuntimeError），
+        因此这里用 asyncio.new_event_loop 创建独立 loop。
+        """
         scores: List[float] = []
         for sample in samples:
             content = sample.get("content") or sample.get("chapter_content") or ""
@@ -190,8 +204,9 @@ class PromptABTestService:
                         pass
                 continue
             try:
-                import asyncio
-                response = asyncio.get_event_loop().run_until_complete(
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                response = loop.run_until_complete(
                     llm_manager.generate(
                         prompt=f"{prompt}\n\n## 待评审\n{content[:6000]}",
                         role="critic", temperature=0.3, db=self.db,
@@ -199,6 +214,7 @@ class PromptABTestService:
                         project_id=sample.get("project_id") or 0,
                     )
                 )
+                loop.close()
                 score = self._extract_score(response.get("content", ""))
                 if score is not None:
                     scores.append(score)
