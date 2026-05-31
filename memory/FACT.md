@@ -1,5 +1,5 @@
 # 持久事实
-
+## 项目文件规则
 - 用户要求：不要保存任何文件到 C 盘；项目相关文件应保存在 `F:\kelaode\quanzidong` 或用户指定的 F 盘路径。
 - 用户要求：开始/继续项目前先核对项目情况，尤其是 `git status`。
 - 用户要求：每完成一个阶段就提交并推送到仓库 `https://github.com/zz9744813-lab/wudixeixaioshuo.git`。
