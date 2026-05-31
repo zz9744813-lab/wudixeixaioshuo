@@ -10,10 +10,13 @@ import { toArray, toObject } from '../utils/nullSafety';
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
 import EmptyPanel from '../components/console/EmptyPanel';
+import { API_BASE_URL } from '../services/api';
 import styles from './ExportPage.module.css';
 
 const PAGE_TITLE = '小说导出中心';
 const PAGE_SUBTITLE = '多格式导出 → 一键下载';
+
+const apiBase = API_BASE_URL.replace(/\/$/, '');
 
 const FORMAT_LABELS = {
   md: 'Markdown',
@@ -68,8 +71,7 @@ export default function ExportPage() {
       const data = await res.json();
       const filename = data.filename;
       if (filename) {
-        const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:8000/api').replace(/\/$/, '');
-        window.open(`${baseUrl}/export/download/${encodeURIComponent(filename)}`, '_blank');
+        window.open(`${apiBase}/export/download/${encodeURIComponent(filename)}`, '_blank');
       }
       toast.success(data?.message || '导出成功');
       fetchHistory(projectId);
@@ -95,7 +97,7 @@ export default function ExportPage() {
     { key: 'format', label: '格式', render: (v) => <Badge variant="accent">{FORMAT_LABELS[v] || v}</Badge> },
     { key: 'created_at', label: '导出时间', render: (v) => v ? new Date(v).toLocaleString('zh-CN') : '-' },
     { key: 'filename', label: '文件', render: (v) => v ? (
-      <a href={`/export/download/${encodeURIComponent(v)}`} target="_blank" rel="noreferrer">下载</a>
+      <a href={`${apiBase}/export/download/${encodeURIComponent(v)}`} target="_blank" rel="noreferrer">下载</a>
     ) : '-' },
     { key: 'word_count', label: '字数', align: 'right', render: (v) => (v ? Number(v).toLocaleString() : '-') + ' 字' },
     { key: 'status', label: '状态', render: (v) => <Badge variant={v === 'success' ? 'success' : 'danger'}>{v || '-'}</Badge> },

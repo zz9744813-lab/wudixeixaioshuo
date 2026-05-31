@@ -1,60 +1,128 @@
 .page {
   max-width: 1280px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
-.header {
-  margin-bottom: 24px;
-}
-.title {
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.body {
+
+.card {
   background: var(--bg-surface);
   border: 0.5px solid var(--border);
   border-radius: var(--r-md);
   padding: 18px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+  margin-bottom: 20px;
 }
-.placeholder {
+
+.cardTitle {
+  font-size: var(--fs-lg, 16px);
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.quickRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quickHint {
+  color: var(--text-secondary, #8b95a8);
+  font-size: var(--fs-sm, 13px);
+}
+
+.tableWrap {
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm, 13px);
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.muted {
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-.empty {
-  color: var(--text-muted);
-  text-align: center;
-  padding: 32px;
 }
 
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
-/* ModelConfig extended */
-.card { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 18px; margin-bottom: 20px; }
-.cardHeader { display: flex; justify-content: space-between; align-items: center; }
-.cardTitle { font-size: var(--fs-lg, 16px); font-weight: 600; margin: 0 0 12px; }
-.quickRow { display: flex; justify-content: space-between; align-items: center; }
-.quickHint { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); }
-.tableWrap { overflow: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm, 13px); }
-.table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border, #2a2a2a); color: var(--text-secondary, #888); font-weight: 600; }
-.table td { padding: 8px 12px; border-bottom: 1px solid var(--border, #2a2a2a); }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
-.muted { color: var(--text-muted, #5f6b80); }
-.actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.formGrid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm, 13px); color: var(--text-secondary, #8b95a8); }
-.formGrid label span:first-child { font-weight: 600; }
-.formGrid input, .formGrid select { background: var(--bg-sunken, #0a0c12); color: var(--text, #e8ecf5); border: 1px solid var(--border, #1c2230); border-radius: var(--r-sm, 6px); padding: 6px 10px; font-size: var(--fs-sm, 13px); }
-.formGrid input:focus, .formGrid select:focus { outline: none; border-color: var(--border-focus, #3a6df0); }
-.formActions { display: flex; gap: 8px; align-items: center; grid-column: 1 / -1; }
-.checkLabel { flex-direction: row !important; align-items: center; gap: 8px !important; }
-.modalActions { display: flex; gap: 8px; justify-content: flex-end; }
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
 
-/* P0-2: diagnostics bar */
+.formGrid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-sm, 13px);
+  color: var(--text-secondary);
+}
+
+.formGrid label span:first-child {
+  font-weight: 600;
+}
+
+.formGrid input,
+.formGrid select {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 6px);
+  padding: 6px 10px;
+  font-size: var(--fs-sm, 13px);
+}
+
+.formGrid input:focus,
+.formGrid select:focus {
+  outline: none;
+  border-color: var(--border-focus, #3a6df0);
+}
+
+.formActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  grid-column: 1 / -1;
+}
+
+.checkLabel {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Diagnostics bar */
 .diagBar {
   display: flex;
   flex-wrap: wrap;
@@ -62,12 +130,77 @@
   align-items: center;
   padding: 10px 14px;
   margin-bottom: 16px;
-  background: var(--bg-sunken, #0a0c12);
-  border: 0.5px solid var(--border, #1c2230);
-  border-radius: var(--r-md, 10px);
+  background: var(--bg-sunken);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
   font-size: var(--fs-xs, 12px);
 }
-.diagItem { color: var(--text-secondary, #8b95a8); display: inline-flex; align-items: center; gap: 6px; }
-.diagItem code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; }
-.diagSuccess { color: var(--success, #73f0aa); }
-.diagErr { color: var(--danger, #ff8cad); }
+
+.diagItem {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagItem code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.diagSuccess {
+  color: var(--success);
+}
+
+.diagErr {
+  color: var(--danger);
+}
+
+.pageError {
+  padding: 16px;
+  background: var(--danger-weak);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-sm);
+  margin-bottom: 16px;
+}
+
+.pageError p {
+  margin: 8px 0 12px;
+}
+
+/* P0-4: 模型发现 */
+.modelField {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.modelSelect {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 6px);
+  padding: 6px 10px;
+  font-size: var(--fs-sm, 13px);
+  min-width: 180px;
+}
+
+.modelInput {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 6px);
+  padding: 6px 10px;
+  font-size: var(--fs-sm, 13px);
+  width: 200px;
+}
+
+.discoverErr {
+  width: 100%;
+  color: var(--danger);
+  font-size: var(--fs-xs, 12px);
+}
