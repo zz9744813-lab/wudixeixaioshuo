@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
-import { Icon } from '../components/ui/Icon';
-import { AsyncState } from '../components/ui/AsyncState';
-import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
-import { StatCard } from '../components/ui/StatCard';
-import Modal from '../components/ui/Modal';
-import { Table } from '../components/ui/Table';
+import { toArray, toObject } from '../utils/nullSafety';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { AsyncState } from '../components/ui/AsyncState';
+import { Table } from '../components/ui/Table';
+import Modal from '../components/ui/Modal';
+
+import PageHeader from '../components/console/PageHeader';
+import MetricCard from '../components/console/MetricCard';
+import SectionCard from '../components/console/SectionCard';
 import styles from './BibleEditor.module.css';
 
 const PAGE_TITLE = 'Bible 编辑器';
 const PAGE_ICON = 'BookOpen';
+const PAGE_SUBTITLE = '管理世界观、人物和设定';
 
 const CHARACTER_ROLE_COLORS = { '主角': 'primary', '配角': 'accent', '反派': 'danger', '导师': 'success' };
 
 export default function BibleEditor() {
-  const toast = useToast();
   const [projectId, setProjectId] = useState('');
   const [bible, setBible] = useState(null);
   const [loadingBible, setLoadingBible] = useState(false);
@@ -110,6 +113,7 @@ export default function BibleEditor() {
   };
 
   const characters = toArray(bible?.characters);
+  const bibleObj = toObject(bible);
   const columns = [
     { key: 'name', label: '姓名', render: (v, row) => <span className={styles.charName}>{v}</span> },
     { key: 'role', label: '角色', render: (v) => <Badge variant={CHARACTER_ROLE_COLORS[v] || 'accent'}>{v}</Badge> },
@@ -125,74 +129,64 @@ export default function BibleEditor() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-      </header>
+      <PageHeader title={PAGE_TITLE} />
 
-      <div className={styles.projectBar}>
-        <span className={styles.filterLabel}>项目：</span>
-        <select className={styles.select} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-          <option value="">-- 选择项目 --</option>
-          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
-      </div>
+      <AsyncState loading={loadingProjects} error={null} isEmpty={!projects.length} emptyTitle="暂无项目" hideError>
+        <div className={styles.projectBar}>
+          <span className={styles.filterLabel}>项目：</span>
+          <select className={styles.select} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <option value="">-- 选择项目 --</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
 
-      <AsyncState loading={loadingProjects || loadingBible} error={null} isEmpty={!projectId} emptyTitle="请选择项目"
-                  hideLoading hideError>
-        <div className={styles.body}>
-          <StatCard label="人物数量" value={characters.length} />
-          <StatCard label="卷数" value={bible?.volume_outline?.length || 0} />
-          <StatCard label="章节数" value={bible?.chapter_outline?.length || 0} />
+        <AsyncState loading={loadingBible} error={null} isEmpty={!projectId} emptyTitle="请选择项目" hideLoading hideError>
+          <div className={styles.metricsRow}>
+            <MetricCard label="人物数量" value={characters.length} />
+            <MetricCard label="卷数" value={bible?.volume_outline?.length || 0} />
+            <MetricCard label="章节数" value={bible?.chapter_outline?.length || 0} />
+          </div>
 
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>世界观设定</h3>
-            <AsyncState loading={loadingWorld} isEmpty={!bible?.world_setting} emptyTitle="暂无世界观设置"
-                        hideLoading hideError>
-              <pre className={styles.worldPreview}>{bible?.world_setting}</pre>
+          <SectionCard title="世界观设定" actions={
+            <Button variant="primary" size="sm" onClick={handleGenerateWorld} loading={loadingWorld} disabled={!projectId}>
+              AI 生成世界观
+            </Button>
+          }>
+            <AsyncState loading={loadingWorld} isEmpty={!bibleObj?.world_setting} emptyTitle="暂无世界观设置" hideLoading hideError>
+              <pre className={styles.worldPreview}>{bibleObj?.world_setting}</pre>
             </AsyncState>
             <div className={styles.worldActions}>
               <input
-                className={styles.input}
+                className={styles.worldInput}
                 placeholder="添加提示或关键词（可选）"
                 value={worldDraft}
                 onChange={(e) => setWorldDraft(e.target.value)}
               />
-              <Button variant="primary" size="sm" onClick={handleGenerateWorld} loading={loadingWorld} disabled={!projectId}>
-                AI 生成世界观
-              </Button>
             </div>
-          </section>
+          </SectionCard>
 
-          <section className={styles.section}>
-            <div className={styles.sectionHeader}>
-              <h3 className={styles.sectionTitle}>人物列表</h3>
-              <Button variant="primary" size="sm" onClick={() => setShowCharForm(true)}>+ 添加人物</Button>
-            </div>
-            <AsyncState loading={loadingBible} isEmpty={!characters.length} emptyTitle="暂无人物，先从书籍导入或手动添加"
-                        hideLoading hideError>
+          <SectionCard title="人物列表" actions={
+            <Button variant="primary" size="sm" onClick={() => setShowCharForm(true)}>+ 添加人物</Button>
+          }>
+            <AsyncState loading={loadingBible} isEmpty={!characters.length} emptyTitle="暂无人物，先从书籍导入或手动添加" hideLoading hideError>
               <Table columns={columns} rows={characters} rowKey="id" onRowClick={(row) => openDetail(row.id || row.name)} />
             </AsyncState>
-          </section>
-        </div>
+          </SectionCard>
+        </AsyncState>
       </AsyncState>
 
       <Modal open={showCharForm} onClose={() => setShowCharForm(false)} title="添加人物">
         <form className={styles.formBody} onSubmit={handleAddCharacter}>
-          <input className={styles.formInput} placeholder="姓名" value={charForm.name}
-                 onChange={(e) => setCharForm({ ...charForm, name: e.target.value })} required />
-          <select className={styles.formInput} value={charForm.role}
-                  onChange={(e) => setCharForm({ ...charForm, role: e.target.value })}>
+          <input className={styles.formInput} placeholder="姓名" value={charForm.name} onChange={(e) => setCharForm({ ...charForm, name: e.target.value })} required />
+          <select className={styles.formInput} value={charForm.role} onChange={(e) => setCharForm({ ...charForm, role: e.target.value })}>
             <option value="主角">主角</option>
             <option value="配角">配角</option>
             <option value="反派">反派</option>
             <option value="导师">导师</option>
           </select>
-          <textarea className={styles.textarea} rows="2" placeholder="性格描述" value={charForm.personality}
-                    onChange={(e) => setCharForm({ ...charForm, personality: e.target.value })} />
-          <textarea className={styles.textarea} rows="2" placeholder="能力/技能" value={charForm.abilities}
-                    onChange={(e) => setCharForm({ ...charForm, abilities: e.target.value })} />
-          <textarea className={styles.textarea} rows="2" placeholder="备注" value={charForm.notes}
-                    onChange={(e) => setCharForm({ ...charForm, notes: e.target.value })} />
+          <textarea className={styles.textarea} rows="2" placeholder="性格描述" value={charForm.personality} onChange={(e) => setCharForm({ ...charForm, personality: e.target.value })} />
+          <textarea className={styles.textarea} rows="2" placeholder="能力/技能" value={charForm.abilities} onChange={(e) => setCharForm({ ...charForm, abilities: e.target.value })} />
+          <textarea className={styles.textarea} rows="2" placeholder="备注" value={charForm.notes} onChange={(e) => setCharForm({ ...charForm, notes: e.target.value })} />
           <Button variant="primary" type="submit" loading={submitting} block>添加</Button>
         </form>
       </Modal>
@@ -201,10 +195,7 @@ export default function BibleEditor() {
         {loadingDetail ? <div className={styles.detailSkeleton} /> : detailData ? (
           <div className={styles.detailBody}>
             {Object.entries(detailData).filter(([k]) => !['id', 'book_id'].includes(k)).map(([k, v]) => v && (
-              <div key={k}>
-                <h4>{k}</h4>
-                <p>{typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}</p>
-              </div>
+              <div key={k}><h4>{k}</h4><p>{typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}</p></div>
             ))}
           </div>
         ) : null}
