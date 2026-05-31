@@ -1,45 +1,12 @@
 .page {
   max-width: 1280px;
   margin: 0 auto;
-}
-.header {
-  margin-bottom: 24px;
-}
-.title {
-  font-size: var(--fs-xl);
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 6px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.body {
-  background: var(--bg-surface);
-  border: 0.5px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 18px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
-}
-.placeholder {
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-}
-.empty {
-  color: var(--text-muted);
-  text-align: center;
-  padding: 32px;
-}
-
-.headerActions {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.projectSelect {
+.select {
   padding: 6px 10px;
   border-radius: var(--r-sm);
   border: 1px solid var(--border);
@@ -54,38 +21,64 @@
   margin: 0 0 20px;
 }
 
-.grid {
+.selectorRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sections {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
 @media (max-width: 900px) {
-  .grid {
+  .sections {
     grid-template-columns: 1fr;
   }
 }
 
-.card {
-  background: var(--bg-surface);
-  border: 0.5px solid var(--border);
-  border-radius: var(--r-md);
-  padding: 18px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.08);
-}
-
-.cardHeader {
+.chapterList {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.cardTitle {
-  font-size: var(--fs-md);
+.chapterItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--bg-elevated);
+}
+
+.chapterIdx {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--text);
-  margin: 0;
+  min-width: 28px;
+}
+
+.chapterTitle {
+  flex: 1;
+  font-size: var(--fs-sm);
+}
+
+.moreHint {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+  padding: 8px;
 }
 
 .planList {
@@ -172,4 +165,10 @@
   gap: 10px;
   margin-top: 14px;
   justify-content: flex-end;
+}
+
+.fullPlanList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }

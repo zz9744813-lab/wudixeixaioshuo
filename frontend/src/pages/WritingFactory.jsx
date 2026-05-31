@@ -10,10 +10,15 @@ import { Button } from '../components/ui/Button';
 import ConfirmModal from '../components/ConfirmModal';
 import Modal from '../components/ui/Modal';
 import { toObject, toArray } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './WritingFactory.module.css';
 
 const PAGE_TITLE = '24小时写作工厂';
 const PAGE_ICON = 'Factory';
+const PAGE_SUBTITLE = '选择项目 → 规划章节 → 加入队列 → 自动写作';
 
 export default function WritingFactory() {
   const [projects, setProjects] = useState([]);
@@ -82,8 +87,7 @@ export default function WritingFactory() {
     try {
       await api.del(`/worker/queue/${chapterId}`);
       toast.success('已从队列移除');
-      fetchQueue();
-      fetchPlan();
+      fetchQueue(); fetchPlan();
     } catch { toast.error('移除失败', 5000); }
   };
 
@@ -93,8 +97,7 @@ export default function WritingFactory() {
     try {
       await api.post('/worker/queue/clear-failed');
       toast.success('队列已清空');
-      fetchQueue();
-      fetchPlan();
+      fetchQueue(); fetchPlan();
     } catch { toast.error('清空失败', 5000); }
   };
 
@@ -107,9 +110,10 @@ export default function WritingFactory() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+      />
 
       <AsyncState loading={loadingProjects} error={error} onRetry={fetchProjects} emptyTitle="暂无项目" emptyHint="请先创建项目">
         <div className={styles.selectorRow}>
@@ -127,11 +131,9 @@ export default function WritingFactory() {
 
       <div className={styles.sections}>
         {/* Plan Preview */}
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2 className={styles.cardTitle}>写作计划预览</h2>
-            <Button variant="ghost" size="sm" onClick={handleViewPlan} disabled={!selectedProjectId}>查看完整计划</Button>
-          </div>
+        <SectionCard title="写作计划预览" subtitle={`共 ${planChapters.length} 章`} actions={
+          <Button variant="ghost" size="sm" onClick={handleViewPlan} disabled={!selectedProjectId}>查看完整计划</Button>
+        }>
           <AsyncState loading={loadingPlan} error={null} isEmpty={!planChapters.length} emptyTitle="计划为空" hideLoading hideError>
             <div className={styles.chapterList}>
               {planChapters.slice(0, 10).map((ch, idx) => (
@@ -148,16 +150,15 @@ export default function WritingFactory() {
               )}
             </div>
           </AsyncState>
-        </section>
+        </SectionCard>
 
         {/* Queue */}
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>当前队列 ({queueTasks.length})</h2>
+        <SectionCard title="当前队列" subtitle={`${queueTasks.length} 个任务`}>
           <AsyncState loading={loadingQueue} error={null} isEmpty={!queueTasks.length} emptyTitle="队列为空" hideLoading hideError>
             <div className={styles.chapterList}>
               {queueTasks.map((item, idx) => (
                 <div key={item.id || item.chapter_id || idx} className={styles.chapterItem}>
-                  <span className={styles.chapterIdx}>#{idx + 1}</span>
+                  <span className={styles.queueIdx}>#{idx + 1}</span>
                   <span>{item.project_name || `项目 ${item.project_id}`}</span>
                   <span className={styles.chapterTitle}>第 {item.chapter_index || item.chapter_id} 章</span>
                   <Badge variant={item.status === 'completed' ? 'success' : item.status === 'failed' ? 'danger' : item.status === 'running' ? 'warning' : 'accent'}>
@@ -167,11 +168,10 @@ export default function WritingFactory() {
               ))}
             </div>
           </AsyncState>
-        </section>
+        </SectionCard>
 
         {/* 快捷导航 */}
-        <section className={styles.card}>
-          <h2 className={styles.cardTitle}>快捷操作</h2>
+        <SectionCard title="快捷操作" style={{ gridColumn: '1 / -1' }}>
           <div className={styles.actionGrid}>
             <Link to="/projects" className={styles.actionCard}>
               <Icon name="FolderOpen" size={20} /><span>项目管理</span>
@@ -186,7 +186,7 @@ export default function WritingFactory() {
               <Icon name="Activity" size={20} /><span>用量统计</span>
             </Link>
           </div>
-        </section>
+        </SectionCard>
       </div>
 
       <Modal open={showPlanModal} onClose={() => setShowPlanModal(false)} title="写作计划详情" size="md">
