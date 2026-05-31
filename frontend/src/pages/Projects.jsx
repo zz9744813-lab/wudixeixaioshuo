@@ -3,16 +3,21 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import ConfirmModal from '../components/ConfirmModal';
 import Modal from '../components/ui/Modal';
+import { toArray } from '../utils/nullSafety';
+
+import PageHeader from '../components/console/PageHeader';
+import SectionCard from '../components/console/SectionCard';
+import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Projects.module.css';
 
 const PAGE_TITLE = '📖 小说项目';
-const PAGE_ICON = 'FileText';
+const PAGE_SUBTITLE = '创建和管理你的小说项目';
+const PAGE_ICON = 'FolderKanban';
 
 const STATUS_MAP = {
   draft: { label: '草稿', variant: 'muted' },
@@ -111,40 +116,48 @@ export default function Projects() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}><Icon name={PAGE_ICON} size={22} /><span>{PAGE_TITLE}</span></h1>
-        <Button variant="primary" onClick={() => { resetForm(); setShowCreate(true); }}>+ 新建项目</Button>
-      </header>
+      <PageHeader
+        title={PAGE_TITLE}
+        subtitle={PAGE_SUBTITLE}
+        actions={
+          <Button variant="primary" size="sm" onClick={() => { resetForm(); setShowCreate(true); }}>
+            + 新建项目
+          </Button>
+        }
+      />
 
-      <AsyncState loading={loading} error={error} onRetry={fetchProjects} isEmpty={projects.length === 0} emptyTitle="暂无项目" emptyAction={<Button variant="primary" onClick={() => { resetForm(); setShowCreate(true); }}>+ 创建第一个项目</Button>}>
-        <div className={styles.grid}>
-          {projects.map((p) => {
-            const st = STATUS_MAP[p.status] || STATUS_MAP.draft;
-            return (
-              <div key={p.id} className={styles.card}>
-                <div className={styles.cardTop}>
-                  <Link to={`/projects/${p.id}`} className={styles.cardTitle}>{p.name}</Link>
-                  <Badge variant={st.variant}>{st.label}</Badge>
+      <AsyncState loading={loading} error={error} onRetry={fetchProjects} isEmpty={projects.length === 0} emptyTitle="暂无项目"
+        emptyHint="创建第一个小说项目开始">
+        <SectionCard title="项目列表" subtitle={`共 ${projects.length} 个项目`}>
+          <div className={styles.grid}>
+            {projects.map((p) => {
+              const st = STATUS_MAP[p.status] || STATUS_MAP.draft;
+              return (
+                <div key={p.id} className={styles.card}>
+                  <div className={styles.cardTop}>
+                    <Link to={`/projects/${p.id}`} className={styles.cardTitle}>{p.name}</Link>
+                    <Badge variant={st.variant}>{st.label}</Badge>
+                  </div>
+                  <div className={styles.cardBody}>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>题材</span><span>{p.genre || '-'}</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>当前章节</span><span>第 {p.current_chapter_index} 章</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>已写字数</span><span>{(p.total_words_written || 0).toLocaleString()}</span></div>
+                    <div className={styles.metaRow}><span className={styles.metaLabel}>创建时间</span><span>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</span></div>
+                  </div>
+                  <div className={styles.cardActions}>
+                    <Link to={`/projects/${p.id}`}><Button variant="secondary" size="sm">进入详情</Button></Link>
+                    {p.status === 'draft' || p.status === 'paused' ? (
+                      <Button variant="primary" size="sm" onClick={() => handleStart(p.id)}>启动</Button>
+                    ) : (
+                      <Button variant="secondary" size="sm" onClick={() => handlePause(p.id)}>暂停</Button>
+                    )}
+                    <Button variant="danger" size="sm" onClick={() => handleDelete(p.id, p.name)}>删除</Button>
+                  </div>
                 </div>
-                <div className={styles.cardBody}>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>题材</span><span>{p.genre || '-'}</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>当前章节</span><span>第 {p.current_chapter_index} 章</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>已写字数</span><span>{(p.total_words_written || 0).toLocaleString()}</span></div>
-                  <div className={styles.metaRow}><span className={styles.metaLabel}>创建时间</span><span>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</span></div>
-                </div>
-                <div className={styles.cardActions}>
-                  <Link to={`/projects/${p.id}`}><Button variant="secondary" size="sm">进入详情</Button></Link>
-                  {p.status === 'draft' || p.status === 'paused' ? (
-                    <Button variant="primary" size="sm" onClick={() => handleStart(p.id)}>启动</Button>
-                  ) : (
-                    <Button variant="secondary" size="sm" onClick={() => handlePause(p.id)}>暂停</Button>
-                  )}
-                  <Button variant="danger" size="sm" onClick={() => handleDelete(p.id, p.name)}>删除</Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </SectionCard>
       </AsyncState>
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} title="新建项目" size="md" footer={
