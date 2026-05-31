@@ -27,6 +27,7 @@ class ProviderCreate(BaseModel):
     is_enabled: bool = True
 
 
+# P1-2: ProviderResponse 补充 is_default 和 api_key_mask
 class ProviderResponse(BaseModel):
     id: int
     name: str
@@ -34,7 +35,10 @@ class ProviderResponse(BaseModel):
     base_url: str
     default_model: str
     is_enabled: bool
-    last_test_result: Optional[str]
+    is_default: bool = False
+    api_key_mask: Optional[str] = None
+    last_test_result: Optional[str] = None
+    last_tested_at: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -52,7 +56,10 @@ async def list_providers(db: Session = Depends(get_db)):
             "base_url": p.base_url,
             "default_model": p.default_model,
             "is_enabled": p.is_enabled == 1,
+            "is_default": p.is_default == 1,
+            "api_key_mask": p.api_key_mask,
             "last_test_result": p.last_test_result,
+            "last_tested_at": p.last_tested_at.isoformat() if p.last_tested_at else None,
         }
         for p in providers
     ]
@@ -73,6 +80,7 @@ async def create_provider(provider: ProviderCreate, db: Session = Depends(get_db
         api_key_mask=api_key_mask,
         default_model=provider.default_model,
         is_enabled=1 if provider.is_enabled else 0,
+        is_default=0,
     )
     db.add(db_provider)
     db.commit()
@@ -92,6 +100,8 @@ class ProviderUpdate(BaseModel):
     api_key: Optional[str] = None
     default_model: Optional[str] = None
     is_enabled: Optional[bool] = None
+    is_default: Optional[bool] = None
+
 
 @router.put("/providers/{provider_id}")
 async def update_provider(provider_id: int, provider: ProviderUpdate, db: Session = Depends(get_db)):
@@ -105,6 +115,10 @@ async def update_provider(provider_id: int, provider: ProviderUpdate, db: Sessio
         if field == "api_key" and value:
             db_provider.api_key_encrypted = encrypt_api_key(value)
             db_provider.api_key_mask = mask_api_key(value)
+        elif field == "is_default" and value:
+            # 设为默认时，清除其他 Provider 的默认标记
+            db.query(ModelProvider).filter(ModelProvider.id != provider_id).update({"is_default": 0})
+            db_provider.is_default = 1
         elif hasattr(db_provider, field):
             setattr(db_provider, field, value)
 
@@ -119,9 +133,11 @@ async def update_provider(provider_id: int, provider: ProviderUpdate, db: Sessio
         "base_url": db_provider.base_url,
         "default_model": db_provider.default_model,
         "is_enabled": db_provider.is_enabled == 1,
+        "is_default": db_provider.is_default == 1,
         "last_test_result": db_provider.last_test_result,
         "message": "Provider 已更新",
     }
+
 
 @router.get("/providers/{provider_id}")
 async def get_provider(provider_id: int, db: Session = Depends(get_db)):
@@ -138,6 +154,7 @@ async def get_provider(provider_id: int, db: Session = Depends(get_db)):
         "api_key_mask": provider.api_key_mask,
         "default_model": provider.default_model,
         "is_enabled": provider.is_enabled == 1,
+        "is_default": provider.is_default == 1,
         "default_temperature": provider.default_temperature,
         "default_max_tokens": provider.default_max_tokens,
         "timeout_seconds": provider.timeout_seconds,
@@ -175,7 +192,6 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
         )
 
         # 更新提供商状态
-        from datetime import datetime
         provider.last_tested_at = utc_now()
         provider.last_test_result = "success"
         db.commit()
@@ -192,11 +208,10 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
                 "content_preview": test_response.get("content", "")[:50] + "..." if len(test_response.get("content", "")) > 50 else test_response.get("content", ""),
                 "tokens": test_response.get("total_tokens"),
                 "cost": test_response.get("cost"),
-            }
+            },
         }
 
     except Exception as e:
-        from datetime import datetime
         provider.last_tested_at = utc_now()
         provider.last_test_result = "failed"
         db.commit()
@@ -207,7 +222,7 @@ async def test_provider(provider_id: int, db: Session = Depends(get_db)):
                 "provider_id": provider_id,
                 "status": "failed",
                 "message": f"连接测试失败: {str(e)}",
-            }
+            },
         )
 
 
@@ -251,7 +266,7 @@ async def list_roles(project_id: Optional[int] = None, db: Session = Depends(get
 
 # 角色映射创建模型
 class RoleCreate(BaseModel):
-    role: str = Field(..., pattern="^(planner|draft|critic|rewrite|continuity|learning|study|split|analyze|memory_update|memory_retrieval|foreshadow|logic_critic|style_critic|commercial_critic|default)$")
+    role: str = Field(..., pattern="^(planner|draft|critic|rewrite|continuity|learning|study|split|analyze|default)$")
     model_name: str
     provider_id: int
     temperature: Optional[float] = 0.7
@@ -269,87 +284,92 @@ class QuickSetupRequest(BaseModel):
 
 @router.post("/quick-setup")
 async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
-  """
-  快速配置 LLM
-  一键创建提供商并为所有角色配置默认模型（upsert 模式）
-  """
-  api_key_encrypted = encrypt_api_key(config.api_key)
-  api_key_mask = mask_api_key(config.api_key)
+    """
+    快速配置 LLM
+    一键创建提供商并为所有角色配置默认模型（upsert 模式）
+    """
+    api_key_encrypted = encrypt_api_key(config.api_key)
+    api_key_mask = mask_api_key(config.api_key)
 
-  # P0-4: Upsert – 按 name + provider_type + base_url 查找已有 Provider
-  existing_provider = db.query(ModelProvider).filter(
-    ModelProvider.name == config.name,
-    ModelProvider.provider_type == config.provider_type,
-    ModelProvider.base_url == config.base_url,
-  ).first()
-
-  if existing_provider:
-    # 更新已有 Provider
-    existing_provider.api_key_encrypted = api_key_encrypted
-    existing_provider.api_key_mask = api_key_mask
-    existing_provider.default_model = config.default_model
-    existing_provider.is_enabled = 1
-    existing_provider.is_default = 1
-    # 清除其他 Provider 的 is_default
-    db.query(ModelProvider).filter(
-      ModelProvider.id != existing_provider.id
-    ).update({"is_default": 0})
-    provider = existing_provider
-  else:
-    # 新建 Provider
-    provider = ModelProvider(
-      name=config.name,
-      provider_type=config.provider_type,
-      base_url=config.base_url,
-      api_key_encrypted=api_key_encrypted,
-      api_key_mask=api_key_mask,
-      default_model=config.default_model,
-      is_enabled=1,
-      is_default=1,
-    )
-    db.add(provider)
-  db.commit()
-  db.refresh(provider)
-
-  # 角色映射 (upsert)
-  roles_list = [
-    "planner", "draft", "critic", "rewrite", "continuity",
-    "learning", "study", "split", "analyze", "default",
-    "memory_update", "memory_retrieval", "foreshadow",
-    "logic_critic", "style_critic", "commercial_critic",
-  ]
-
-  configured_roles = []
-  for role in roles_list:
-    existing = db.query(ModelRole).filter(
-      ModelRole.role == role,
-      ModelRole.project_id == None,
+    # Upsert – 按 name + provider_type + base_url 查找已有 Provider
+    existing_provider = db.query(ModelProvider).filter(
+        ModelProvider.name == config.name,
+        ModelProvider.provider_type == config.provider_type,
+        ModelProvider.base_url == config.base_url,
     ).first()
 
-    if existing:
-      existing.provider_id = provider.id
-      existing.model_name = config.default_model
+    if existing_provider:
+        # 更新已有 Provider
+        existing_provider.api_key_encrypted = api_key_encrypted
+        existing_provider.api_key_mask = api_key_mask
+        existing_provider.default_model = config.default_model
+        existing_provider.is_enabled = 1
+        existing_provider.is_default = 1
+        # 清除其他 Provider 的 is_default
+        db.query(ModelProvider).filter(
+            ModelProvider.id != existing_provider.id
+        ).update({"is_default": 0})
+        provider = existing_provider
     else:
-      role_config = ModelRole(
-        role=role,
-        provider_id=provider.id,
-        model_name=config.default_model,
-        temperature=0.7 if role in ["draft", "rewrite"] else 0.3,
-        max_tokens=4000,
-        priority=1,
-      )
-      db.add(role_config)
-      configured_roles.append(role)
+        # P1-1: 新建 Provider 时也要统一清理其他默认 Provider
+        db.query(ModelProvider).filter(ModelProvider.is_default == 1).update({"is_default": 0})
+        provider = ModelProvider(
+            name=config.name,
+            provider_type=config.provider_type,
+            base_url=config.base_url,
+            api_key_encrypted=api_key_encrypted,
+            api_key_mask=api_key_mask,
+            default_model=config.default_model,
+            is_enabled=1,
+            is_default=1,
+        )
+        db.add(provider)
+        db.commit()
+        db.refresh(provider)
 
-  db.commit()
+    db.commit()
 
-  return {
-    "message": "LLM 配置成功",
-    "provider_id": provider.id,
-    "provider_name": provider.name,
-    "model": config.default_model,
-    "roles_configured": roles_list,
-  }
+    # 角色映射 (upsert)
+    roles_list = [
+        "planner", "draft", "critic", "rewrite", "continuity",
+        "learning", "study", "split", "analyze", "default",
+        "memory_update", "memory_retrieval", "foreshadow",
+        "logic_critic", "style_critic", "commercial_critic",
+    ]
+
+    configured_roles = []
+    for role in roles_list:
+        existing = db.query(ModelRole).filter(
+            ModelRole.role == role,
+            ModelRole.project_id == None,
+        ).first()
+
+        if existing:
+            existing.provider_id = provider.id
+            existing.model_name = config.default_model
+        else:
+            role_config = ModelRole(
+                role=role,
+                provider_id=provider.id,
+                model_name=config.default_model,
+                temperature=0.7 if role in ["draft", "rewrite"] else 0.3,
+                max_tokens=4000,
+                priority=1,
+            )
+            db.add(role_config)
+            configured_roles.append(role)
+
+    db.commit()
+
+    return {
+        "message": "LLM 配置成功",
+        "provider_id": provider.id,
+        "provider_name": provider.name,
+        "model": config.default_model,
+        "roles_configured": roles_list,
+    }
+
+
 @router.post("/roles")
 async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
     """创建角色映射"""
@@ -386,165 +406,4 @@ async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
         "model_name": role_config.model_name,
         "provider_id": role_config.provider_id,
         "message": "角色映射已创建",
-    }
-"""
-@app:routers models.py 已完成 P0-3 模型自动发现端点
-"""
-
-# P0-3: 模型自动发现
-class ModelDiscoverRequest(BaseModel):
-  provider_type: str = Field(..., pattern="^(openai|anthropic|gemini|openrouter|custom)$")
-  base_url: str
-  api_key: str
-
-@router.post("/discover")
-async def discover_models(req: ModelDiscoverRequest):
-  """临时发现模型列表 – 不保存数据库"""
-  try:
-    import httpx
-
-    if req.provider_type in ("openai", "openrouter", "custom"):
-      url = req.base_url.rstrip("/") + "/models"
-      headers = {"Authorization": f"Bearer {req.api_key}"}
-      async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(url, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-
-      models = []
-      for m in data.get("data", []):
-        models.append({
-          "id": m.get("id", ""),
-          "name": m.get("id", ""),
-          "owned_by": m.get("owned_by", ""),
-        })
-
-      return {
-        "ok": True,
-        "provider_type": req.provider_type,
-        "base_url": req.base_url,
-        "count": len(models),
-        "models": models,
-      }
-
-    elif req.provider_type == "anthropic":
-      return {
-        "ok": True,
-        "provider_type": req.provider_type,
-        "base_url": req.base_url,
-        "count": 0,
-        "models": [],
-        "note": "Anthropic 暂不支持自动拉取模型列表，请手动填写模型名",
-      }
-
-    elif req.provider_type == "gemini":
-      return {
-        "ok": True,
-        "provider_type": req.provider_type,
-        "base_url": req.base_url,
-        "count": 0,
-        "models": [],
-        "note": "Gemini 暂不支持自动拉取模型列表，请手动填写模型名",
-      }
-
-  except Exception as e:
-    return {
-      "ok": False,
-      "error": {
-        "type": "ModelDiscoveryError",
-        "message": f"无法拉取模型列表：{str(e)}",
-      },
-    }
-
-
-@router.get("/providers/{provider_id}/models")
-async def get_provider_models(provider_id: int, db: Session = Depends(get_db)):
-  """读取已保存 Provider 的模型列表"""
-  from app.services.secret_service import decrypt_api_key
-  provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
-  if not provider:
-    raise HTTPException(status_code=404, detail="Provider 不存在")
-
-  try:
-    import httpx
-    url = provider.base_url.rstrip("/") + "/models"
-    api_key = decrypt_api_key(provider.api_key_encrypted)
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    async with httpx.AsyncClient(timeout=30) as client:
-      resp = await client.get(url, headers=headers)
-      resp.raise_for_status()
-      data = resp.json()
-
-    models = []
-    for m in data.get("data", []):
-      models.append({
-        "id": m.get("id", ""),
-        "name": m.get("id", ""),
-        "owned_by": m.get("owned_by", ""),
-      })
-
-    return {
-      "ok": True,
-      "provider_id": provider_id,
-      "provider_name": provider.name,
-      "count": len(models),
-      "models": models,
-    }
-
-  except Exception as e:
-    return {
-      "ok": False,
-      "error": {
-        "type": "ModelFetchError",
-        "message": f"无法获取模型列表：{str(e)}",
-      },
-    }
-
-
-@router.post("/providers/{provider_id}/refresh-models")
-async def refresh_provider_models(provider_id: int, db: Session = Depends(get_db)):
-  """刷新模型列表缓存"""
-  from app.services.secret_service import decrypt_api_key
-  provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
-  if not provider:
-    raise HTTPException(status_code=404, detail="Provider 不存在")
-
-  try:
-    import httpx
-    url = provider.base_url.rstrip("/") + "/models"
-    api_key = decrypt_api_key(provider.api_key_encrypted)
-    headers = {"Authorization": f"Bearer {api_key}"}
-
-    async with httpx.AsyncClient(timeout=30) as client:
-      resp = await client.get(url, headers=headers)
-      resp.raise_for_status()
-      data = resp.json()
-
-    models = []
-    for m in data.get("data", []):
-      models.append({
-        "id": m.get("id", ""),
-        "name": m.get("id", ""),
-        "owned_by": m.get("owned_by", ""),
-      })
-
-    provider.last_models_refresh = utc_now()
-    db.commit()
-
-    return {
-      "ok": True,
-      "provider_id": provider_id,
-      "count": len(models),
-      "models": models,
-      "refreshed_at": provider.last_models_refresh.isoformat() if provider.last_models_refresh else None,
-    }
-
-  except Exception as e:
-    return {
-      "ok": False,
-      "error": {
-        "type": "ModelRefreshError",
-        "message": f"刷新失败：{str(e)}",
-      },
     }

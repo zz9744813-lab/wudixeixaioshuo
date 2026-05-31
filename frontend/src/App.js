@@ -47,6 +47,7 @@ function App() {
           <Route path="/tasks" element={<Tasks />} />
           <Route path="/tasks/:id" element={<TaskDetail />} />
           <Route path="/models" element={<ModelConfig />} />
+      <Route path="/model-config" element={<ModelConfig />} />
           <Route path="/feedback" element={<FeedbackCenter />} />
           <Route path="/evolution" element={<EvolutionCenter />} />
           <Route path="/worker" element={<WorkerDashboard />} />
