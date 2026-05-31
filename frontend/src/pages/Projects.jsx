@@ -139,7 +139,7 @@ export default function Projects() {
                   ) : (
                     <Button variant="secondary" size="sm" onClick={() => handlePause(p.id)}>暂停</Button>
                   )}
-                  <Button variant="danger" size="sm" onClick={() => { confirm({ title: '删除项目', message: `确定删除「${p.name}」？`, id: p.id, name: p.name }); handleDelete(); }}>删除</Button>
+                  <Button variant="danger" size="sm" onClick={() => handleDelete(p.id, p.name)}>删除</Button>
                 </div>
               </div>
             );

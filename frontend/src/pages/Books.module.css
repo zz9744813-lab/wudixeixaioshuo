@@ -30,3 +30,22 @@
   text-align: center;
   padding: 32px;
 }
+
+
+/* Books extended */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 16px; box-shadow: 0 1px 0 rgba(0,0,0,0.06); display: flex; flex-direction: column; gap: 10px; }
+.cardTop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.cardTitle { font-size: var(--fs-md, 14px); font-weight: 600; color: var(--text); text-decoration: none; }
+.cardTitle:hover { color: var(--accent, #4f8cff); }
+.cardBody { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm, 13px); color: var(--text-secondary, #8b95a8); }
+.metaRow { display: flex; justify-content: space-between; gap: 8px; }
+.metaLabel { color: var(--text-muted, #5f6b80); }
+.cardActions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.formGrid { display: flex; flex-direction: column; gap: 12px; }
+.formGrid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm, 13px); color: var(--text-secondary, #8b95a8); }
+.formGrid label span:first-child { font-weight: 600; }
+.fullWidth {  }
+.formGrid input, .formGrid select { background: var(--bg-sunken, #0a0c12); color: var(--text, #e8ecf5); border: 1px solid var(--border, #1c2230); border-radius: var(--r-sm, 6px); padding: 6px 10px; font-size: var(--fs-sm, 13px); }
+.divider { text-align: center; color: var(--text-muted, #5f6b80); font-size: 12px; padding: 8px 0; }
+.modalActions { display: flex; gap: 8px; justify-content: flex-end; }
