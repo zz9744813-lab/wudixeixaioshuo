@@ -30,3 +30,26 @@
   text-align: center;
   padding: 32px;
 }
+
+
+/* ModelConfig extended */
+.card { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 18px; margin-bottom: 20px; }
+.cardHeader { display: flex; justify-content: space-between; align-items: center; }
+.cardTitle { font-size: var(--fs-lg, 16px); font-weight: 600; margin: 0 0 12px; }
+.quickRow { display: flex; justify-content: space-between; align-items: center; }
+.quickHint { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); }
+.tableWrap { overflow: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm, 13px); }
+.table th { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border, #2a2a2a); color: var(--text-secondary, #888); font-weight: 600; }
+.table td { padding: 8px 12px; border-bottom: 1px solid var(--border, #2a2a2a); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.muted { color: var(--text-muted, #5f6b80); }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.formGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.formGrid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm, 13px); color: var(--text-secondary, #8b95a8); }
+.formGrid label span:first-child { font-weight: 600; }
+.formGrid input, .formGrid select { background: var(--bg-sunken, #0a0c12); color: var(--text, #e8ecf5); border: 1px solid var(--border, #1c2230); border-radius: var(--r-sm, 6px); padding: 6px 10px; font-size: var(--fs-sm, 13px); }
+.formGrid input:focus, .formGrid select:focus { outline: none; border-color: var(--border-focus, #3a6df0); }
+.formActions { display: flex; gap: 8px; align-items: center; grid-column: 1 / -1; }
+.checkLabel { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.modalActions { display: flex; gap: 8px; justify-content: flex-end; }

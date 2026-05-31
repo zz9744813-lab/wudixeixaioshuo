@@ -30,3 +30,33 @@
   text-align: center;
   padding: 32px;
 }
+
+
+/* ProjectDetail extended */
+.back { color: var(--text-secondary, #888); text-decoration: none; font-size: 13px; }
+.headerBadge { margin-left: 10px; vertical-align: middle; }
+.summary { display: flex; gap: 16px; color: var(--text-secondary, #888); font-size: 13px; margin-top: 6px; }
+.err { color: var(--danger, #e5484d); }
+.statsGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.card { background: var(--bg-surface); border: 0.5px solid var(--border); border-radius: var(--r-md); padding: 16px; margin-bottom: 16px; }
+.cardTitle { font-size: var(--fs-md, 14px); font-weight: 600; margin: 0 0 10px; }
+.cardHeader { display: flex; justify-content: space-between; align-items: center; }
+.cardBody { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); }
+.bibleText { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); line-height: 1.6; }
+.charChips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.charChip { padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-sunken); font-size: var(--fs-xs, 11px); color: var(--text-secondary); }
+.actionGrid { display: flex; flex-wrap: wrap; gap: 8px; }
+.playbookBody { color: var(--text-secondary, #8b95a8); font-size: var(--fs-sm, 13px); line-height: 1.7; }
+.failureList { display: flex; flex-direction: column; gap: 10px; }
+.failureItem { border: 1px solid var(--border); border-radius: var(--r-sm, 6px); padding: 10px; background: var(--bg-sunken, #0a0c12); }
+.failureHead { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.failureCount { color: var(--text-muted, #5f6b80); font-size: 12px; }
+.failureSymptom { font-size: var(--fs-sm, 13px); margin: 0 0 4px; }
+.failurePrevention { font-size: 12px; color: var(--text-muted, #5f6b80); margin: 0; }
+.empty { color: var(--text-muted); font-size: var(--fs-sm, 13px); }
+.formGrid { display: flex; flex-direction: column; gap: 12px; }
+.formGrid label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-sm, 13px); color: var(--text-secondary, #8b95a8); }
+.formGrid label span:first-child { font-weight: 600; }
+.fullWidth { }
+.formGrid textarea { background: var(--bg-sunken, #0a0c12); color: var(--text, #e8ecf5); border: 1px solid var(--border, #1c2230); border-radius: var(--r-sm, 6px); padding: 6px 10px; font-size: var(--fs-sm, 13px); resize: vertical; }
+.modalActions { display: flex; gap: 8px; justify-content: flex-end; }
