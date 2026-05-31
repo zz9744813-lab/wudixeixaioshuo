@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import api, { getApiRuntimeInfo, hasApiKey, getApiErrorMessage } from '../services/api';
+import api, { getApiRuntimeInfo, getApiErrorMessage } from '../services/api';
+import { toArray } from '../utils/nullSafety';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import { Badge } from '../components/ui/Badge';

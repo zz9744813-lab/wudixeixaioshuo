@@ -407,3 +407,133 @@ async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
         "provider_id": role_config.provider_id,
         "message": "角色映射已创建",
     }
+import httpx
+
+
+class ModelDiscoverRequest(BaseModel):
+    provider_type: str = Field(..., pattern="^(openai|anthropic|gemini|openrouter|custom)$")
+    base_url: str
+    api_key: str
+
+
+def _normalize_model_list(raw_data: dict):
+    raw_models = raw_data.get("data", [])
+    models = []
+    if not isinstance(raw_models, list):
+        return models
+    for item in raw_models:
+        if not isinstance(item, dict):
+            continue
+        model_id = item.get("id")
+        if not model_id:
+            continue
+        models.append({
+            "id": model_id,
+            "name": item.get("name") or model_id,
+            "owned_by": item.get("owned_by") or item.get("owner") or "",
+        })
+    return models
+
+
+@router.post("/discover")
+async def discover_models(req: ModelDiscoverRequest):
+    try:
+        if req.provider_type in ("openai", "openrouter", "custom"):
+            url = req.base_url.rstrip("/") + "/models"
+            headers = {
+                "Authorization": f"Bearer {req.api_key}",
+                "Content-Type": "application/json",
+            }
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+            models = _normalize_model_list(data)
+            return {
+                "ok": True,
+                "provider_type": req.provider_type,
+                "base_url": req.base_url,
+                "count": len(models),
+                "models": models,
+            }
+
+        if req.provider_type == "anthropic":
+            return {
+                "ok": True,
+                "provider_type": req.provider_type,
+                "base_url": req.base_url,
+                "count": 0,
+                "models": [],
+                "note": "Anthropic 暂不支持自动拉取模型列表，请使用高级模式手动填写模型名",
+            }
+
+        if req.provider_type == "gemini":
+            return {
+                "ok": True,
+                "provider_type": req.provider_type,
+                "base_url": req.base_url,
+                "count": 0,
+                "models": [],
+                "note": "Gemini 暂不支持自动拉取模型列表，请使用高级模式手动填写模型名",
+            }
+
+        return {"ok": False, "error": {"type": "UnsupportedProvider", "message": "不支持的 Provider 类型"}}
+
+    except Exception as e:
+        return {"ok": False, "error": {"type": "ModelDiscoveryError", "message": f"无法拉取模型列表：{str(e)}"}}
+
+
+@router.get("/providers/{provider_id}/models")
+async def get_provider_models(provider_id: int, db: Session = Depends(get_db)):
+    provider = db.query(ModelProvider).filter(ModelProvider.id == provider_id).first()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider 不存在")
+
+    if provider.provider_type not in ("openai", "openrouter", "custom"):
+        return {
+            "ok": True,
+            "provider_id": provider_id,
+            "provider_name": provider.name,
+            "count": 0,
+            "models": [],
+            "note": f"{provider.provider_type} 暂不支持自动拉取模型列表，请手动填写模型名",
+        }
+
+    if not provider.api_key_encrypted:
+        return {
+            "ok": False,
+            "provider_id": provider_id,
+            "provider_name": provider.name,
+            "error": {"type": "MissingApiKey", "message": "该 Provider 没有保存 API Key，无法拉取模型列表"},
+        }
+
+    try:
+        api_key = decrypt_api_key(provider.api_key_encrypted)
+        url = provider.base_url.rstrip("/") + "/models"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(url, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+        models = _normalize_model_list(data)
+        return {
+            "ok": True,
+            "provider_id": provider_id,
+            "provider_name": provider.name,
+            "count": len(models),
+            "models": models,
+        }
+    except Exception as e:
+        return {"ok": False, "error": {"type": "ModelFetchError", "message": f"无法获取模型列表：{str(e)}"}}
+
+
+@router.post("/providers/{provider_id}/refresh-models")
+async def refresh_provider_models(provider_id: int, db: Session = Depends(get_db)):
+    result = await get_provider_models(provider_id, db)
+    if not result.get("ok"):
+        return result
+    refreshed_at = utc_now()
+    return {**result, "refreshed_at": refreshed_at.isoformat()}
