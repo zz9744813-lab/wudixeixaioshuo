@@ -1,0 +1,13 @@
+.body { padding: 12px 0; }
+
+.message { margin: 0; color: var(--text-primary, #f5f7fb); line-height: 1.6; white-space: pre-wrap; }
+
+.actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
+.cancel, .ok { border: none; border-radius: 8px; padding: 9px 16px; font-size: 14px; cursor: pointer; }
+
+.cancel { background: var(--surface-muted, #2a3040); color: var(--text-secondary, #d3d8e5); }
+
+.ok { background: var(--danger, #ef4444); color: #fff; }
+
+.cancel:hover, .ok:hover { filter: brightness(1.08); }

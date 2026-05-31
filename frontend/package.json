@@ -21,7 +21,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "test:api-usage": "node scripts/check-api-usage.js"
+    "test:api-usage": "node scripts/check-api-usage.js",
+    "check:pages": "node scripts/check-no-placeholder-pages.js"
   },
   "eslintConfig": {
     "extends": [

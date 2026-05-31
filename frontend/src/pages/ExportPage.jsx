@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
@@ -24,13 +24,9 @@ export default function ExportPage() {
 
   const { data: projects = [], loading: loadingProjects } = useFetch('/projects/');
   const { data: formats } = useFetch('/export/formats');
-  const handleProjectsLoaded = useCallback(() => {
-    if (projects.length && !projectId) {
-      setProjectId(String(projects[0].id));
-    }
-  }, [projects, projectId]);
 
-  const fetchHistory = async (pid) => {
+const selectedProject = projects.find(p => String(p.id) === projectId);
+      const fetchHistory = async (pid) => {
     setLoadingHistory(true);
     try {
       const res = await api.get('/export/history');

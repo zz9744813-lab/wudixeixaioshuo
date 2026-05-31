@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal } from './Modal';
+import { Modal } from './ui/Modal';
+import styles from './ConfirmModal.module.css';
 
 export default function ConfirmModal({ state, onOk, onCancel }) {
   const { open, title, message } = state;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
@@ -30,6 +30,9 @@ export default function PromptTemplates() {
   const [detailData, setDetailData] = useState(null);
   const [loadDetail, setLoadDetail] = useState(false);
   const [previewRole, setPreviewRole] = useState('');
+const [previewText, setPreviewText] = useState('');
+const [submitting, setSubmitting] = useState(false);
+const [form, setForm] = useState({ role: 'draft', name: '', content: '', description: '', project_id: '' });
 
   const url = previewRole ? `/prompts/templates?role=${encodeURIComponent(previewRole)}` : '/prompts/templates';
   const { data: templates = [], loading, error, reload } = useFetch(url);
