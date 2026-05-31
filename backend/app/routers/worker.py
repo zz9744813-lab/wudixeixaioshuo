@@ -187,11 +187,42 @@ async def get_worker_stats(
     db: Session = Depends(get_db)
 ):
     """获取详细统计信息"""
-    service = TaskQueueService(db)
-    queue_status = service.get_queue_status()
+    queue_status = {}
+    stats_error = None
+    try:
+        service = TaskQueueService(db)
+        queue_status = service.get_queue_status()
+    except Exception as e:
+        stats_error = {"type": "QueueStatsError", "message": str(e)}
 
     return {
         "worker": worker.get_status(),
-        "queue": queue_status,
-        "overall_progress": queue_status.get("progress", {}),
+        "queue": queue_status or None,
+        "overall_progress": queue_status.get("progress", {}) if queue_status else {},
+        "error": stats_error,
+    }
+
+@router.get("/health")
+async def get_worker_health():
+    """Worker 健康诊断——独立于 stats，不因队列统计异常而失败"""
+    ws = worker.get_status()
+    db_ok = True
+    warnings = []
+    try:
+        from app.database import engine
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_ok = False
+        warnings.append(f"数据库异常: {e}")
+    return {
+        "ok": db_ok,
+        "worker_status": ws.get("status", "unknown"),
+        "queue_service_ok": True,
+        "db_ok": db_ok,
+        "pending_tasks": ws.get("pending_tasks", 0) or 0,
+        "running_tasks": ws.get("running_tasks", 0) or 0,
+        "failed_tasks": ws.get("failed_tasks", 0) or 0,
+        "warnings": warnings,
     }

@@ -74,3 +74,48 @@
 }
 .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: var(--bg-elevated); }
+
+/* —— Modal —— */
+.modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  background: var(--bg-surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+.modal--sm { width: min(420px, 100%); }
+.modal--md { width: min(720px, 100%); }
+.modal--lg { width: min(960px, 100%); }
+.modal--xl { width: min(1180px, 100%); }
+.modal__header,
+.modal__body,
+.modal__footer {
+  padding: 16px 18px;
+}
+.modal__header {
+  border-bottom: 1px solid var(--border);
+}
+.modal__title {
+  font-size: var(--fs-md, 15px);
+  font-weight: 600;
+  margin: 0;
+}
+.modal__footer {
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

@@ -1,6 +1,25 @@
 import axios from 'axios';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+// P0-1: 运行时配置优先级：window.__APP_CONFIG__ > 构建时环境变量 > fallback
+const runtimeConfig = typeof window !== 'undefined' ? window.__APP_CONFIG__ || {} : {};
+export const API_BASE_URL =
+  runtimeConfig.API_BASE_URL ||
+  process.env.REACT_APP_API_URL ||
+  '/api';
+
+// P1-1: 统一 API 错误解析
+export function getApiErrorMessage(error) {
+  const data = error?.response?.data;
+  return (
+    data?.error?.message ||
+    data?.error?.detail ||
+    data?.detail?.message ||
+    data?.detail ||
+    data?.message ||
+    error?.message ||
+    '请求失败，请重试'
+  );
+}
 
 const getApiKey = () =>
   process.env.REACT_APP_API_KEY || localStorage.getItem('APP_API_KEY') || '';
@@ -24,13 +43,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
-    const data = error?.response?.data;
-    const message =
-      (typeof data === 'string' && data) ||
-      data?.detail ||
-      data?.message ||
-      error.message ||
-      '请求失败，请重试';
+    const message = getApiErrorMessage(error);
     if (typeof window !== 'undefined') {
       const ev = new CustomEvent('app:api-error', {
         detail: { status, message, url: error?.config?.url, method: error?.config?.method },
