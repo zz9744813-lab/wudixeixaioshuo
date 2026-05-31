@@ -5,10 +5,13 @@ import './styles/base.css';
 import './styles/primitives.css';
 import './index.css';
 import App from './App';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );

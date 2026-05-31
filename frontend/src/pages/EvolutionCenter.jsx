@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { toObject, toArray } from '../utils/nullSafety';
 import styles from './EvolutionCenter.module.css';
 
 const PAGE_TITLE = 'Darwin 进化中心';
@@ -34,15 +35,28 @@ export default function EvolutionCenter() {
   const [runData, setRunData] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [createForm, setCreateForm] = useState({ project_id: '', target_dimension: 'plot', strategy: 'auto', prompt_type: 'writing' });
+  const [createForm, setCreateForm] = useState({
+    project_id: '',
+    target_dimension: 'plot',
+    strategy: 'auto',
+    prompt_type: 'writing',
+  });
   const [submitting, setSubmitting] = useState(false);
 
-  const { data: listData = {}, loading, error, reload } = useFetch('/evolution/');
-  const { data: stats, loading: loadingStats } = useFetch('/evolution/stats/overview');
-  const { data: dimensions } = useFetch('/evolution/dimensions');
-  const { data: practices } = useFetch('/evolution/best-practices');
+  const { data: rawListData = {}, loading, error, reload } = useFetch('/evolution/', { initialData: { total: 0, items: [] } });
+  const { data: rawStats } = useFetch('/evolution/stats/overview', { initialData: {} });
+  const { data: rawDimensions } = useFetch('/evolution/dimensions', { initialData: { dimensions: [], strategies: [] } });
+  const { data: rawPractices } = useFetch('/evolution/best-practices', { initialData: { count: 0, practices: [] } });
 
-  const items = Array.isArray(listData.items) ? listData.items : [];
+  const listData = toObject(rawListData);
+  const stats = toObject(rawStats);
+  const dimensions = toObject(rawDimensions);
+  const practices = toObject(rawPractices);
+
+  const items = toArray(listData.items);
+  const dimensionsList = toArray(dimensions.dimensions);
+  const strategiesList = toArray(dimensions.strategies);
+  const practicesList = toArray(practices.practices);
 
   const openDetail = async (id) => {
     setRunId(id);
@@ -118,11 +132,11 @@ export default function EvolutionCenter() {
       </div>
 
       <div className={styles.body}>
-        {practices?.practices?.length > 0 && (
+        {practicesList.length > 0 && (
           <section className={styles.section}>
             <h3 className={styles.sectionTitle}>最佳实践</h3>
             <ul className={styles.practiceList}>
-              {practices.practices.slice(0, 5).map((p) => (
+              {practicesList.slice(0, 5).map((p) => (
                 <li key={p.id}>{p.name || p.target_name} — 提升 {(p.improvement || 0).toFixed(2)}</li>
               ))}
             </ul>
@@ -130,7 +144,12 @@ export default function EvolutionCenter() {
         )}
 
         <AsyncState loading={loading} error={error} onRetry={reload} isEmpty={!items.length} emptyTitle="暂无进化记录">
-          <Table columns={columns} rows={items} rowKey="id" onRowClick={(row) => openDetail(row.id)} />
+          <Table
+            columns={columns}
+            rows={items}
+            rowKey="id"
+            onRowClick={(row) => openDetail(row.id)}
+          />
         </AsyncState>
       </div>
 
@@ -139,26 +158,26 @@ export default function EvolutionCenter() {
           <label className={styles.formLabel}>
             项目 ID
             <input className={styles.formInput} type="number" value={createForm.project_id}
-                   onChange={(e) => setCreateForm({ ...createForm, project_id: e.target.value })} />
+              onChange={(e) => setCreateForm({ ...createForm, project_id: e.target.value })} />
           </label>
           <label className={styles.formLabel}>
             维度
             <select className={styles.formInput} value={createForm.target_dimension}
-                    onChange={(e) => setCreateForm({ ...createForm, target_dimension: e.target.value })}>
-              {(dimensions?.dimensions || []).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              onChange={(e) => setCreateForm({ ...createForm, target_dimension: e.target.value })}>
+              {dimensionsList.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
           <label className={styles.formLabel}>
             策略
             <select className={styles.formInput} value={createForm.strategy}
-                    onChange={(e) => setCreateForm({ ...createForm, strategy: e.target.value })}>
-              {(dimensions?.strategies || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              onChange={(e) => setCreateForm({ ...createForm, strategy: e.target.value })}>
+              {strategiesList.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
           <label className={styles.formLabel}>
             Prompt 类型
             <input className={styles.formInput} value={createForm.prompt_type}
-                   onChange={(e) => setCreateForm({ ...createForm, prompt_type: e.target.value })} />
+              onChange={(e) => setCreateForm({ ...createForm, prompt_type: e.target.value })} />
           </label>
           <Button variant="primary" onClick={handleCreate} loading={submitting} block>创建</Button>
         </div>
@@ -174,7 +193,7 @@ export default function EvolutionCenter() {
               <span>后：{(runData.after_score || 0).toFixed(2)}</span>
               <span>提升：{((runData.after_score || 0) - (runData.before_score || 0)).toFixed(2)}</span>
             </div>
-            {runData.versions?.length > 0 && (
+            {runData.versions && runData.versions.length > 0 && (
               <Table
                 columns={[
                   { key: 'version_number', label: '版本' },

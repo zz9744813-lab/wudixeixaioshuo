@@ -1,14 +1,30 @@
 import React from 'react';
 import styles from './Table.module.css';
 
-export function Table({ columns, rows, rowKey, onRowClick, expandedRows = {}, onToggleExpand, renderExpanded }) {
+export function Table({
+  columns,
+  rows,
+  rowKey,
+  onRowClick,
+  expandedRows = {},
+  onToggleExpand,
+  renderExpanded,
+}) {
+  const safeColumns = Array.isArray(columns) ? columns : [];
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeExpandedRows =
+    expandedRows && typeof expandedRows === 'object' ? expandedRows : {};
+
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
         <thead>
           <tr>
-            {columns.map((col) => (
-              <th key={col.key} className={col.align === 'right' ? styles.num : ''}>
+            {safeColumns.map((col) => (
+              <th
+                key={col.key}
+                className={col.align === 'right' ? styles.num : ''}
+              >
                 {col.label}
               </th>
             ))}
@@ -16,18 +32,22 @@ export function Table({ columns, rows, rowKey, onRowClick, expandedRows = {}, on
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => {
-            const key = rowKey ? row[rowKey] : idx;
-            const expanded = !!expandedRows[key];
+          {safeRows.map((row, idx) => {
+            const key = rowKey ? row?.[rowKey] : idx;
+            const expanded = !!safeExpandedRows[key];
+
             return (
-              <React.Fragment key={key}>
+              <React.Fragment key={key ?? idx}>
                 <tr
                   className={`${styles.row} ${onRowClick ? styles.clickable : ''}`}
                   onClick={() => onRowClick?.(row)}
                 >
-                  {columns.map((col) => (
-                    <td key={col.key} className={col.align === 'right' ? styles.num : ''}>
-                      {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  {safeColumns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={col.align === 'right' ? styles.num : ''}
+                    >
+                      {col.render ? col.render(row?.[col.key], row) : row?.[col.key]}
                     </td>
                   ))}
                   {onToggleExpand && (
@@ -35,7 +55,10 @@ export function Table({ columns, rows, rowKey, onRowClick, expandedRows = {}, on
                       <button
                         type="button"
                         className={styles.expandBtn}
-                        onClick={(e) => { e.stopPropagation(); onToggleExpand(key); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleExpand(key);
+                        }}
                         aria-label={expanded ? '收起' : '展开'}
                       >
                         {expanded ? '\u2212' : '+'}
@@ -45,7 +68,10 @@ export function Table({ columns, rows, rowKey, onRowClick, expandedRows = {}, on
                 </tr>
                 {expanded && renderExpanded && (
                   <tr>
-                    <td colSpan={columns.length + 1} className={styles.expandedCell}>
+                    <td
+                      colSpan={safeColumns.length + 1}
+                      className={styles.expandedCell}
+                    >
                       {renderExpanded(row)}
                     </td>
                   </tr>

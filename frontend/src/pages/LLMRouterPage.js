@@ -119,7 +119,7 @@ function LLMRouterPage() {
               <div>
                 <strong>{route.role}</strong>
                 <p>{route.provider_name} · {route.default_model}</p>
-                <p>优先级 {route.priority} · 权重 {route.weight} · 成功 {route.success_calls}/{route.total_calls}</p>
+                <p>优先级 {route.priority} · 权重 {route.weight} · 成功 {route.success_calls || 0}/{route.total_calls || 0}</p>
               </div>
               <button type="button" className="btn-secondary" onClick={() => toggleRoute(route)}>
                 {route.enabled ? '禁用' : '启用'}

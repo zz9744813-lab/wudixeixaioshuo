@@ -8,14 +8,15 @@ import api from '../services/api';
  * @param {string} url - API 地址
  * @param {object} options - 配置选项
  * @param {boolean} options.auto - 是否自动加载（默认 true）
+ * @param {*} options.initialData - 初始数据（默认 undefined，避免 null 导致的解构默认值不生效）
  *
  * @returns {object} { data, loading, error, reload }
  */
 export function useFetch(url, options = {}) {
-  const { auto = true } = options;
+  const { auto = true, initialData = undefined } = options;
 
   const [state, setState] = useState({
-    data: null,
+    data: initialData,
     loading: auto,
     error: null,
   });
@@ -30,7 +31,7 @@ export function useFetch(url, options = {}) {
     try {
       const response = await api.get(url);
       setState({
-        data: response.data,
+        data: response.data ?? initialData,
         loading: false,
         error: null,
       });
@@ -42,12 +43,12 @@ export function useFetch(url, options = {}) {
         '请求失败，请重试';
 
       setState({
-        data: null,
+        data: initialData,
         loading: false,
         error: message,
       });
     }
-  }, [url]);
+  }, [url, initialData]);
 
   useEffect(() => {
     if (auto) {

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
@@ -9,6 +9,7 @@ import Modal from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { toObject, toArray } from '../utils/nullSafety';
 import styles from './FeedbackCenter.module.css';
 
 const PAGE_TITLE = '反馈中心';
@@ -27,12 +28,18 @@ export default function FeedbackCenter() {
   const [detailData, setDetailData] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const url = selectedProjectId ? `/feedback/?project_id=${selectedProjectId}&limit=50` : '/feedback/?limit=50';
-  const { data: listData = {}, loading, error, reload } = useFetch(url);
-  const { data: projects = [] } = useFetch('/projects/');
-  const { data: statsRaw } = useFetch('/feedback/stats/overview');
+  const url = selectedProjectId
+    ? `/feedback/?project_id=${selectedProjectId}&limit=50`
+    : '/feedback/?limit=50';
 
-  const items = Array.isArray(listData.items) ? listData.items : [];
+  const { data: rawListData = {}, loading, error, reload } = useFetch(url, { initialData: { total: 0, items: [] } });
+  const { data: rawProjects, loading: loadingProjects } = useFetch('/projects/', { initialData: [] });
+  const { data: rawStats } = useFetch('/feedback/stats/overview', { initialData: {} });
+
+  const listData = toObject(rawListData);
+  const projects = toArray(rawProjects);
+  const statsRaw = toObject(rawStats);
+  const items = toArray(listData.items);
 
   useEffect(() => {
     if (projects.length && !selectedProjectId) {
@@ -96,12 +103,12 @@ export default function FeedbackCenter() {
     { key: 'parsed_category', label: '分类', render: (v) => <Badge variant="accent">{v || '-'}</Badge> },
     { key: 'priority', label: '优先级', render: (v) => <Badge variant={PRIORITY_COLORS[v] || 'accent'}>{v || '-'}</Badge> },
     { key: 'source', label: '来源', render: (v) => <Badge variant="info">{SOURCE_TEXTS[v] || v || '-'}</Badge> },
-    { key: 'raw_text', label: '内容', render: (v) => (v.length > 50 ? v.slice(0, 50) + '…' : v) },
+    { key: 'raw_text', label: '内容', render: (v) => (v ? (v.length > 50 ? v.slice(0, 50) + '…' : v) : '-') },
     { key: 'created_at', label: '时间', render: (v) => v ? new Date(v).toLocaleDateString('zh-CN') : '-' },
   ];
 
   const stats = [
-    { label: '反馈总数', value: items.length || statsRaw?.total || 0 },
+    { label: '反馈总数', value: items.length || statsRaw.total || 0 },
     { label: '已处理', value: items.filter((it) => it.is_processed).length },
     { label: '待处理', value: items.filter((it) => !it.is_processed).length },
   ];
@@ -127,7 +134,7 @@ export default function FeedbackCenter() {
         </div>
 
         <AsyncState loading={loading} error={error} onRetry={reload} isEmpty={!items.length} emptyTitle="暂无反馈"
-                    emptyHint="通过「提交反馈」添加或等待真人读者反馈">
+          emptyHint="通过「提交反馈」添加或等待真人读者反馈">
           <Table
             columns={columns}
             rows={items}
@@ -144,14 +151,14 @@ export default function FeedbackCenter() {
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <input className={styles.formInput} type="number" placeholder="章节 ID（可选）" value={form.chapter_id}
-                 onChange={(e) => setForm({ ...form, chapter_id: e.target.value })} />
+            onChange={(e) => setForm({ ...form, chapter_id: e.target.value })} />
           <select className={styles.formInput} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
             <option value="user">用户</option>
             <option value="reader">真人读者</option>
             <option value="critic">AI 审稿</option>
           </select>
           <textarea className={styles.textarea} rows="4" placeholder="输入反馈内容..." value={form.raw_text}
-                    onChange={(e) => setForm({ ...form, raw_text: e.target.value })} required />
+            onChange={(e) => setForm({ ...form, raw_text: e.target.value })} required />
           <Button variant="primary" type="submit" loading={submitting} block>提交</Button>
         </form>
       </Modal>
