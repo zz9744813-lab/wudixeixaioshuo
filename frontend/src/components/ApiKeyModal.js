@@ -1,86 +1,96 @@
 import React, { useState, useEffect } from 'react';
-import './ApiKeyModal.css';
+import Modal from './ui/Modal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 function ApiKeyModal({ isOpen, onClose }) {
   const [apiKey, setApiKey] = useState('');
-  const [saved, setSaved] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [savedMsg, setSavedMsg] = useState('');
 
   useEffect(() => {
-    // 加载已保存的 API Key
-    const savedKey = localStorage.getItem('APP_API_KEY') || '';
-    setApiKey(savedKey);
-  }, []);
+    if (isOpen) {
+      const savedKey = localStorage.getItem('APP_API_KEY') || '';
+      setApiKey(savedKey);
+      setShowKey(false);
+      setSavedMsg('');
+    }
+  }, [isOpen]);
 
   const handleSave = () => {
-    if (apiKey.trim()) {
-      localStorage.setItem('APP_API_KEY', apiKey.trim());
-      setSaved(true);
-      setTimeout(() => {
-        setSaved(false);
-        onClose();
-        window.location.reload(); // 刷新以应用新 Key
-      }, 1000);
-    }
+    if (!apiKey.trim()) return;
+    const prev = localStorage.getItem('APP_API_KEY') || '';
+    localStorage.setItem('APP_API_KEY', apiKey.trim());
+    setSavedMsg(prev ? '已更新' : '已保存');
+    setTimeout(() => {
+      setSavedMsg('');
+      onClose(true);
+    }, 600);
   };
 
   const handleClear = () => {
     localStorage.removeItem('APP_API_KEY');
     setApiKey('');
-    setSaved(true);
+    setSavedMsg('已清除');
     setTimeout(() => {
-      setSaved(false);
-      onClose();
-      window.location.reload();
-    }, 1000);
+      setSavedMsg('');
+      onClose(true);
+    }, 600);
   };
 
-  if (!isOpen) return null;
+  const masked = apiKey.trim() ? apiKey.trim().slice(0, 8) + '••••••••' : '';
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <h2>设置 API Key</h2>
-        <p className="modal-description">
-          请输入后端 API Key 以访问服务。如果没有 Key，请联系管理员或查看 .env 文件中的 APP_API_KEY。
-        </p>
-
-        <div className="form-group">
-          <label>API Key:</label>
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="输入您的 API Key"
-            className="api-key-input"
-          />
-        </div>
-
-        {saved && (
-          <div className="success-message">
-            ✅ 已保存！页面即将刷新...
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button onClick={handleSave} className="btn-primary">
-            保存
-          </button>
-          {apiKey && (
-            <button onClick={handleClear} className="btn-danger">
-              清除
-            </button>
+    <Modal
+      open={isOpen}
+      onClose={() => onClose(false)}
+      title="设置 API Key"
+      footer={
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={() => onClose(false)}>关闭</Button>
+          {apiKey.trim() && (
+            <Button variant="danger" onClick={handleClear}>清除</Button>
           )}
-          <button onClick={onClose} className="btn-secondary">
-            取消
-          </button>
+          <Button variant="primary" onClick={handleSave} disabled={!apiKey.trim()}>
+            {savedMsg || '保存'}
+          </Button>
         </div>
-
-        <div className="help-text">
-          <p>💡 提示：也可以在浏览器控制台执行：</p>
-          <code>localStorage.setItem('APP_API_KEY', 'your-key')</code>
-        </div>
-      </div>
-    </div>
+      }
+    >
+      <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-sm)', marginBottom: 16 }}>
+        请输入后端 API Key 以访问服务。Key 将存储在浏览器本地。
+      </p>
+      <label>
+        <span>API Key</span>
+        <Input
+          type={showKey ? 'text' : 'password'}
+          value={apiKey}
+          onChange={(e) => { setApiKey(e.target.value); setSavedMsg(''); }}
+          placeholder="输入您的 API Key"
+        />
+      </label>
+      {masked && (
+        <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: 6 }}>
+          当前：{masked}
+        </p>
+      )}
+      <label style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
+        <input
+          type="checkbox"
+          checked={showKey}
+          onChange={(e) => setShowKey(e.target.checked)}
+        />
+        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--text-secondary)' }}>
+          显示完整 Key
+        </span>
+      </label>
+      <p style={{ fontSize: 'var(--fs-xs)', color: 'var(--text-muted)', marginTop: 16 }}>
+        也可在浏览器控制台执行：
+        <code style={{ background: 'var(--bg-sunken)', padding: '2px 6px', borderRadius: 4, fontSize: 11, marginLeft: 4 }}>
+          localStorage.setItem('APP_API_KEY', 'your-key')
+        </code>
+      </p>
+    </Modal>
   );
 }
 
