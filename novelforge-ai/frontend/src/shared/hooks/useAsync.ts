@@ -1,21 +1,22 @@
 import { useEffect, useState, useCallback } from "react";
 
-export function useAsync(fn, deps = []) {
+export function useAsync<T = unknown>(fn: (...args: unknown[]) => Promise<T>, deps: unknown[] = []) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [data, setData] = useState(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<T | null>(null);
 
   const execute = useCallback(
-    async (...args) => {
+    async (...args: unknown[]) => {
       setLoading(true);
       setError(null);
       try {
         const result = await fn(...args);
-        setData(result);
+        setData(result as T);
         return result;
       } catch (err) {
-        setError(err);
-        throw err;
+        const e = err instanceof Error ? err : new Error(String(err));
+        setError(e);
+        throw e;
       } finally {
         setLoading(false);
       }
