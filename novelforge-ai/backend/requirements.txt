@@ -14,7 +14,7 @@ rq==1.18.1
 
 # Pydantic & Settings
 pydantic==2.10.4
-pydantic-settings==2.7.1
+pydantic-settings==2.5.2
 
 # HTTP Client
 httpx==0.28.1
