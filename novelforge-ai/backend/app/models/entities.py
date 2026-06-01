@@ -94,7 +94,7 @@ class Project(UuidMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
     auto_production_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     current_chapter_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    user_id: Map[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
 
 
 class ProjectBible(UuidMixin, TimestampMixin, Base):
@@ -130,7 +130,7 @@ class OutlineNode(UuidMixin, TimestampMixin, Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     target_words: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    node_meta: Mapped[dict[str, Any] | None] = mapped_column("meta", JSONB, nullable=True)
 
 
 class Chapter(UuidMixin, TimestampMixin, Base):
@@ -165,7 +165,7 @@ class ChapterVersion(UuidMixin, TimestampMixin, Base):
     word_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     quality_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2), nullable=True)
     change_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
 
 
 class ProductionJob(UuidMixin, TimestampMixin, Base):
@@ -254,7 +254,7 @@ class MemoryItem(UuidMixin, TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float] | None] = mapped_column(JSONB, nullable=True)
     tags: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
 
 
 class Foreshadow(UuidMixin, TimestampMixin, Base):
@@ -296,7 +296,7 @@ class SystemLog(UuidMixin, Base):
     level: Mapped[str] = mapped_column(String(16), nullable=False)
     component: Mapped[str] = mapped_column(String(64), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
-    metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    extra_meta: Mapped[dict[str, Any] | None] = mapped_column("metadata", JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )

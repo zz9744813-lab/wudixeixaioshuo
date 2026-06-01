@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.memory import (
     MemoryItemCreate,
-    MemoryItemListResponse,
     MemoryItemOut,
     MemoryItemUpdate,
+    MemoryListResponse,
 )
 from app.services.memory_service import (
     create_memory_item,
@@ -21,10 +21,10 @@ from app.services.memory_service import (
 router = APIRouter()
 
 
-@router.get("/projects/{project_id}/memory", response_model=MemoryItemListResponse)
+@router.get("/projects/{project_id}/memory", response_model=MemoryListResponse)
 async def list_memory(project_id: str, item_type: str | None = None, db: Session = Depends(get_db)):
     items, total = list_memory_items(db, project_id, item_type=item_type)
-    return MemoryItemListResponse(
+    return MemoryListResponse(
         items=[
             MemoryItemOut(
                 id=it.id,
@@ -34,7 +34,7 @@ async def list_memory(project_id: str, item_type: str | None = None, db: Session
                 content=it.content,
                 embedding=it.embedding,
                 tags=it.tags,
-                metadata=it.metadata,
+                extra_meta=it.extra_meta,
                 created_at=it.created_at,
                 updated_at=it.updated_at,
             )
@@ -57,7 +57,7 @@ async def create_memory(project_id: str, payload: MemoryItemCreate, db: Session 
         content=item.content,
         embedding=item.embedding,
         tags=item.tags,
-        metadata=item.metadata,
+        extra_meta=item.extra_meta,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )
@@ -78,7 +78,7 @@ async def update_memory(project_id: str, item_id: str, payload: MemoryItemUpdate
         content=item.content,
         embedding=item.embedding,
         tags=item.tags,
-        metadata=item.metadata,
+        extra_meta=item.extra_meta,
         created_at=item.created_at,
         updated_at=item.updated_at,
     )

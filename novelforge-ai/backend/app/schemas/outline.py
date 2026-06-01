@@ -13,7 +13,8 @@ class OutlineNodeCreate(BaseModel):
     title: str
     summary: str | None = None
     target_words: int | None = None
-    metadata: dict[str, Any] | None = None
+    node_meta: dict[str, Any] | None = None
+
 
 
 class OutlineNodeUpdate(BaseModel):
@@ -23,7 +24,8 @@ class OutlineNodeUpdate(BaseModel):
     title: str | None = None
     summary: str | None = None
     target_words: int | None = None
-    metadata: dict[str, Any] | None = None
+    node_meta: dict[str, Any] | None = None
+
 
 
 class OutlineNodeOut(BaseModel):
@@ -35,6 +37,6 @@ class OutlineNodeOut(BaseModel):
     title: str
     summary: str | None
     target_words: int | None
-    metadata: dict[str, Any] | None
+    node_meta: dict[str, Any] | None
     created_at: datetime | None
     updated_at: datetime | None

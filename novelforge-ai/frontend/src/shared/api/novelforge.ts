@@ -97,7 +97,7 @@ export interface OutlineNode {
   title: string;
   summary: string | null;
   target_words: number | null;
-  metadata: Record<string, unknown> | null;
+  node_meta: Record<string, unknown> | null;
   children?: OutlineNode[];
 }
 
@@ -113,7 +113,7 @@ export async function createOutlineNode(projectId: string, payload: {
   title: string;
   summary?: string | null;
   target_words?: number | null;
-  metadata?: Record<string, unknown> | null;
+  node_meta?: Record<string, unknown> | null;
 }): Promise<OutlineNode> {
   const { data } = await api.post(`/projects/${projectId}/outline/nodes`, payload);
   return data as OutlineNode;
@@ -178,7 +178,7 @@ export interface MemoryItem {
   content: string;
   embedding: number[] | null;
   tags: string[] | null;
-  metadata: Record<string, unknown> | null;
+  extra_meta: Record<string, unknown> | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -213,7 +213,7 @@ export async function createMemoryItem(projectId: string, payload: {
   item_type: string;
   content: string;
   tags?: string[];
-  metadata?: Record<string, unknown>;
+  extra_meta?: Record<string, unknown>;
   chapter_id?: string;
 }): Promise<MemoryItem> {
   const { data } = await api.post(`/projects/${projectId}/memory`, { ...payload, project_id: projectId });

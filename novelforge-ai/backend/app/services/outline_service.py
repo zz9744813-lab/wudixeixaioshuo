@@ -84,7 +84,7 @@ def get_outline_tree(db: Session, project_id: str) -> dict | None:
                     "summary",
                     "target_words",
                     "parent_id",
-                    "metadata",
+                    "node_meta",
                 ]
             },
             "children": [],

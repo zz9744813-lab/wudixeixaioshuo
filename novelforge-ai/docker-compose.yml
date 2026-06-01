@@ -49,36 +49,17 @@ services:
       APP_ENV: ${APP_ENV:-development}
     volumes:
       - ./data:/app/data
-      - ./backend:/app/backend
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
-
-  worker:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.backend
-    container_name: novelforge-worker
-    restart: unless-stopped
-    command: celery -A app.workers.worker worker --loglevel=info
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-novelforge}:${POSTGRES_PASSWORD:-novelforge}@postgres:5432/${POSTGRES_DB:-novelforge}
-      REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      APP_ENV: ${APP_ENV:-development}
-    volumes:
-      - ./data:/app/data
-      - ./backend:/app/backend
-    depends_on:
-      - redis
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   frontend:
     build:
@@ -89,7 +70,7 @@ services:
     ports:
       - "3005:3000"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+      VITE_API_URL: ${VITE_API_URL:-/api}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

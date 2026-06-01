@@ -13,14 +13,14 @@ class MemoryItemCreate(BaseModel):
     item_type: str
     content: str
     tags: list[str] | None = None
-    metadata: dict[str, Any] | None = None
+    extra_meta: dict[str, Any] | None = None
 
 
 class MemoryItemUpdate(BaseModel):
     item_type: str | None = None
     content: str | None = None
     tags: list[str] | None = None
-    metadata: dict[str, Any] | None = None
+    extra_meta: dict[str, Any] | None = None
 
 
 class MemoryItemOut(BaseModel):
@@ -31,7 +31,7 @@ class MemoryItemOut(BaseModel):
     content: str
     embedding: list[float] | None
     tags: list[str] | None
-    metadata: dict[str, Any] | None
+    extra_meta: dict[str, Any] | None
     created_at: datetime | None
     updated_at: datetime | None
 
