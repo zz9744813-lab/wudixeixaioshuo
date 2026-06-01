@@ -111,7 +111,7 @@ class ProjectBible(UuidMixin, TimestampMixin, Base):
     power_system: Mapped[str | None] = mapped_column(Text, nullable=True)
     plot_rules: Mapped[str | None] = mapped_column(Text, nullable=True)
     style_guide: Mapped[str | None] = mapped_column(Text, nullable=True)
-    reader_expectation: Map[str | None] = mapped_column(Text, nullable=True)
+    reader_expectation: Mapped[str | None] = mapped_column(Text, nullable=True)
     forbidden_elements: Mapped[str | None] = mapped_column(Text, nullable=True)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
