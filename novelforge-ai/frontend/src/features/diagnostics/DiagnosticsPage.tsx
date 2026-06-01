@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../shared/api/client";
+import { api } from "../../shared/api/client";
 
 type Diagnostic = Record<string, unknown>;
 

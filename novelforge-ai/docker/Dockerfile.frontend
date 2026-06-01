@@ -7,16 +7,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json package-lock.json* ./
-RUN npm install
-
-COPY frontend/src ./src
-COPY frontend/public ./public
-COPY frontend/index.html ./
+COPY frontend/package.json frontend/package-lock.json* ./
 COPY frontend/tsconfig*.json ./
 COPY frontend/vite.config.ts ./
+COPY frontend/public ./public
+COPY frontend/src ./src
+COPY frontend/index.html ./
 
-RUN npm run build
+RUN npm install && npm run build
 
 FROM nginx:1.25-alpine
 

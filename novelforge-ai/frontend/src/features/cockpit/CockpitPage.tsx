@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Play, Pause, Download, RefreshCcw, AlertTriangle } from "lucide-react";
 
 type AgentStep = { name: string; status: "ok" | "running" | "waiting"; label?: string };
@@ -7,7 +6,6 @@ type QueueItem = { chapter: string; status: "running" | "pending" | "failed" };
 type FailedTask = { chapter: string; reason: string };
 
 export function CockpitPage() {
-  const navigate = useNavigate();
   const [project] = useState({ title: "《苍穹之刃》", todayWords: 8720, todayCost: 1.24, targetWords: 10000 });
 
   const systemStatus = [
