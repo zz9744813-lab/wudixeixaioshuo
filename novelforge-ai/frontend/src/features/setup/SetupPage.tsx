@@ -1,114 +1,70 @@
 import { useEffect, useState } from "react";
-import { api } from "../../shared/api/client";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { fetchSetupStatus } from "../../shared/api/novelforge";
 
-type Check = {
-  key: string;
-  label: string;
-  status: "ok" | "warning" | "error";
-  message: string;
-};
+type Check = { key: string; label: string; status: "ok" | "warning" | "error"; message: string };
+type SetupPayload = { ok: boolean; checks: Check[]; next_action?: { type: string; label: string } };
 
-type SetupPayload = {
-  ok: boolean;
-  checks: Check[];
-  next_action?: { type: string; label: string };
-};
-
-const STATUS_META: Record<string, { color: string; label: string }> = {
-  ok: { color: "text-green-700 bg-green-50", label: "正常" },
-  warning: { color: "text-yellow-700 bg-yellow-50", label: "待处理" },
-  error: { color: "text-red-700 bg-red-50", label: "异常" },
+const STATUS_STYLE: Record<string, string> = {
+  ok: "bg-green-50 text-green-700",
+  warning: "bg-yellow-50 text-yellow-700",
+  error: "bg-red-50 text-red-700",
 };
 
 export function SetupPage() {
   const [data, setData] = useState<SetupPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await api.get("/setup/status");
-      setData(data as SetupPayload);
-    } catch (err: unknown) {
+      const res = await fetchSetupStatus();
+      setData(res as SetupPayload);
+    } catch (err) {
       setError(err instanceof Error ? err.message : "请求失败");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
-  const allReady = data?.ok && !loading && !error;
+  const allOk = !!data?.ok && !loading && !error;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">小说锻炉初始化</h1>
-        <p className="mt-2 text-gray-500">让系统先跑通，再开始生产小说</p>
-      </div>
+      <h1 className="mb-2 text-3xl font-bold text-gray-900">小说锻炉初始化</h1>
+      <p className="mb-6 text-gray-500">让系统先跑通，再开始生产小说</p>
 
       <div className="mb-6 flex items-center gap-3">
-        <button
-          onClick={() => void load()}
-          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400"
-          disabled={loading}
-        >
+        <button onClick={load} disabled={loading} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:border-gray-400">
           {loading ? "检测中…" : "重新检测"}
         </button>
-
-        {allReady && (
-          <button
-            onClick={() => navigate("/cockpit")}
-            className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-          >
-            进入生产舱
-          </button>
-        )}
+        {allOk && <Link to="/cockpit" className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700">进入生产舱</Link>}
       </div>
 
-      {error && <ErrorBanner message={error} />}
+      {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">无法完成初始化检测：{error}</div>}
 
       {!loading && !error && data && (
         <div className="space-y-3">
-          {data.checks.map((c) => {
-            const meta = STATUS_META[c.status] ?? STATUS_META.error;
-            return (
-              <div key={c.key} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
-                <div>
-                  <span className="font-medium text-gray-900">{c.label}</span>
-                  <p className="mt-1 text-sm text-gray-500">{c.message}</p>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${meta.color}`}>
-                  {meta.label}
-                </span>
+          {data.checks.map((c) => (
+            <div key={c.key} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+              <div>
+                <span className="font-medium text-gray-900">{c.label}</span>
+                <p className="mt-1 text-sm text-gray-500">{c.message}</p>
               </div>
-            );
-          })}
-
-          {data.next_action && !allReady && (
-            <p className="pt-4 text-sm text-gray-500">
-              {data.next_action.type === "configure_model" && (
-                <span>下一步建议：{data.next_action.label}</span>
-              )}
-            </p>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${STATUS_STYLE[c.status] ?? STATUS_STYLE.error}`}>
+                {c.status === "ok" ? "正常" : c.status === "warning" ? "待处理" : "异常"}
+              </span>
+            </div>
+          ))}
+          {data.next_action && !allOk && (
+            <p className="pt-2 text-sm text-gray-500">下一步建议：{data.next_action.label}</p>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return (
-    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
-      <p className="text-sm font-medium">无法完成初始化检测</p>
-      <p className="mt-1 text-sm">{message}</p>
     </div>
   );
 }
