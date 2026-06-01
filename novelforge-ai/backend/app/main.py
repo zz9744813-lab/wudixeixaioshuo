@@ -7,12 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.database import engine
 from app.errors import NovelForgeError
-from app.routers import health, setup, diagnostics
+from app.models.entities import Base
+from app.routers import health, setup, diagnostics, projects, chapters
+
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -61,3 +65,5 @@ async def validation_error_handler(request, exc: RequestValidationError):
 app.include_router(health.router)
 app.include_router(setup.router, prefix="/api")
 app.include_router(diagnostics.router, prefix="/api")
+app.include_router(projects.router, prefix="/api")
+app.include_router(chapters.router, prefix="/api")
