@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import engine
 from app.errors import NovelForgeError
 from app.models.entities import Base
-from app.routers import health, setup, diagnostics, projects, chapters
+from app.routers import api_router
 
 
 
@@ -62,8 +62,4 @@ async def validation_error_handler(request, exc: RequestValidationError):
     )
 
 
-app.include_router(health.router)
-app.include_router(setup.router, prefix="/api")
-app.include_router(diagnostics.router, prefix="/api")
-app.include_router(projects.router, prefix="/api")
-app.include_router(chapters.router, prefix="/api")
+app.include_router(api_router, prefix="/api")
