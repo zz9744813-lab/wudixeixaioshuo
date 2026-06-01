@@ -1,53 +1,41 @@
 """NovelForge AI - Structured logger"""
+
+import json
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import Any, Dict
 
 LOG_DIR = Path("/app/data/logs")
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-LOG_LEVEL = "INFO"  # overridden by config in main
+
+class JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload: Dict[str, Any] = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc_info"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
 
 
-def get_logger(name: str) -> logging.Logger:
-    """
-    Build a loguru-compatible programming interface and add daily rotation
-    Write to /app/data/logs/<name>.log. Support console parallel output
-    """
-    base = logging.getLogger(name)
-    base.handlers.clear()
-    base.setLevel(LOG_LEVEL)
-
-    fmt = logging.Formatter(
-        '{"time":"%(asctime)s","name":"%(name)s","level":"%(levelname)s",'
-        '"message":%(message)s}',
-        datefmt="%Y-%m-%dT%H:%M:%S%z",
+def _build_handler(stream: Any, level: int = logging.INFO) -> logging.Handler:
+    handler = logging.StreamHandler(stream) if stream else RotatingFileHandler(
+        LOG_DIR / "novelforge.jsonl", maxBytes=10 * 1024 * 1024, backupCount=7, encoding="utf-8"
     )
-
-    # console
-    console = logging.StreamHandler(sys.stdout)
-    console.setLevel(LOG_LEVEL)
-    console.setFormatter(fmt)
-    base.addHandler(console)
-
-    # file rotation
-    file_handler = RotatingFileHandler(
-        LOG_DIR / f"{name}.jsonl",
-        maxBytes=10 * 1024 * 1024,
-        backupCount=7,
-        encoding="utf-8",
-    )
-    file_handler.setLevel("DEBUG")
-    file_handler.setFormatter(fmt)
-    base.addHandler(file_handler)
-
-    return base
+    handler.setLevel(level)
+    handler.setFormatter(JsonFormatter())
+    return handler
 
 
-def get_logger_factory() -> dict:
-    """Map configures internal loguru logger"""
-    logging.basicConfig(level=LOG_LEVEL, format="%(message)s", stream=sys.stdout)
-    loguru_logger = logging.getLogger("novelforge")
-    loguru_logger.setLevel(LOG_LEVEL)
-    return {"novelforge": loguru_logger}
+def get_logger(name: str = "novelforge") -> logging.Logger:
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        logger.addHandler(_build_handler(sys.stdout))
+        logger.setLevel(logging.INFO)
+    return logger
