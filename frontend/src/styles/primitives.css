@@ -75,6 +75,25 @@
 .table td.num { text-align: right; font-variant-numeric: tabular-nums; }
 .table tbody tr:hover { background: var(--bg-elevated); }
 
+/* —— 表单输入 —— */
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-sunken, #0a0c12);
+  color: var(--text, #e8ecf5);
+  border: 1px solid var(--border, #1c2230);
+  border-radius: var(--r-sm, 6px);
+  padding: 7px 10px;
+  font: 400 var(--fs-sm, 13px)/1.4 var(--font-sans);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-weak, rgba(88, 166, 255, 0.18));
+}
+.input::placeholder { color: var(--text-muted); }
+.input:disabled { opacity: .65; cursor: not-allowed; }
+
 /* —— Modal —— */
 .modal__overlay {
   position: fixed;

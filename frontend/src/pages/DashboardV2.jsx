@@ -10,6 +10,7 @@ import PipelineSteps from '../components/console/PipelineSteps';
 import AgentLogPanel from '../components/console/AgentLogPanel';
 import ServiceStatusBar from '../components/console/ServiceStatusBar';
 import EmptyPanel from '../components/console/EmptyPanel';
+import { toArray } from '../utils/nullSafety';
 import styles from './DashboardV2.module.css';
 
 const PAGE_TITLE = 'NovelForge 控制台';

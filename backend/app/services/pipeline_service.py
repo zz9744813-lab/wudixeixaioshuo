@@ -39,6 +39,299 @@ class PipelineService:
     3. 纯执行：只负责执行，不负责任务生命周期管理
     """
 
+    # 推理模型思维链前缀模式（匹配中文/英文的"用户现在需要..."等思考过程开头）
+    _REASONING_PREFIX_PATTERNS = [
+        # 中文常见模式：开始思考、分析需求等
+        # 这些模式用于策略3的正则匹配（整段移除思维链前缀）
+        r'^用户现在需要[写做生]',
+        r'^首先.{0,6}(?:要|得|来|写|做|应该|必须|得先|开头)',
+        r'^我来(?:写|分析|规划|理清|给你|帮你)',
+        r'^让我(?:先|来|为你)',
+        r'^好的[，,]?(?:我来|我将|让我|现在|开始)',
+        r'^现在(?:来|开始|我|就|来写)',
+        r'^本章(?:需要|应该|要|目标|规划)',
+        r'^本段(?:需要|应该|要)',
+        r'^根据以上(?:信息|要求|规划|内容|设定)',
+        r'^(?:首先|第一)[，,]?(?:我得|我要|我来|需要|咱们)',
+        r'^(?:那么|所以|接着|然后)[，,]?.{0,4}(?:来写|开始|写)',
+        r'^\d+[、.．]\s*',  # "1、首先..."之类的编号开头
+    ]
+
+    @classmethod
+    def _clean_llm_output(cls, content: str, role: str = "") -> str:
+        """清理 LLM 输出中的推理模型思维链前缀和元评论
+
+        推理模型（如 StepFun step-3.7-flash）会将思考过程输出到 content 中，
+        导致最终内容前面出现"用户现在需要写...首先得...等思考过程"。
+        此方法检测并剥离这些前缀，只保留实际的正文内容。
+
+        Args:
+            content: LLM 原始输出
+            role: 当前 Agent 角色（draft/rewrite 等需要正文的角色才清理）
+
+        Returns:
+            清理后的内容
+        """
+        if not content or not content.strip():
+            return content
+
+        # 所有角色都需要清理推理模型的思维链前缀
+        # planner 的思维链会原样传给 Draft，造成下游污染
+        # critic 的思维链会阻止 JSON 解析
+        # draft/rewrite 的思维链会混入正文
+        # continuity/learning 的思维链会干扰结构化输出
+        roles_need_cleaning = {"draft", "rewrite", "critic", "planner", "continuity", "learning"}
+        if role and role not in roles_need_cleaning:
+            return content
+
+        cleaned = content.strip()
+
+        # 策略1：检测并剥离思维链前缀段落
+        # 推理模型的思考过程通常是连续的多个段落，以"用户现在需要..."开头，
+        # 直到出现实际的章节正文内容（通常以场景描写开头）
+        # 我们寻找正文开始的标志点
+        lines = cleaned.split('\n')
+
+        # 寻找真正的正文起始行
+        # 正文的标志：不是以思考性语言开头，而是以叙事/场景描写开头
+        content_start_idx = 0
+        found_content_start = False
+
+        # 思维链常见开头词汇（用于逐行检测）
+        thinking_starters = [
+            '用户现在需要', '首先得', '首先要', '首先开头', '首先来',
+            '我来写', '我来分析', '我来规划', '我来理清', '我来给你写', '我来帮你写',
+            '让我先', '让我来', '让我为你',
+            '好的，我来', '好的，我将', '好的，让我', '好的我来', '好的我将', '好的让我',
+            '现在我来', '现在我来写', '现在来写', '现在开始',
+            '本章需要', '本章应该', '本章要', '本章目标', '本段需要', '本段应该', '本段要',
+            '根据以上', '根据以上信息', '根据以上要求', '根据以上规划', '根据以上设定',
+            '首先，我得', '首先，我要', '首先，我来', '首先，需要', '首先，咱们',
+            '那么来写', '那么开始', '所以来写', '接着写', '然后开始',
+            '我要写', '我得先',
+        ]
+
+        # 策略1b：用更强的检测判断一行是否是推理思维的思考过程
+        def _is_likely_thinking_line(line_text: str) -> bool:
+            """判断一行文本是否是推理模型的思考过程而非正文
+
+            推理模型输出的"思维链"有以下特征区别于正文：
+            1. 包含元认知标记（"这里要加..."、"符合人设"、"张力到7分"等）
+            2. 使用指令式语言（"要"、"需要"、"应该"、"必须"）
+            3. 包含疑问句（规划中的疑问，非角色对话中的疑问）
+            4. 使用编号或结构化标记
+            5. 评价性语言（"符合峰值"、"核心诉求"等）
+            """
+            s = line_text.strip()
+            if not s:
+                return False  # 空行不算思考行，但也不能作为正文开始
+
+            # 先检查固定开头词汇（效率高）
+            for starter in thinking_starters:
+                if s.startswith(starter):
+                    return True
+
+            # 检查是否是编号列表行 (如 "1、" "1." "2." "第一步" 等)
+            if re.match(r'^[第\d一二三四五六七八九十]+[、.．步章节]', s):
+                return True
+
+            # 检查是否是 markdown 标题行（## 开头）
+            if s.startswith('#'):
+                return True
+
+            # ===== 元认知检测 =====
+            # 检测写作元评论标记（强信号，单独即判定为思考行）
+            meta_strong = ['写作要求', '人设', '核心诉求', '爽点', '节奏设计',
+                          '字数要求', '风格约束', '商业可读性', '符合峰值',
+                          '符合人设', '这里要加', '这里添加', '这里要写', '这里写',
+                          '要避免的错误', '要使用的技巧']
+            # 模式匹配类元认知（需正则）
+            meta_patterns = [
+                r'张力\d+分',       # "张力7分" "张力8分"
+                r'开篇\d+分',       # "开篇5分" "开篇7分"
+                r'符合.{0,2}(?:峰值|人设|核心|诉求)', # "符合峰值" "符合人设"
+                r'伏笔',            # 单独出现也属于元认知
+                r'高潮.{0,4}(?:设计|安排|铺垫)',  # "高潮设计" "高潮铺垫"
+            ]
+            for mk in meta_strong:
+                if mk in s:
+                    return True
+            for mp in meta_patterns:
+                if re.search(mp, s):
+                    return True
+
+            # 检测以"然后"开头的规划式行（含"要加/需/应该/得有/要埋"等指令词）
+            if re.match(r'^然后.{0,15}(?:要加|要写|需要|应该|得有|要埋)', s):
+                return True
+
+            # 检测"先..."开头的规划指令
+            if re.match(r'^先(?:写|刻画|描写|安排|设定)', s):
+                return True
+
+            # 检查是否包含高密度的元认知词汇
+            meta_indicators = ['写作要求', '请注意', '需要注意', '务必', '必须做到',
+                             '条理清晰', '逻辑递进', '情绪曲线', '冲突设计',
+                             '人物安排', '章节钩子', '关键剧情点', '要避免的错误',
+                             '要使用的技巧', '伏笔', '爽点', '节奏设计',
+                             '字数要求', '风格约束', '不符合', '符合要求',
+                             '商业可读性', '不少于', '不超过']
+            meta_count = sum(1 for kw in meta_indicators if kw in s)
+            if meta_count >= 2:
+                return True
+
+            # 检查是否是指令式句式（"请..."、"要..."开头、"需要..."开头）
+            if re.match(r'^(请|要|需要|应该|必须|不得|禁止|切忌|注意)', s):
+                return True
+
+            # ===== 思维链行特征检测 =====
+            # 特征：高指令密度 + 逗号分隔 + 较长行
+            if len(s) >= 20:
+                directive_words = ['要', '得', '需要', '应该', '必须', '可以', '注意', '写']
+                directive_count = sum(1 for w in directive_words if w in s)
+                # 高指令密度（4+个指令词）且有多逗号的行大概率是思维链
+                if directive_count >= 4 and '，' in s:
+                    return True
+                # 中等指令密度但同时有"这里"（元引用标记）
+                if directive_count >= 2 and '这里' in s and '，' in s and len(s) >= 40:
+                    return True
+
+            return False
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            # 检查是否是思维链行（先简单匹配，再用增强检测）
+            is_thinking_line = _is_likely_thinking_line(stripped)
+
+            # 如果当前行不是思维链，认为是正文开始
+            if not is_thinking_line:
+                # 额外检查：如果这一行看起来像章节正文开头
+                if i > 0:  # 已经跳过了至少一行思维链
+                    # 检查这行是否像正文（含中文字符较多，像叙事文本）
+                    chinese_chars = len(re.findall(r'[\u4e00-\u9fff]', stripped))
+                    if chinese_chars >= 5:  # 至少5个中文字符，像正文
+                        content_start_idx = i
+                        found_content_start = True
+                        break
+                # 第一行就不是思维链，说明没有思维链前缀，
+                # 不要直接 return content —— 末尾可能仍有元叙述段，
+                # 交给后续的策略 1.5（按段扫描截断）和策略 2/3 处理。
+                elif not found_content_start:
+                    # 标记首行就是正文，content_start_idx=0；不 break，
+                    # 继续扫描后续行也无所谓（content_start_idx 始终是 0，
+                    # 策略1的 if 条件不成立，不会截断前缀）
+                    pass
+
+        if found_content_start and content_start_idx > 0:
+            cleaned = '\n'.join(lines[content_start_idx:])
+            logger.info(f"[Pipeline] 清理思维链前缀: 移除了 {content_start_idx} 行，保留 {len(cleaned)} 字符")
+
+        # 策略1.5：按段扫描并截断元叙述段落
+        # StepFun 推理模型在生成正文后，常追加"哦对，还要加...符合人物设定"
+        # 等自我规划笔记。这些段落以口语化标记开头或包含强元认知关键词，
+        # 但与正文之间用单换行连接（不是空行/双换行），前面的策略1
+        # 按行扫描识别不到。需要在策略2之前按段识别"从哪段开始是元叙述"。
+        _META_PARA_STARTERS = (
+            '哦对', '哦对了', '嗯对', '嗯，', '等下', '等等', '等一下',
+            '还要加', '还要避免', '还要注意', '还要检查', '还要描写',
+            '对，', '对了，', '对，符合', '对，这里',
+            '感官渲染', '感官描写', '感官细节',
+            '符合人物设定', '符合人设', '符合核心', '符合峰值',
+            '现在数一下', '再数一下', '字数好像', '字数检查',
+            '再补一句', '补充一下', '补一句', '再注意',
+            '章节钩子', '关键剧情点',
+        )
+        _META_STRONG_IN_PARA = (
+            '符合人物设定', '符合人设', '符合核心诉求', '符合峰值', '符合要求',
+            '感官渲染', '感官描写', '感官细节',
+            '写作要求', '写作约束', '写作规范', '写作技巧',
+            '核心诉求', '情绪曲线', '节奏设计', '人物安排',
+            '章节钩子', '关键剧情点', '要避免的错误', '要使用的技巧',
+            '伏笔安排', '伏笔设置', '伏笔埋设',
+            '不符合', '符合规范', '符合约束',
+            '商业可读性',
+            '字数要求', '字数约束', '风格约束', '风格要求',
+        )
+
+        if '\n' in cleaned and len(cleaned) >= 200:
+            paras = cleaned.split('\n')
+            cut_from = None
+            for i, para in enumerate(paras):
+                p = para.strip()
+                if not p:
+                    continue
+                is_meta_para = False
+                for starter in _META_PARA_STARTERS:
+                    if p.startswith(starter):
+                        is_meta_para = True
+                        break
+                if not is_meta_para:
+                    for kw in _META_STRONG_IN_PARA:
+                        if kw in p:
+                            is_meta_para = True
+                            break
+                if is_meta_para:
+                    cut_from = i
+                    break
+
+            if cut_from is not None and cut_from > 0:
+                pre_text = '\n'.join(paras[:cut_from]).strip()
+                if len(pre_text) >= 200:
+                    cleaned = pre_text
+                    logger.info(
+                        f"[Pipeline] 清理元叙述段: 从第 {cut_from + 1} 段开始截断，"
+                        f"移除 {len(paras) - cut_from} 段"
+                    )
+
+        # 策略2：检测并移除尾部的元评论（如"哦对，现在数一下字数..."、"改写说明：..."）
+        # 这类内容通常出现在正文之后，以口语化方式分析自己的写作
+        tail_patterns = [
+            r'\n[哦嗯呃]+\s*[对的是]?\s*[，,]?\s*现在',
+            r'\n(?:等下|等等)\s*[，,]',
+            r'\n(?:检查一下|检查|验证一下)',
+            r'\n(?:字数|然后检查|然后还要)',
+            r'\n(?:还要注意|还要加|还要避免)',
+            r'\n(?:符合|不符合).{0,20}(?:要求|规范)',
+            # 改写说明/改写记录等元评论标题
+            r'\n#{1,3}\s*(?:改写说明|改写记录|改写思路|修改说明|修改记录|写作说明|写作备注)',
+            r'\n(?:改写说明|修改说明|写作说明|写作备注)\s*[：:]\s*',
+        ]
+        for pattern in tail_patterns:
+            match = re.search(pattern, cleaned)
+            if match:
+                # 从匹配位置到结尾，检查是否是元评论
+                tail_text = cleaned[match.start():]
+                # 如果尾部文本中包含"要求"、"符合"等元评论词汇，
+                # 且正文部分已经足够长（>200字），则移除
+                main_text = cleaned[:match.start()].strip()
+                if len(main_text) >= 200:
+                    # "改写说明"类标题，只要匹配到就移除（不需要元评论词汇密度判断）
+                    is_rewrite_note = bool(re.match(r'\n#{0,3}\s*(?:改写说明|改写记录|改写思路|修改说明|修改记录|写作说明|写作备注)|(?:改写说明|修改说明|写作说明|写作备注)\s*[：:]', tail_text[:50]))
+                    if is_rewrite_note:
+                        cleaned = main_text
+                        logger.info(f"[Pipeline] 清理尾部改写说明: 移除了 {len(tail_text)} 字符")
+                    else:
+                        meta_words = ['要求', '符合', '避免', '注意', '检查', '字数', '伏笔']
+                        meta_count = sum(1 for w in meta_words if w in tail_text)
+                        if meta_count >= 2:
+                            cleaned = main_text
+                            logger.info(f"[Pipeline] 清理尾部元评论: 移除了 {len(tail_text)} 字符")
+
+        # 策略3：移除"以下是章节内容"之类的开头标记
+        cleaned = re.sub(
+            r'^[\s\S]*?(?:以下是章节内容|以下是正文|以下是本章内容|开始写正文|正文开始)[：:]\s*\n*',
+            '',
+            cleaned
+        )
+
+        # 清理完毕后，如果内容为空，返回原始内容
+        if not cleaned.strip():
+            return content
+
+        return cleaned
+
     async def run(self, task_id: int) -> Dict[str, Any]:
         """
         执行完整写作流水线
@@ -210,6 +503,15 @@ class PipelineService:
             return {"success": False, "error": "Planner 失败", "step": "planner"}
 
         chapter_plan = planner_result.get("plan", {})
+        # 确保 planner 返回的 plan.content 已清理思维链前缀
+        # _run_planner 已对 content 做了 _clean_llm_output，此处为防御性检查
+        if isinstance(chapter_plan, dict) and "content" in chapter_plan:
+            plan_content = chapter_plan["content"]
+            if isinstance(plan_content, str):
+                cleaned_plan = self._clean_llm_output(plan_content, role="planner")
+                if cleaned_plan != plan_content:
+                    logger.info("[Pipeline] 防御性清理: planner plan.content 仍有思维链残留，已再次清理")
+                    chapter_plan["content"] = cleaned_plan
 
         # 取消检查
         if self._is_task_cancelled(task_info["task_id"]):
@@ -445,6 +747,9 @@ class PipelineService:
                 "playbook_rules": "\n".join(playbook.get("rules", ["无"])),
                 "style_rules": style_rules,
                 "knowledge_context": knowledge_text,
+                "failure_warnings": "",
+                "style_boundaries": "",
+                "tone_guidelines": "",
             }
 
             prompt = template_service.render(
@@ -474,10 +779,14 @@ class PipelineService:
                 context_metadata=self._reader_rules_metadata(reader_rules, "planner"),
             )
 
+            # 清理推理模型思维链前缀 — Planner 输出会被 Draft 直接使用，
+            # 如果不带清理则思维链会污染下游章节内容
+            plan_content = self._clean_llm_output(response.get("content", ""), role="planner")
+
             return {
                 "success": True,
                 "agent": "Planner",
-                "plan": {"content": response.get("content", "")},
+                "plan": {"content": plan_content},
                 "tokens": response.get("total_tokens", 0),
                 "cost": response.get("cost", 0.0),
             }
@@ -546,6 +855,10 @@ class PipelineService:
                     "min_words": min_words,
                     "max_words": max_words,
                     "knowledge_context": knowledge_text,
+                    "failure_warnings": "",
+                    "style_boundaries": "",
+                    "tone_guidelines": "",
+                    "forbidden_items": "",
                 }
 
                 prompt = template_service.render(
@@ -568,21 +881,32 @@ class PipelineService:
                     prompt=prompt,
                     role="draft",
                     temperature=0.8,
-                    max_tokens=min(4000, target_words * 2),  # 根据字数调整 max_tokens
+                    max_tokens=min(6000, target_words * 3),  # 推理模型需要更多 token 容纳思维链
                     db=db,
                     request_type="worker_draft",
                     project_id=task_info["project_id"],
                 )
 
                 content = response.get("content", "")
+                # 清理推理模型思维链前缀（如 StepFun 的思考过程）
+                content = self._clean_llm_output(content, role="draft")
                 draft_prompt = prompt
 
             # 计算实际字数（中文字数）
             actual_word_count = self._count_chinese_words(content)
 
-            # 保存步骤
+            # 保存步骤（保留真实 LLM response 的 token 统计 + 元数据，
+            # parsed_output 仍截断到 500 字符以避免审计日志过大）
             self._save_step(
-                db, task_info, "Draft", draft_prompt, {"content": content[:500]},
+                db, task_info, "Draft", draft_prompt, {
+                    "content": content[:500],
+                    "input_tokens": response.get("input_tokens", 0),
+                    "output_tokens": response.get("output_tokens", 0),
+                    "total_tokens": response.get("total_tokens", 0),
+                    "model": response.get("model", ""),
+                    "provider": response.get("provider", ""),
+                    "duration_seconds": response.get("duration_seconds", 0),
+                },
                 context_metadata=self._reader_rules_metadata(reader_rules, "draft"),
             )
 
@@ -661,6 +985,8 @@ class PipelineService:
                 if not draft.get("success"):
                     return None
                 content = draft.get("content", "")
+                # 清理推理模型思维链前缀
+                content = self._clean_llm_output(content, role="draft")
                 critic = await self._run_critic(
                     task_info, content, bible_data, knowledge_context, editor_directive, reader_rules
                 )
@@ -893,7 +1219,7 @@ class PipelineService:
                 prompt=prompt,
                 role="planner",
                 temperature=0.7,
-                max_tokens=2000,
+                max_tokens=3000,  # 推理模型需要额外 token 容纳思维链
                 db=db,
                 request_type="worker_beat_sheet",
                 project_id=task_info["project_id"],
@@ -972,13 +1298,15 @@ class PipelineService:
                 prompt=prompt,
                 role="draft",
                 temperature=0.8,
-                max_tokens=min(4000, estimated_words * 2),
+                max_tokens=min(6000, estimated_words * 3),  # 推理模型需要更多 token 容纳思维链
                 db=db,
                 request_type="worker_draft_segment",
                 project_id=task_info["project_id"],
             )
 
-            return response.get("content", "")
+            content = response.get("content", "")
+            content = self._clean_llm_output(content, role="draft")
+            return content
 
         finally:
             db.close()
@@ -1007,13 +1335,15 @@ class PipelineService:
                 prompt=prompt,
                 role="draft",
                 temperature=0.8,
-                max_tokens=min(4000, words_needed * 2),
+                max_tokens=min(6000, words_needed * 3),  # 推理模型需要更多 token 容纳思维链
                 db=db,
                 request_type="worker_draft_supplement",
                 project_id=task_info["project_id"],
             )
 
-            return response.get("content", "")
+            content = response.get("content", "")
+            content = self._clean_llm_output(content, role="draft")
+            return content
 
         finally:
             db.close()
@@ -1075,7 +1405,7 @@ class PipelineService:
                 prompt=prompt,
                 role="critic",
                 temperature=0.3,
-                max_tokens=4000,
+                max_tokens=6000,  # 推理模型需要额外 token 容纳思维链，提高上限确保 JSON 输出完整
                 db=db,
                 request_type="worker_critic",
                 project_id=task_info["project_id"],
@@ -1083,6 +1413,9 @@ class PipelineService:
             )
 
             content_text = response.get("content", "")
+
+            # 清理推理模型思维链前缀（Critic 角色输出的 JSON 前可能有思考过程）
+            content_text = self._clean_llm_output(content_text, role="critic")
 
             # 解析结构化输出
             structured_result = self._parse_critic_structured_output(content_text)
@@ -1096,19 +1429,23 @@ class PipelineService:
 
 错误信息：输出缺少必需的字段或格式不正确。
 
-请只输出合法的 JSON，不要添加 Markdown 标记或解释。"""
+请直接以 {{ 开头输出合法的 JSON 对象，不要输出任何思考过程、分析或解释。"""
 
                 response = await llm_manager.generate(
                     prompt=repair_prompt,
                     role="critic",
                     temperature=0.2,
-                    max_tokens=4000,
+                    max_tokens=6000,  # 推理模型需要额外 token 容纳思维链
                     db=db,
                     request_type="worker_critic_repair",
                     project_id=task_info["project_id"],
                 )
                 content_text = response.get("content", "")
+                # 清理推理模型思维链前缀（repair后也可能有）
+                content_text = self._clean_llm_output(content_text, role="critic")
                 structured_result = self._parse_critic_structured_output(content_text)
+
+            # 保存结果
 
             # 保存详细结果
             self._save_step(
@@ -1328,7 +1665,7 @@ class PipelineService:
 
 ## 输出要求（严格 JSON 格式）
 
-必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释：
+必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释，不要思考过程，直接输出 JSON：
 
 {{
   "overall_score": 78,
@@ -1386,7 +1723,9 @@ class PipelineService:
 1. 每个低于 70 分的维度必须在 anchored_comments 中解释原因，并引用 rubric 档位
 2. line_comments 至少包含 3-5 条，引用具体原文片段作为证据
 3. must_fix_items 按优先级排序，必须是具体可执行的问题
-4. rewrite_plan 必须是分轮次的改稿策略"""
+4. rewrite_plan 必须是分轮次的改稿策略
+
+重要提示：直接以 {{ 开头输出 JSON，不要输出任何思考过程、分析、解释。你的回复必须是一个合法的 JSON 对象。"""
 
     async def _run_rewrite_if_needed(
         self, task_info: Dict, content: str, critic_result: Dict,
@@ -1483,6 +1822,8 @@ class PipelineService:
                 total_cost += response.get("cost", 0.0)
 
                 new_content = response.get("content", final_content)
+                # 清理推理模型思维链前缀
+                new_content = self._clean_llm_output(new_content, role="rewrite")
 
                 # 重新审稿
                 await event_bus.publish("agent.step.started", {
@@ -1583,7 +1924,7 @@ class PipelineService:
 4. 提高可读性和流畅度
 5. 输出完整的改写后章节内容
 
-请输出改写后的完整章节内容："""
+重要：只输出章节正文本身，不要在正文后面附加任何"改写说明"、"改写记录"、"改写思路"等元评论。"""
 
     async def _run_continuity(
         self, task_info: Dict, content: str, bible_data: Dict, memory_context: str
@@ -1599,6 +1940,21 @@ class PipelineService:
                 ending_length=300
             )
 
+            # 构造条件注入变量（替代模板中的 f-string 条件表达式）
+            previous_ending_text = previous_ending.get("ending_excerpt", "")
+            open_hooks_text = json.dumps(previous_ending.get("open_hooks", []), ensure_ascii=False)
+            previous_ending_section = ""
+            if previous_ending_text:
+                previous_ending_section = f"上一章结尾（本章必须承接）：\n{previous_ending_text}\n\n"
+            open_hooks_section = ""
+            if previous_ending.get("open_hooks"):
+                open_hooks_section = f"待解悬念（本章必须回应或延续）：\n{open_hooks_text}\n\n"
+            chapter_index = task_info["chapter_index"]
+            continuity_check_6 = "6. 上一章衔接：本章开头是否自然承接上一章结尾？是否回应了待解悬念？（重要）" if chapter_index > 1 else ""
+            continuity_special_req = ""
+            if chapter_index > 1:
+                continuity_special_req = "特别要求：\n- 本章开头必须自然承接上一章结尾\n- 必须回应或延续上一章留下的悬念\n- 不允许像新故事一样重新开场"
+
             template_service = PromptTemplateService(db)
             variables = {
                 "chapter_title": task_info["chapter_title"],
@@ -1607,8 +1963,12 @@ class PipelineService:
                 "characters": json.dumps(bible_data.get("characters", []), ensure_ascii=False),
                 "foreshadowing": json.dumps(bible_data.get("foreshadowing", []), ensure_ascii=False),
                 "memory_context": memory_context,
-                "previous_ending": previous_ending.get("ending_excerpt", ""),
-                "open_hooks": json.dumps(previous_ending.get("open_hooks", []), ensure_ascii=False),
+                "previous_ending": previous_ending_text,
+                "open_hooks": open_hooks_text,
+                "previous_ending_section": previous_ending_section,
+                "open_hooks_section": open_hooks_section,
+                "continuity_check_6": continuity_check_6,
+                "continuity_special_req": continuity_special_req,
             }
 
             fallback = f"""请检查以下章节的连续性：
@@ -1660,6 +2020,8 @@ class PipelineService:
             )
 
             content_text = response.get("content", "")
+            # 清理推理模型思维链前缀（Continuity 也可能被污染）
+            content_text = self._clean_llm_output(content_text, role="continuity")
             score = 90 if "通过" in content_text else 75
 
             # TASK-C3: 如果本章不是第一章，检查是否承接上一章
@@ -1810,6 +2172,9 @@ class PipelineService:
         """解析 Critic 的结构化 JSON 输出"""
         import re
 
+        # 先清理推理模型思维链前缀
+        content = self._clean_llm_output(content, role="critic")
+
         # 去除 Markdown 代码块标记
         content = re.sub(r'^```json\s*', '', content.strip())
         content = re.sub(r'```\s*$', '', content.strip())
@@ -1821,7 +2186,28 @@ class PipelineService:
         except json.JSONDecodeError:
             pass
 
-        # 尝试提取 JSON 部分
+        # 尝试提取 JSON 部分（使用更健壮的正则）
+        # 匹配最外层的花括号对
+        brace_depth = 0
+        json_start = -1
+        for i, ch in enumerate(content):
+            if ch == '{':
+                if brace_depth == 0:
+                    json_start = i
+                brace_depth += 1
+            elif ch == '}':
+                brace_depth -= 1
+                if brace_depth == 0 and json_start >= 0:
+                    json_str = content[json_start:i+1]
+                    try:
+                        data = json.loads(json_str)
+                        logger.info(f"[Pipeline] Critic JSON 解析成功（提取第1个完整花括号对），长度={len(json_str)}")
+                        return data
+                    except json.JSONDecodeError:
+                        # 继续查找下一个可能的 JSON
+                        json_start = -1
+
+        # 回退：正则匹配
         match = re.search(r'\{[\s\S]*\}', content)
         if match:
             try:
@@ -1829,6 +2215,9 @@ class PipelineService:
                 return data
             except json.JSONDecodeError:
                 pass
+
+        # 解析失败，记录日志
+        logger.warning(f"[Pipeline] Critic JSON 解析完全失败，内容前200字: {content[:200]}")
 
         # 解析失败，返回空结构
         return {
@@ -2227,9 +2616,18 @@ class PipelineService:
             gen_task.actual_cost = result.get("cost", 0.0)
 
             chapter.status = ChapterStatus.COMPLETED
-            chapter.final_content = result.get("final_content", "")
-            # TASK-C2: 保存实际字数
-            chapter.final_word_count = result.get("word_count", len(result.get("final_content", "")))
+            # 落库前最后一次兜底清理 — 防止上游 rewrite 步骤产生的
+            # 元叙述段落（如"哦对，还要加…符合人物设定"）污染 final_content
+            final_content_raw = result.get("final_content", "")
+            final_content_cleaned = self._clean_llm_output(final_content_raw, role="draft")
+            if final_content_cleaned != final_content_raw:
+                logger.info(
+                    f"[Pipeline] 落库前清理 final_content: 移除了 "
+                    f"{len(final_content_raw) - len(final_content_cleaned)} 字符"
+                )
+            chapter.final_content = final_content_cleaned
+            # TASK-C2: 保存实际字数（按清理后的内容重算）
+            chapter.final_word_count = self._count_chinese_words(final_content_cleaned)
             chapter.total_score = result.get("final_score", 0)
             chapter.completed_at = utc_now()
 
@@ -2241,7 +2639,7 @@ class PipelineService:
 
             if version:
                 version.is_accepted = 1
-                version.final_content = result.get("final_content", "")
+                version.final_content = final_content_cleaned
                 version.acceptance_reason = f"最终评分: {result.get('final_score', 0)}"
 
             # STATS-001: 记录成功统计到 DailyUsageStats
@@ -2396,7 +2794,9 @@ class PipelineService:
 
 {style_section}
 
-请输出：1.本章目标 2.冲突设计 3.人物安排 4.章节钩子 5.情绪节奏 6.关键剧情点 7.使用技巧 8.避免错误 9.回顾伏笔"""
+请输出：1.本章目标 2.冲突设计 3.人物安排 4.章节钩子 5.情绪节奏 6.关键剧情点 7.使用技巧 8.避免错误 9.回顾伏笔
+
+重要：直接输出你的规划内容，不要在开头输出思考过程或分析过程。"""
 
     def _build_draft_fallback(self, variables: Dict) -> str:
         """构建 Draft 的 fallback prompt - 合并 TASK-C3 上一章承接 和 TASK-B3 风格档案"""

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.model_config import ModelProvider, ModelRole
+from app.models.provider_route_config import ProviderRouteConfig
 from app.services.openai_llm_service import OpenAILLMService
 from app.services.secret_service import encrypt_api_key, decrypt_api_key, mask_api_key
 from app.utils.time_utils import utc_now
@@ -361,6 +362,25 @@ async def quick_setup(config: QuickSetupRequest, db: Session = Depends(get_db)):
 
     db.commit()
 
+    # F1-1: quick-setup 只写 model_roles 会导致 LLMRouter（读 provider_route_configs）找不到路由
+    # 这里同步把本次配置的角色写入 provider_route_configs，保证两套表一致
+    for _sync_role in roles_list:
+        _existing = db.query(ProviderRouteConfig).filter(
+            ProviderRouteConfig.provider_id == provider.id,
+            ProviderRouteConfig.role == _sync_role,
+        ).first()
+        if not _existing:
+            db.add(ProviderRouteConfig(
+                provider_id=provider.id,
+                role=_sync_role,
+                priority=1,
+                weight=1,
+                enabled=True,
+                timeout_seconds=60,
+                max_retries=2,
+            ))
+    db.commit()
+    
     return {
         "message": "LLM 配置成功",
         "provider_id": provider.id,
@@ -398,8 +418,26 @@ async def create_role(role: RoleCreate, db: Session = Depends(get_db)):
     )
     db.add(role_config)
     db.commit()
+    
+    
+    # F1-1: create_role 同步写入 provider_route_configs
+    _existing_rc = db.query(ProviderRouteConfig).filter(
+        ProviderRouteConfig.provider_id == role_config.provider_id,
+        ProviderRouteConfig.role == role_config.role,
+    ).first()
+    if not _existing_rc:
+        db.add(ProviderRouteConfig(
+            provider_id=role_config.provider_id,
+            role=role_config.role,
+            priority=1,
+            weight=1,
+            enabled=True,
+            timeout_seconds=60,
+            max_retries=2,
+        ))
+    db.commit()
     db.refresh(role_config)
-
+    
     return {
         "id": role_config.id,
         "role": role_config.role,

@@ -1,4 +1,5 @@
-import React, { useFetch } from 'react';
+import React from 'react';
+import { useFetch } from '../hooks/useFetch';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';

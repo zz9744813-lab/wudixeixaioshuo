@@ -7,6 +7,7 @@ import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
 import { useToast } from '../contexts/ToastContext';
 import { toObject, toArray } from '../utils/nullSafety';
+import api from '../services/api';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
@@ -58,8 +59,7 @@ export default function FeedbackCenter() {
     setLoadingDetail(true);
     setDetailData(null);
     try {
-      const res = await fetch(`/api/feedback/${id}`);
-      const data = await res.json();
+      const { data } = await api.get(`/feedback/${id}`);
       setDetailData(data);
     } catch {
       setDetailData({ id, raw_text: '反馈详情加载中...' });
@@ -75,7 +75,9 @@ export default function FeedbackCenter() {
     }
     setSubmitting(true);
     try {
-      toast.success('反馈已提交');
+      await api.post('/feedback/', form);
+    await api.post('/feedback/', form);
+    toast.success('反馈已提交');
       setShowCreate(false);
       setForm((f) => ({ ...f, raw_text: '', chapter_id: '' }));
       reload();
@@ -88,7 +90,9 @@ export default function FeedbackCenter() {
 
   const handleProcess = async (id) => {
     try {
-      toast.success('已标记为处理');
+      await api.post(`/feedback/${id}/process`, {});
+    await api.post(`/feedback/${id}/process`, {});
+    toast.success('已标记为处理');
       reload();
     } catch (err) {
       toast.error(err?.response?.data?.detail || '处理失败');

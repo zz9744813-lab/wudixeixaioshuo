@@ -31,6 +31,7 @@ from app.routers import (
     llm_routes,
     logs,
     memory,
+    model_assignments,
     models,
     production,
     projects,
@@ -118,6 +119,7 @@ app.include_router(agents.router, prefix="/api/agents", tags=["Agents"], depende
 app.include_router(agent_runs.router, prefix="/api", tags=["Agent Runs"], dependencies=PROTECTED)
 app.include_router(subagents.router, prefix="/api", tags=["SubAgents"], dependencies=PROTECTED)
 app.include_router(models.router, prefix="/api/models", tags=["Models"], dependencies=PROTECTED)
+app.include_router(model_assignments.router, prefix="/api/model-assignments", tags=["Model Assignments"], dependencies=PROTECTED)
 app.include_router(llm_routes.router, prefix="/api/llm-routes", tags=["LLM Routes"], dependencies=PROTECTED)
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"], dependencies=PROTECTED)
 app.include_router(reader_training.router, prefix="/api/reader-training", tags=["Reader Training"], dependencies=PROTECTED)

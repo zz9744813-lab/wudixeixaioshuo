@@ -54,7 +54,9 @@ PLANNER_TEMPLATE = """请为以下章节进行详细规划：
 6. 关键剧情点（3-5个）
 7. 要使用的技巧卡（列出具体技巧名称）
 8. 要避免的错误模式（列出具体预防措施）
-9. 需要回顾的前文伏笔（基于记忆上下文）"""
+9. 需要回顾的前文伏笔（基于记忆上下文）
+
+重要：直接输出你的规划内容，不要在开头输出思考过程或分析过程。"""
 
 
 # Draft 默认模板
@@ -114,18 +116,17 @@ DRAFT_TEMPLATE = """请根据以下规划起草章节内容。
 - 避免使用禁止设定: {forbidden_items}
 - 必须达到字数要求，否则需要扩展内容
 
-请直接输出章节正文内容："""
+请直接输出章节正文内容，不要输出任何规划、说明或元评论。直接从故事内容开始，不要写"以下是章节内容"之类的开头。"""
 
 
 # Continuity 默认模板
+# 注意：使用 {variable} 格式兼容 str.format()，条件内容通过变量传入
 CONTINUITY_TEMPLATE = """请检查以下章节的连续性。
 
 章节标题: {chapter_title}
 章节序号: {chapter_index}
 
-{f"上一章结尾（本章必须承接）：\n{previous_ending}\n\n" if previous_ending else ""}
-{f"待解悬念（本章必须回应或延续）：\n{open_hooks}\n\n" if open_hooks else ""}
-
+{previous_ending_section}{open_hooks_section}
 章节内容:
 {content_preview}
 
@@ -144,15 +145,18 @@ CONTINUITY_TEMPLATE = """请检查以下章节的连续性。
 3. 时间线连续性（对照最近章节摘要）
 4. 伏笔回收情况
 5. 与记忆上下文的一致性
-{f"6. 上一章衔接：本章开头是否自然承接上一章结尾？是否回应了待解悬念？（重要）" if chapter_index > 1 else ""}
+{continuity_check_6}
 7. 潜在问题
 
-{f"特别要求：\n- 本章开头必须自然承接上一章结尾\n- 必须回应或延续上一章留下的悬念\n- 不允许像新故事一样重新开场\n" if chapter_index > 1 else ""}
+{continuity_special_req}
 
-请输出检查结果和建议。如检查通过，请说明"通过"。"""
+请输出检查结果和建议。如检查通过，请说明"通过"。
+
+重要：直接输出检查结果，不要在开头输出思考过程。"""
 
 
 # Critic 默认模板
+# 注意：JSON 示例中的花括号已转义为 {{ }} 以兼容 str.format()
 CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
 
 章节标题: {chapter_title}
@@ -208,7 +212,7 @@ CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
 
 ### 8. 连续性/设定一致 (continuity, 满分100)
 - 90: 无设定冲突，伏笔呼应到位，与前文衔接流畅
-- 70:  minor 设定问题但不影响理解
+- 70: minor 设定问题但不影响理解
 - 50: 存在设定矛盾或伏笔丢失
 - 30: 严重设定冲突或逻辑错误
 
@@ -220,11 +224,11 @@ CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
 
 ## 输出要求（严格 JSON 格式）
 
-必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释：
+必须输出以下结构的 JSON，不要 Markdown 代码块标记，不要解释，不要思考过程，直接输出 JSON：
 
-{
+{{
   "overall_score": 78,
-  "dimension_scores": {
+  "dimension_scores": {{
     "plot_progress": 80,
     "pacing": 72,
     "character_consistency": 75,
@@ -234,20 +238,20 @@ CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
     "style_stability": 77,
     "continuity": 90,
     "commercial_readability": 76
-  },
-  "anchored_comments": {
+  }},
+  "anchored_comments": {{
     "pacing": "按 rubric 属于 70 档：整体流畅，但中段重复解释主角动机。",
     "dialogue_distinction": "按 rubric 属于 50 档：配角对话风格趋同，建议为每个主要配角设计独特的口头禅或句式。"
-  },
+  }},
   "line_comments": [
-    {
+    {{
       "quote": "原文短句，不超过 60 字",
       "line_number": 123,
       "issue_type": "telling_not_showing",
       "severity": "medium",
       "comment": "这里直接说明情绪，建议改成动作和对话体现。",
       "rewrite_suggestion": "建议改写方向"
-    }
+    }}
   ],
   "must_fix_items": [
     "问题1: 描述...",
@@ -261,7 +265,7 @@ CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
     "第2轮：加强爽点铺垫和释放",
     "第3轮：优化对话辨识度"
   ]
-}
+}}
 
 要求：
 1. 每个低于 70 分的维度必须在 anchored_comments 中解释原因，并引用 rubric 档位
@@ -269,7 +273,8 @@ CRITIC_TEMPLATE = """请对以下章节进行严格的多维度审稿评分。
 3. must_fix_items 按优先级排序，必须是具体可执行的问题
 4. rewrite_plan 必须是分轮次的改稿策略
 5. 泛泛建议如"提高可读性"应被拆分为具体项
-"""
+
+重要提示：直接以 {{ 开头输出 JSON，不要输出任何思考过程、分析、解释。你的回复必须是一个合法的 JSON 对象。"""
 
 
 # Rewrite 默认模板
@@ -289,11 +294,13 @@ REWRITE_TEMPLATE = """请根据审稿意见改写文章。
 原内容:
 {content}
 
-请输出改写后的完整章节内容，注意：
+请输出改写后的完整章节内容。注意：
 - 保持原有情节和风格
 - 针对审稿意见进行改进
 - 提高可读性和流畅度
-- 章节字数保持在目标范围内"""
+- 章节字数保持在目标范围内
+
+重要：只输出章节正文内容，不要在正文后面附加任何改写说明、改写记录、改写思路或"改写说明"等元评论。"""
 
 
 # Learning 默认模板
@@ -307,7 +314,9 @@ LEARNING_TEMPLATE = """请总结本章写作过程的经验：
 请提取：
 1. 本章成功经验
 2. 改进空间
-3. 可复用的技巧（3-5个技巧卡片）"""
+3. 可复用的技巧（3-5个技巧卡片）
+
+重要：直接输出你的总结，不要在开头输出思考过程或分析过程。"""
 
 
 # Memory Update 默认模板
@@ -328,8 +337,9 @@ MEMORY_UPDATE_TEMPLATE = """请分析以下章节内容，提取关键记忆信�
 3. 人物状态变化
 4. 新出现的人物
 5. 世界观设定揭示
-6. 伏笔设置或回收"""
+6. 伏笔设置或回收
 
+重要：直接输出你提取的信息，不要在开头输出思考过程。"""
 
 DEFAULT_TEMPLATES = [
     {
@@ -388,7 +398,13 @@ def seed_default_prompt_templates(db: Session):
         ).first()
 
         if existing:
-            # 已存在，跳过
+            # 更新已有模板的内容（修复模板问题）
+            if existing.content != template_data["content"]:
+                existing.content = template_data["content"]
+                existing.updated_at = utc_now()
+                print(f"[Seed] 更新模板: {template_data['role']} - {template_data['name']}")
+            else:
+                print(f"[Seed] 模板已存在，跳过: {template_data['role']} - {template_data['name']}")
             continue
 
         # 创建新模板

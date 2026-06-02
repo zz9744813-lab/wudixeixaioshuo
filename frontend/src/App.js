@@ -8,12 +8,14 @@ import Projects from './pages/Projects';
 import ProjectDetail from './pages/ProjectDetail';
 import Books from './pages/Books';
 import BookDetail from './pages/BookDetail';
+import BibleEditor from './pages/BibleEditor';
 import Techniques from './pages/Techniques';
 import WritingFactory from './pages/WritingFactory';
 import AgentConsole from './pages/AgentConsole';
 import Tasks from './pages/Tasks';
 import TaskDetail from './pages/TaskDetail';
 import ModelConfig from './pages/ModelConfig';
+import AgentModelAssign from './pages/AgentModelAssign';
 import FeedbackCenter from './pages/FeedbackCenter';
 import EvolutionCenter from './pages/EvolutionCenter';
 import ExportPage from './pages/ExportPage';
@@ -28,6 +30,7 @@ import ResearchAgentPage from './pages/ResearchAgentPage';
 import EvolutionAutoPage from './pages/EvolutionAutoPage';
 import ReaderTrainingPage from './pages/ReaderTrainingPage';
 import ToastContainer from './pages/ToastContainer';
+import NotFound from './components/NotFound';
 
 function App() {
   return (
@@ -41,6 +44,8 @@ function App() {
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/books" element={<Books />} />
           <Route path="/books/:id" element={<BookDetail />} />
+          <Route path="/bible-editor" element={<BibleEditor />} />
+          <Route path="/bible-editor/:projectId" element={<BibleEditor />} />
           <Route path="/techniques" element={<Techniques />} />
           <Route path="/factory" element={<WritingFactory />} />
           <Route path="/agents" element={<AgentConsole />} />
@@ -48,6 +53,7 @@ function App() {
           <Route path="/tasks/:id" element={<TaskDetail />} />
           <Route path="/models" element={<ModelConfig />} />
       <Route path="/model-config" element={<ModelConfig />} />
+          <Route path="/agent-models" element={<AgentModelAssign />} />
           <Route path="/feedback" element={<FeedbackCenter />} />
           <Route path="/evolution" element={<EvolutionCenter />} />
           <Route path="/worker" element={<WorkerDashboard />} />
@@ -63,6 +69,7 @@ function App() {
           <Route path="/reader-training" element={<ReaderTrainingPage />} />
 <Route path="/reader-training/projects/:projectId" element={<ReaderTrainingPage />} />
 <Route path="/reader-training/projects/:projectId/chapters/:chapterId" element={<ReaderTrainingPage />} />
+<Route path="*" element={<NotFound />} />
 </Routes>
       </Layout>
     </Router></ToastProvider>

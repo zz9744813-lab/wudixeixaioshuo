@@ -7,7 +7,7 @@ import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import ConfirmModal from '../components/ConfirmModal';
-import { toObject } from '../utils/nullSafety';
+import { toObject, toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import StatusPill from '../components/console/StatusPill';

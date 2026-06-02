@@ -417,7 +417,7 @@ class LLMRouter:
             route.consecutive_failures += 1
 
             # 检查是否需要熔断
-            if route.consecutive_failures >= route.circuit_breaker_threshold:
+            if (route.consecutive_failures or 0) >= (route.circuit_breaker_threshold or 5):
                 route.circuit_breaker_opened_at = datetime.utcnow()
 
         self.db.commit()
@@ -454,15 +454,15 @@ class LLMRouter:
                 "priority": route.priority,
                 "weight": route.weight,
                 "enabled": route.enabled,
-                "total_calls": route.total_calls,
-                "success_calls": route.success_calls,
-                "failed_calls": route.failed_calls,
-                "success_rate": (
-                    route.success_calls / route.total_calls * 100
+        "total_calls": (route.total_calls or 0),
+        "success_calls": (route.success_calls or 0),
+        "failed_calls": (route.failed_calls or 0),
+        "success_rate": (
+            (route.success_calls or 0) / (route.total_calls or 1) * 100
                     if route.total_calls > 0 else 0
                 ),
-                "avg_latency_ms": route.avg_latency_ms,
-                "consecutive_failures": route.consecutive_failures,
+        "avg_latency_ms": (route.avg_latency_ms or 0),
+        "consecutive_failures": (route.consecutive_failures or 0),
                 "is_circuit_open": self._is_circuit_open(route),
             })
 

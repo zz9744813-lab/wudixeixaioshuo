@@ -4,6 +4,10 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { useConfirm } from '../hooks/useConfirm';
+import { Button } from '../components/ui/Button';
+import PageHeader from '../components/console/PageHeader';
+import MetricCard from '../components/console/MetricCard';
+import SectionCard from '../components/console/SectionCard';
 import styles from './TaskDetail.module.css';
 
 const AGENT_LABELS = {

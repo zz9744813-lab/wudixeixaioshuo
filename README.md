@@ -1,316 +1,367 @@
-# 24小时小说 Agent 工作台
+# NovelForge · 24小时小说 Agent 工作台
 
-> 拆书学习 + 自动写作 + 自我进化的小说创作系统
+> **拆书学习 + 自动写作 + 自我进化** 的小说创作 AI 工作台
+> 一站式从「读完一本好书」到「持续生产自己的小说」
 
-## 项目简介
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688)](https://fastapi.tiangolo.com)
+[![React](https://img.shields.io/badge/React-18-61dafb)](https://react.dev)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
-这是一个面向小说创作者的 AI Agent 工作台，核心能力包括：
+---
 
-1. **拆书学习模块**：上传小说后，系统自动拆解作品结构，提取可迁移的写作技巧
-2. **24小时写作 Agent**：自动规划、生成、审稿、改稿、续写、复盘
-3. **自我进化机制**：通过评分、反馈持续学习进步
+## ✨ 这是什么
 
-## 快速开始
+NovelForge 是面向**长篇小说**创作者的 AI Agent 工作台，核心三大能力：
 
-### 方式一：使用 Docker（推荐）
+| 能力 | 说明 |
+|------|------|
+| 📚 **拆书学习** | 上传小说 → 自动分章、抽取技巧卡、构建可迁移的「写作套路库」 |
+| ✍️ **24小时写作 Agent** | 5 步流水线：Planner → Draft → Critic → Rewrite → Continuity，自动循环直到质量达标 |
+| 🧬 **自我进化** | 评分 + 反馈 + Darwin 进化引擎 + A/B 测试，越写越好 |
+
+支持**任何 OpenAI 兼容的 LLM**（OpenAI / Anthropic / Gemini / DeepSeek / 自建 API …），不同 Agent 角色可绑定不同模型，按需平衡成本与质量。
+
+---
+
+## 🚀 快速开始
+
+### 方式一：Docker 部署（推荐）
 
 ```bash
-# 1. 确保已安装 Docker 和 Docker Compose
-
-# 2. 配置环境变量（重要！）
+# 1. 准备环境变量
 cp .env.example .env
-# 编辑 .env 文件，设置 APP_SECRET_KEY（用于加密 API Key）
-# 生成密钥（必须是 Fernet urlsafe base64 key）:
-# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# 必填两项：APP_API_KEY 和 APP_SECRET_KEY（生成方法见 .env 注释）
 
-# 3. 启动服务
-docker-compose up --build
+# 2. 一键启动
+docker compose up -d --build
 
-# 4. 访问
-# 前端: http://localhost:3000
-# 后端 API: http://localhost:8000
+# 3. 访问
+# 前端:   http://localhost:3005
+# 后端:   http://localhost:8000/api
 # API 文档: http://localhost:8000/docs
 ```
 
-### 方式二：本地运行
+数据存放在 `./data/`，升级 / 卸载都不会丢。
+
+### 方式二：本地源码运行
 
 ```bash
-# 1. 后端
+# 后端（终端 1）
 cd backend
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 
-# 2. 前端（新开终端）
+# 前端（终端 2）
 cd frontend
 npm install
-npm start
+npm start   # 默认 http://localhost:3000
 ```
 
-## 系统架构
+> 本地开发时 `.env` 留空即可，前端走 `http://localhost:8000/api`，后端 CORS 默认已放开 `localhost`。
+
+---
+
+## 🧭 功能一览
+
+### 一、核心创作闭环
+
+1. **拆书学习** — `/books`
+   - 上传 TXT / MD，**自动分章 + 章节摘要 + 技巧卡抽取**
+   - 技巧进入全局 `Techniques` 库，可被所有项目复用
+
+2. **小说项目** — `/projects`
+   - 创建项目：题材 / 风格 / 目标字数 / 每日目标
+   - 项目详情：写作手册（Playbook）/ 失败模式记录 / 一键启停
+
+3. **Bible 编辑器** — `/bible-editor`
+   - 世界观设定（含 AI 生成）
+   - 人物档案（主角 / 配角 / 反派 / 导师）
+   - 卷 / 章 大纲
+
+4. **写作工厂** — `/factory`
+   - **Planner → Draft → Critic → Rewrite → Continuity** 5 步流水线
+   - 质量不达标时自动重写，最多 N 轮（可配）
+   - 支持**并行 Draft 候选**（多稿择优）和**并行 Critic**（多维度评估）
+
+5. **24h 自动写作** — `/worker`
+   - Worker 后台守护，按调度自动产出下一章
+   - 每日目标 / 预算控制 / 任务队列
+
+### 二、Agent 编排
+
+| 页面 | 作用 |
+|------|------|
+| `/agents` | Agent 控制台，多 Agent 协作状态 |
+| `/agent-orchestrator` | 主编 Agent，统一调度 |
+| `/agent-runs/:id` | 单次 run 的完整步骤溯源 |
+| `/subagents` | 子 Agent 注册与管理 |
+| `/reader-training` | 读者反馈训练 |
+| `/research-agent` | 资料调研 Agent |
+| `/evolution-auto` | 自动进化触发器 |
+
+### 三、自我进化
+
+- `/feedback` — 多维度反馈收集
+- `/evolution` — Darwin 进化引擎 + A/B 测试
+- `/prompts` — Prompt 模板管理 + 模板版本化
+- `/skills` — 写作技能库
+
+### 四、运维
+
+- `/dashboard` / `/dashboard-v2` — 统计 + 快捷入口
+- `/llm-routes` — LLM 路由（按角色分配 provider）
+- `/agent-models` — Agent × 模型矩阵
+- `/models` — Provider / API Key 管理（加密存储）
+- `/usage` — Token 成本与每日用量
+- `/logs` — 系统日志 / LLM 调用日志
+- `/export` — 导出 Markdown / TXT / DOCX / EPUB / PDF
+
+---
+
+## 🏗️ 架构
 
 ```
 +------------------------------------------------------------------+
-|                         前端 (React)                              |
-|  +------------+  +------------+  +------------+  +------------+ |
-|  | Dashboard  |  |   项目     |  |   拆书     |  |   Bible    | |
-|  |   仪表盘   |  |   管理     |  |   学习     |  |   编辑器   | |
-|  +------------+  +------------+  +------------+  +------------+ |
-|  +------------+  +------------+  +------------+  +------------+ |
-|  | 写作工厂   |  |   Worker   |  |  Agent     |  |  Darwin    | |
-|  | 章节流水线 |  | 自动控制台 |  | 控制台    |  | 进化中心   | |
-|  +------------+  +------------+  +------------+  +------------+ |
-|  +------------+  +------------+  +----------------------------+ |
-|  | 反馈中心   |  | 导出中心   |  |       模型配置中心         | |
-|  +------------+  +------------+  +----------------------------+ |
+|                      前端 (React 18 SPA)                         |
+|  Dashboard · Projects · Books · BibleEditor · Factory · ...    |
 +------------------------------------------------------------------+
-                              |
-                              | REST API
-                              v
+                            |  REST + SSE
+                            v
 +------------------------------------------------------------------+
-|                        后端 (FastAPI)                             |
-|  +-------------+  +-------------+  +-------------+  +-----------+|
-|  |   Projects  |  |    Books    |  |   Chapters  |  |   Bible   ||
-|  |    项目     |  |    书籍     |  |    章节     |  |   设定    ||
-|  +-------------+  +-------------+  +-------------+  +-----------+|
+|                    后端 (FastAPI · Python 3.11)                  |
+|                                                                  |
+|  Routers ─┬─ projects / chapters / books / bible                |
+|           ├─ agents / agent_runs / subagents / orchestrator     |
+|           ├─ evolution / feedback / prompts / skills            |
+|           ├─ models / llm_routes / model_assignments / usage    |
+|           └─ worker / tasks / export / events (SSE)             |
+|                                                                  |
+|  Services ─┬─ pipeline_service        (5 步章节流水线)          |
+|            ├─ production_loop_service  (24h Worker)              |
+|            ├─ llm_router              (角色 → Provider)          |
+|            ├─ evolution_orchestrator   (Darwin / A/B)            |
+|            └─ bible_service / book_state_service / ...          |
 +------------------------------------------------------------------+
-|                         Agents 层                                 |
-|   Planner -> Draft -> Critic -> Rewrite -> Continuity           |
-|   (规划)   (起草)   (审核)   (改写)     (连续性)                |
+                            |
+                            v
 +------------------------------------------------------------------+
-|                       Services 层                                 |
-|   MockLLM / OpenAI / Anthropic / Azure / Custom API             |
+|                  LLM Provider 池（OpenAI 兼容）                  |
+|   OpenAI · Anthropic · Gemini · DeepSeek · 自建 API · ...      |
 +------------------------------------------------------------------+
-|                       数据层 (SQLite)                             |
-|   Projects | Books | Chapters | Bible | Feedback | Evolution    |
+                            |
+                            v
++------------------------------------------------------------------+
+|       数据层：SQLite (开发) / PostgreSQL (生产)                  |
+|   projects · chapters · books · bible · feedback · evolution    |
 +------------------------------------------------------------------+
 ```
 
-## 功能模块
+### 关键模块
 
-| 模块 | 描述 | 状态 |
+- **`LLMServiceManager`** (`backend/app/services/openai_llm_service.py`)
+  统一管理多 provider，按 `role` 路由到不同模型；所有调用自动写入 `model_call_logs`。
+- **`pipeline_service`** — 5 步章节生成流水线
+- **`production_loop_service`** — 24h 后台循环
+- **`llm_router`** — 模型角色路由 + 失败重试 + 成本统计
+- **`evolution_orchestrator`** — A/B 测试 + 优胜劣汰
+
+---
+
+## ⚙️ 配置说明
+
+### 环境变量（完整列表见 `.env.example`）
+
+| 变量 | 必填 | 说明 |
 |------|------|------|
-| Dashboard | 仪表盘，显示统计信息和快捷入口 | |
-| 拆书学习 | 上传小说，自动分章和分析，提取技巧 | |
-| 技巧库 | 提取的写作技巧和套路库 | |
-| 小说项目 | 创建和管理小说项目 | |
-| Bible编辑器 | 世界观、人物、大纲管理 | |
-| 写作流水线 | 5步章节生成流程 | |
-| 24h自动写作 | Worker后台循环自动写作 | |
-| Agent控制台 | 多Agent协作控制 | |
-| 任务队列 | 查看和管理任务状态 | |
-| 模型配置 | 配置LLM API和角色映射 | |
-| 反馈中心 | 多维度反馈收集和统计 | |
-| Darwin进化 | 自我进化机制，A/B测试 | |
-| 导出中心 | 支持多种格式导出小说 | |
+| `APP_API_KEY` | 生产必填 | 前端 → 后端鉴权 |
+| `APP_SECRET_KEY` | 生产必填 | Fernet 密钥，用于加密 LLM API Key |
+| `APP_ENV` | 否 | `development` / `production` / `staging` |
+| `DATABASE_URL` | 否 | 留空 → SQLite，填 `postgresql://...` → PG |
+| `CORS_ORIGINS` | 是 | **浏览器实际访问前端的完整 URL**，逗号分隔 |
+| `REACT_APP_API_URL` | 是（构建期） | **浏览器请求后端的完整 URL** |
+| `LOG_LEVEL` | 否 | `debug` / `info` / `warning` / `error` |
+| `UPLOAD_DIR` / `ARTIFACTS_DIR` | 否 | 默认 `./data/uploads`、`./data/artifacts` |
 
-## 开发阶段
+### 部署到任意服务器
 
-### Phase 1: 项目骨架 
-- [x] FastAPI 后端
-- [x] SQLite 数据库
-- [x] 所有数据库模型
-- [x] MockLLMService
-- [x] React 前端
-- [x] Docker 配置
-- [x] 基础 Dashboard
+> 核心原则：**前端 → 后端**用浏览器可达的地址；**后端 CORS** 放行前端所在 origin。
 
-### Phase 2: 拆书学习模块 
-- [x] 文件上传（TXT/MD）
-- [x] 自动分章
-- [x] 章节摘要
-- [x] 技巧卡提取
-
-### Phase 3: 多 Agent 框架 
-- [x] Planner Agent
-- [x] Draft Agent
-- [x] Critic Agent
-- [x] Rewrite Agent
-- [x] Continuity Agent
-
-### Phase 4: 小说 Bible 与大纲 
-- [x] 世界观设定管理
-- [x] 人物档案管理
-- [x] 大纲编辑
-- [x] AI辅助生成
-
-### Phase 5: 章节生成流水线 
-- [x] 5步写作流程
-- [x] 多维度评分
-- [x] 自动重写循环
-- [x] 版本管理
-
-### Phase 6: 24小时自动写作 
-- [x] Worker后台调度器
-- [x] 任务队列管理
-- [x] 每日目标/预算控制
-- [x] 自动触发下一章
-
-### Phase 7: 反馈与进化 
-- [x] 多维度反馈收集
-- [x] AI自动分析
-- [x] Darwin进化引擎
-- [x] A/B测试
-- [x] 最佳实践库
-
-### Phase 8: 导出功能 
-- [x] 支持 Markdown/TXT/DOCX/EPUB/PDF/JSON
-- [x] 字数统计
-- [x] 导出历史管理
-- [x] 章节筛选
-
-## API 端点概览
-
-| 模块 | 端点前缀 | 主要功能 |
-|------|----------|----------|
-| Dashboard | `/api/dashboard` | 统计数据、最近活动 |
-| 项目 | `/api/projects` | CRUD、启动/暂停 |
-| Bible | `/api/bible` | 设定管理 |
-| 章节 | `/api/chapters` | 生成、状态 |
-| Agent | `/api/agents` | 状态、生成控制 |
-| Worker | `/api/worker` | 自动写作控制 |
-| 任务 | `/api/tasks` | 队列管理 |
-| 模型 | `/api/models` | 配置管理 |
-| 反馈 | `/api/feedback` | 反馈管理、统计 |
-| 进化 | `/api/evolution` | Darwin进化 |
-| 导出 | `/api/export` | 多格式导出 |
-
-## 技术栈
-
-- **后端**: Python 3.11, FastAPI, SQLAlchemy, SQLite
-- **前端**: React 18, 全局 CSS + Design Tokens, Lucide Icons
-- **部署**: Docker, Docker Compose
-
-## 前端架构
-
-### 设计系统
-- **Design Tokens**: CSS 自定义属性定义颜色、间距、阴影、字体等 (`src/styles/tokens.css`)
-- **基础样式**: 全局重置和工具类 (`src/styles/base.css`)
-- **原始组件**: 可复用的 UI 原始组件样式 (`src/styles/primitives.css`)
-- **主题切换**: 支持浅色/深色/跟随系统三种模式
-
-### 状态管理
-- **API 请求**: 统一封装的 `useFetch` Hook，处理 loading/error/retry 状态
-- **主题管理**: `useTheme` Hook 管理主题模式并持久化到 localStorage
-
-### 图标
-使用 [Lucide React](https://lucide.dev/) 作为图标库，轻量级、一致性好
-
-```jsx
-import { LayoutDashboard, BookOpen, Bot } from 'lucide-react';
+#### 本机 / Docker（同机访问）
+```bash
+# .env
+CORS_ORIGINS=http://localhost:3000,http://localhost:3005
+REACT_APP_API_URL=http://localhost:8000/api
 ```
 
-## 目录结构
+#### 远程 VPS（公网访问）
+```bash
+# 假设你的服务器公网 IP 是 1.2.3.4
+# .env
+CORS_ORIGINS=http://1.2.3.4:3005
+REACT_APP_API_URL=http://1.2.3.4:8000/api
+```
+> `REACT_APP_*` 是**构建期**变量，改完必须重新构建前端镜像：
+> `docker compose build --no-cache frontend && docker compose up -d`
+
+#### 反向代理（Nginx / Caddy 域名）
+```bash
+# .env
+CORS_ORIGINS=https://novel.example.com
+REACT_APP_API_URL=    # 留空 → 前端走相对路径 /api
+```
+
+#### 启用 HTTPS + 多域名
+```bash
+CORS_ORIGINS=https://novel.example.com,https://www.example.com
+```
+
+### 模型配置（首启必做）
+
+1. 进入 **模型配置中心** `/models`
+2. 添加 Provider：OpenAI / Anthropic / Gemini / DeepSeek / OpenRouter / 自定义
+3. 填入 `Base URL` + `API Key`（加密存储）
+4. 测试连接
+5. 到 **Agent 模型分配** `/agent-models` 把每个角色（planner / draft / critic / rewrite / continuity …）绑定到合适的模型
+
+> 没配置 API Key 时，系统自动走 `MockLLMService` 演示流程，方便先体验 UI。
+
+---
+
+## 🔌 API 端点速查
+
+| 前缀 | 模块 |
+|------|------|
+| `/api/health` | 健康检查（无需鉴权） |
+| `/api/dashboard` | 仪表盘统计 |
+| `/api/projects` | 小说项目 CRUD + 启停 |
+| `/api/chapters` | 章节查询 / 状态 |
+| `/api/books` | 拆书上传 / 分章 / 摘要 |
+| `/api/projects/{id}/bible` | Bible（**注意：不是 `/api/bible`**） |
+| `/api/agents` / `/api/agent-runs` | Agent 编排 |
+| `/api/worker` | 24h Worker 控制 |
+| `/api/tasks` | 任务队列 |
+| `/api/models` / `/api/model-assignments` / `/api/llm-routes` | 模型 / 路由 |
+| `/api/feedback` / `/api/evolution` / `/api/prompts` / `/api/skills` | 进化 |
+| `/api/usage` / `/api/logs` | 成本 / 日志 |
+| `/api/export` | 导出 |
+| `/api/events` | SSE 实时事件流（支持 query 鉴权） |
+
+> 除 `/api/health` 和 `/api/events` 外，所有路由需 `X-API-Key: <APP_API_KEY>`。
+> 完整 OpenAPI 文档：访问 `/docs`。
+
+---
+
+## 🧪 测试
+
+```bash
+cd backend
+python -m pytest tests/ -v
+```
+
+---
+
+## 🛠️ 开发约定
+
+1. **模型变更** → `alembic revision --autogenerate` + `alembic upgrade head`，不要直接删表
+2. **API Key** 加密存储，前端仅显示掩码
+3. **所有 LLM 调用** 必须经过 `llm_manager`，不要直接实例化 provider
+4. **路由注册**：前端新增页面**必须**在 `App.js` 的 `<Routes>` 中注册，否则会显示空 main 区
+5. **JSX 表达式** 是**即时求值**的，对可能为 `null` 的对象做属性访问必须用 `?.` 或显式判空
+
+---
+
+## 🐛 故障排查
+
+| 症状 | 排查 |
+|------|------|
+| 前端「Network Error」 | 检查 `REACT_APP_API_URL` 是否是**浏览器可访问**的地址；改完要 `docker compose build --no-cache frontend` |
+| 浏览器控制台 CORS 报错 | `CORS_ORIGINS` 是否包含前端所在 origin（含端口），多个用逗号分隔 |
+| 生产环境启动失败 | `APP_API_KEY` / `APP_SECRET_KEY` 是否已配置；生产模式启动即校验（Fail-Fast） |
+| 详情页白屏 | 打开 Console 看 React 错误；常见是 `null.xxx` → 改 `?.` 或显式判空 |
+| 章节流水线一直失败 | 查 `/logs`，`model_call_logs` 表里有完整 provider / 状态 / 错误 |
+
+---
+
+## 📁 目录结构
 
 ```
-novel-agent-workbench/
+.
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI 入口
-│   │   ├── database.py          # 数据库配置
-│   │   ├── models/              # 数据模型
-│   │   │   ├── project.py
-│   │   │   ├── book.py
-│   │   │   ├── chapter.py
-│   │   │   ├── bible.py
-│   │   │   ├── feedback.py
-│   │   │   └── evolution.py
-│   │   ├── routers/             # API 路由
-│   │   │   ├── projects.py
-│   │   │   ├── books.py
-│   │   │   ├── chapters.py
-│   │   │   ├── bible.py
-│   │   │   ├── worker.py
-│   │   │   ├── feedback.py
-│   │   │   ├── evolution.py
-│   │   │   └── export.py
-│   │   └── services/            # 服务层
-│   │       ├── llm_service.py
-│   │       ├── mock_llm_service.py
-│   │       ├── bible_service.py
-│   │       ├── writing_pipeline_service.py
-│   │       ├── worker_service.py
-│   │       ├── feedback_service.py
-│   │       ├── evolution_service.py
-│   │       └── export_service.py
+│   │   ├── main.py                 # FastAPI 入口
+│   │   ├── config.py               # Pydantic Settings 配置中心
+│   │   ├── database.py             # SQLAlchemy 引擎
+│   │   ├── models/                 # ORM 模型
+│   │   ├── routers/                # API 路由（35+）
+│   │   ├── schemas/                # Pydantic 请求/响应
+│   │   ├── services/               # 业务逻辑
+│   │   │   ├── pipeline_service.py        # 5 步流水线
+│   │   │   ├── production_loop_service.py # 24h Worker
+│   │   │   ├── openai_llm_service.py      # LLM 管理器
+│   │   │   ├── llm_router.py             # 角色路由
+│   │   │   └── ...
+│   │   ├── middleware/             # 日志 / 异常处理
+│   │   ├── deps/                   # 鉴权 / DB 依赖
+│   │   └── utils/                  # 工具函数
+│   ├── tests/                      # pytest 测试集
+│   ├── alembic/                    # 数据库迁移
 │   ├── requirements.txt
-│   └── Dockerfile
+│   └── data/                       # SQLite / 上传 / 产物（运行时生成）
 ├── frontend/
+│   ├── public/
+│   │   ├── config.js               # 运行时配置注入（可被部署脚本覆盖）
+│   │   └── index.html
 │   ├── src/
-│   │   ├── components/          # React 组件
-│   │   ├── pages/               # 页面组件
-│   │   │   ├── Dashboard.js
-│   │   │   ├── Projects.js
-│   │   │   ├── BibleEditor.js
-│   │   │   ├── WritingFactory.js
-│   │   │   ├── WorkerDashboard.js
-│   │   │   ├── FeedbackCenter.js
-│   │   │   ├── EvolutionCenter.js
-│   │   │   └── ExportPage.js
-│   │   ├── App.js
-│   │   └── index.js
+│   │   ├── pages/                  # 页面组件（20+）
+│   │   ├── components/             # 通用组件
+│   │   ├── contexts/               # React Context（Toast / Theme）
+│   │   ├── hooks/                  # 自定义 Hooks
+│   │   ├── services/               # axios 封装
+│   │   ├── styles/                 # Design Tokens
+│   │   ├── utils/                  # 工具函数
+│   │   └── App.js                  # 路由表
 │   ├── package.json
-│   └── Dockerfile
+│   └── .env.example
+├── docker/
+│   ├── Dockerfile.backend
+│   └── Dockerfile.frontend
+├── data/                           # 数据持久化（运行时生成）
+├── docs/                           # 文档
+├── scripts/                        # 辅助脚本
 ├── docker-compose.yml
-├── exports/                     # 导出文件目录
+├── .env.example
 └── README.md
 ```
 
-## 配置说明
+---
 
-### 模型配置
+## 🗺️ 路线图
 
-系统不预置任何 API Key，需要用户自行配置：
+- [x] P0 拆书学习 + 项目骨架
+- [x] P1 多 Agent 框架
+- [x] P2 Bible + 大纲
+- [x] P3 章节生成流水线
+- [x] P4 24h Worker / 调度器
+- [x] P5 反馈 + 进化 + A/B
+- [x] P6 导出多格式
+- [x] P7 并行 Draft / Critic
+- [x] P8 主编 Agent / Darwin 进化
+- [ ] P9 多人协作（WebSocket / 多用户）
+- [ ] P10 移动端适配
 
-1. 进入「模型配置中心」
-2. 添加 Provider：
-   - OpenAI
-   - Anthropic
-   - Gemini
-   - OpenRouter
-   - 自定义 OpenAI 兼容 API
-3. 配置 Base URL 和 API Key
-4. 测试连接
-5. 映射模型角色（Planner/Draft/Critic/Rewrite/Continuity）
+---
 
-### 环境变量
+## 🤝 贡献
 
-```bash
-# 安全密钥（必填）- 用于加密存储 LLM API Key
-# 必须是 Fernet.generate_key() 生成的 urlsafe base64 key，不能使用普通 hex 随机串
-# 生成方法: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-APP_SECRET_KEY=your-secret-key-here
+欢迎 Issue / PR！
+- 改前端：先看 `frontend/src/styles/tokens.css` 了解设计系统
+- 改后端：先看 `backend/app/services/openai_llm_service.py` 了解 LLM 调用约定
+- 加新模型角色：同时改 `model_assignments.py` 的 `SUPPORTED_ROLES` 和 `llm_router.py`
 
-# 后端
-DATABASE_URL=sqlite:///data/novel_agent.db
-UPLOAD_DIR=/app/data/uploads
-ARTIFACTS_DIR=/app/data/artifacts
+---
 
-# 前端（构建期变量，浏览器从此地址请求后端）
-# 开发/本机访问: http://localhost:8000/api
-# VPS 部署: 必须填后端公网地址（不能用 localhost，否则远程浏览器请求自己的电脑）
-REACT_APP_API_URL=http://localhost:8000/api
+## 📄 License
 
-# CORS（后端允许的来源）
-# VPS 部署需包含前端公网地址，例如 http://107.172.138.14:3005
-CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-```
-
-> VPS 部署示例：`REACT_APP_API_URL=http://107.172.138.14:8000/api`，
-> `CORS_ORIGINS=http://107.172.138.14:3005,http://localhost:3005`。
-> `REACT_APP_*` 是构建期变量，改后须重新构建前端镜像：
-> `docker compose build --no-cache frontend && docker compose up -d --force-recreate`。
-
-## 注意事项
-
-1. **Mock 模式**: 未配置 API 时，系统自动使用 MockLLMService 生成模拟内容
-2. **API Key 安全**: API Key 加密存储，前端只显示掩码
-3. **数据目录**: 所有数据保存在 `./data/` 目录
-4. **导出目录**: 导出文件保存在 `./exports/` 目录
-
-## 贡献
-
-欢迎提交 Issue 和 PR！
-
-## 许可证
-
-MIT License
+[MIT](LICENSE)

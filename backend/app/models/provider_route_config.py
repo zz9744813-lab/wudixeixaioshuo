@@ -33,15 +33,15 @@ class ProviderRouteConfig(Base):
     max_retries = Column(Integer, default=2)
 
     # 熔断配置
-    circuit_breaker_threshold = Column(Integer, default=5)     # 连续失败多少次触发熔断
-    circuit_breaker_reset_seconds = Column(Integer, default=300)  # 熔断后冷却时间(秒)
-    consecutive_failures = Column(Integer, default=0)          # 当前连续失败次数
+    circuit_breaker_threshold = Column(Integer, nullable=False, default=5)     # 连续失败多少次触发熔断
+    circuit_breaker_reset_seconds = Column(Integer, nullable=False, default=300)  # 熔断后冷却时间(秒)
+    consecutive_failures = Column(Integer, nullable=False, default=0)          # 当前连续失败次数
     circuit_breaker_opened_at = Column(DateTime, nullable=True)  # 熔断开始时间
 
     # 统计信息
-    total_calls = Column(Integer, default=0)
-    success_calls = Column(Integer, default=0)
-    failed_calls = Column(Integer, default=0)
+    total_calls = Column(Integer, nullable=False, default=0)
+    success_calls = Column(Integer, nullable=False, default=0)
+    failed_calls = Column(Integer, nullable=False, default=0)
     avg_latency_ms = Column(Integer, nullable=True)
 
     created_at = Column(DateTime, default=utc_now)

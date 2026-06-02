@@ -26,21 +26,21 @@ class DailyUsageStats(Base):
     model_name = Column(String(200))  # 模型名称
 
     # Token 统计
-    input_tokens = Column(Integer, default=0)
-    output_tokens = Column(Integer, default=0)
-    total_tokens = Column(Integer, default=0)
+    input_tokens = Column(Integer, default=0, server_default="0")
+    output_tokens = Column(Integer, default=0, server_default="0")
+    total_tokens = Column(Integer, default=0, server_default="0")
 
     # 成本统计
-    cost = Column(Float, default=0.0)  # 成本（美元）
+    cost = Column(Float, default=0.0, server_default="0.0")  # 成本（美元）
 
     # 任务统计
-    chapter_count = Column(Integer, default=0)  # 生成章节数
-    task_count = Column(Integer, default=0)  # 任务数
-    success_count = Column(Integer, default=0)  # 成功数
-    failure_count = Column(Integer, default=0)  # 失败数
+    chapter_count = Column(Integer, default=0, server_default="0")  # 生章节数
+    task_count = Column(Integer, default=0, server_default="0")  # 任务数
+    success_count = Column(Integer, default=0, server_default="0")  # 成功数
+    failure_count = Column(Integer, default=0, server_default="0")  # 失败数
 
     # 字数统计
-    word_count = Column(Integer, default=0)  # 生成字数
+    word_count = Column(Integer, default=0, server_default="0")  # 生成字数
 
     # 时间戳
     created_at = Column(Date, default=utc_now)

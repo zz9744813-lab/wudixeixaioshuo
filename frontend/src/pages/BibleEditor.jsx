@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
 import { toArray, toObject } from '../utils/nullSafety';
 import api from '../services/api';
@@ -34,18 +35,26 @@ export default function BibleEditor() {
   const [submitting, setSubmitting] = useState(false);
 
   const { data: projects = [], loading: loadingProjects } = useFetch('/projects/');
+  const [searchParams] = useSearchParams();
+  const toast = useToast();
 
   useEffect(() => {
+    // 优先使用 URL 中的 project_id（如从 ProjectDetail "编辑世界观" 跳转过来）
+    const urlPid = searchParams.get('project_id');
+    if (urlPid) {
+      setProjectId(String(urlPid));
+      return;
+    }
     if (projects.length && !projectId) {
       setProjectId(String(projects[0]?.id));
     }
-  }, [projects]);
+  }, [projects, searchParams]);
 
   const fetchBible = async (pid) => {
     if (!pid) return;
     setLoadingBible(true);
     try {
-      const res = await api.get(`/bible/projects/${pid}/bible`);
+      const res = await api.get(`/projects/${pid}/bible`);
       setBible(res.data);
     } catch (err) {
       toast.error('加载圣经失败');
@@ -61,7 +70,7 @@ export default function BibleEditor() {
     setLoadingDetail(true);
     setDetailData(null);
     try {
-      const res = await api.get(`/bible/projects/${projectId}/bible/characters`);
+      const res = await api.get(`/projects/${projectId}/bible/characters`);
       const chars = toArray(res.data?.characters);
       const found = chars.find((c) => c.id === charId || c.name === charId);
       setDetailData(found);
@@ -77,7 +86,7 @@ export default function BibleEditor() {
     if (!charForm.name) { toast.error('请输入人物名称'); return; }
     setSubmitting(true);
     try {
-      await api.post(`/bible/projects/${projectId}/bible/characters`, charForm);
+      await api.post(`/projects/${projectId}/bible/characters`, charForm);
       toast.success('人物已添加');
       setShowCharForm(false);
       setCharForm({ name: '', role: '配角', personality: '', abilities: '', notes: '' });
@@ -91,7 +100,7 @@ export default function BibleEditor() {
 
   const handleDeleteCharacter = async (charId) => {
     try {
-      await api.delete(`/bible/projects/${projectId}/bible/characters/${charId}`);
+      await api.delete(`/projects/${projectId}/bible/characters/${charId}`);
       toast.success('人物已删除');
       fetchBible(projectId);
     } catch {
@@ -102,7 +111,7 @@ export default function BibleEditor() {
   const handleGenerateWorld = async () => {
     setLoadingWorld(true);
     try {
-      const res = await api.post(`/bible/projects/${projectId}/bible/world-setting/generate`, {}, { params: { hint: worldDraft } });
+      const res = await api.post(`/projects/${projectId}/bible/world-setting/generate`, {}, { params: { hint: worldDraft } });
       setBible((prev) => ({ ...prev, world_setting: res.data.content }));
       toast.success('世界观已生成');
     } catch {
@@ -116,9 +125,10 @@ export default function BibleEditor() {
   const bibleObj = toObject(bible);
   const columns = [
     { key: 'name', label: '姓名', render: (v, row) => <span className={styles.charName}>{v}</span> },
-    { key: 'role', label: '角色', render: (v) => <Badge variant={CHARACTER_ROLE_COLORS[v] || 'accent'}>{v}</Badge> },
+    { key: 'identity', label: '身份' },
     { key: 'personality', label: '性格' },
-    { key: 'abilities', label: '能力' },
+    { key: 'goal', label: '目标' },
+    { key: 'habits', label: '习惯' },
     { key: 'id', label: '操作', render: (v, row) => (
       <span className={styles.cellActions}>
         <Button variant="ghost" size="sm" onClick={() => openDetail(row.id || row.name)}>详情</Button>

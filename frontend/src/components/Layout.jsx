@@ -31,6 +31,7 @@ const NAV_GROUPS = [
     group: '配置',
     items: [
       { to: '/models', label: '模型配置', icon: 'Settings2' },
+      { to: '/agent-models', label: 'Agent 分配', icon: 'Bot' },
       { to: '/llm-routes', label: 'LLM 路由池', icon: 'Route' },
       { to: '/prompts', label: 'Prompt 模板', icon: 'FileText' },
     ],

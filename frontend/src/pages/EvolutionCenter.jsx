@@ -7,6 +7,7 @@ import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
 import { useToast } from '../contexts/ToastContext';
 import { toObject, toArray } from '../utils/nullSafety';
+import api from '../services/api';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
@@ -65,8 +66,7 @@ export default function EvolutionCenter() {
     setLoadingDetail(true);
     setRunData(null);
     try {
-      const res = await fetch(`/api/evolution/${id}`);
-      const data = await res.json();
+      const { data } = await api.get(`/evolution/${id}`);
       setRunData(data);
     } catch {
       toast.error('加载进化详情失败');
@@ -78,7 +78,9 @@ export default function EvolutionCenter() {
     if (!createForm.project_id) { toast.error('请选择项目'); return; }
     setSubmitting(true);
     try {
-      toast.success('进化轮次已创建');
+      await api.post('/evolution/', createForm);
+    await api.post('/evolution/', createForm);
+    toast.success('进化轮次已创建');
       setShowCreate(false);
       reload();
     } catch (err) {
@@ -90,7 +92,9 @@ export default function EvolutionCenter() {
 
   const handleAction = async (id, action) => {
     try {
-      toast.success(action === 'apply' ? '进化已应用' : '进化已回滚');
+      await api.post(`/evolution/${id}/action`, { action: action === 'apply' ? 'apply' : 'rollback' });
+    await api.post(`/evolution/${id}/action`, { action: action === 'apply' ? 'apply' : 'rollback' });
+    toast.success(action === 'apply' ? '进化已应用' : '进化已回滚');
       reload();
       if (runId === id) openDetail(id);
     } catch (err) {

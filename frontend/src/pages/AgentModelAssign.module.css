@@ -1,0 +1,124 @@
+.page {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.loading, .error {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.error p {
+  margin: 8px 0 12px;
+  color: var(--danger);
+}
+
+.hint {
+  color: var(--text-secondary);
+  font-size: var(--fs-sm, 13px);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm, 13px);
+}
+
+.table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: var(--fs-xs, 11px);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.roleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roleLabel {
+  font-size: var(--fs-sm, 13px);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.roleCode {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.select, .input, .inputSmall {
+  background: var(--bg-sunken);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm, 6px);
+  padding: 6px 10px;
+  font-size: var(--fs-sm, 13px);
+  width: 100%;
+}
+
+.select {
+  min-width: 140px;
+}
+
+.input {
+  min-width: 140px;
+}
+
+.inputSmall {
+  width: 80px;
+  min-width: 70px;
+}
+
+.select:focus, .input:focus, .inputSmall:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.rowChanged {
+  background: rgba(79, 140, 255, 0.05);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.testResult {
+  font-size: 11px;
+  margin-top: 2px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.testOk {
+  color: var(--success);
+}
+
+.testFail {
+  color: var(--danger);
+}

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { AsyncState } from '../components/ui/AsyncState';
+import Modal from '../components/ui/Modal';
 import ConfirmModal from '../components/ConfirmModal';
 import { useConfirm } from '../hooks/useConfirm';
 import { useToast } from '../contexts/ToastContext';
@@ -154,7 +156,7 @@ export default function ProjectDetail() {
             <Link to="/factory"><Button variant="secondary">进入写作工厂</Button></Link>
             <Link to="/tasks"><Button variant="secondary">任务队列</Button></Link>
             <Link to="?view=feedback"><Button variant="secondary">反馈中心</Button></Link>
-            {project.status !== 'active' ? (
+            {(!project || project.status !== 'active') ? (
               <Button variant="primary" onClick={async () => { try { await api.post(`/projects/${projectId}/start`); toast.success('项目已启动'); fetchAll(); } catch (e) { toast.error(e?.response?.data?.detail || '启动失败'); } }}>启动项目</Button>
             ) : (
               <Button variant="secondary" onClick={async () => { try { await api.post(`/projects/${projectId}/pause`); toast.success('项目已暂停'); fetchAll(); } catch (e) { toast.error(e?.response?.data?.detail || '暂停失败'); } }}>暂停项目</Button>

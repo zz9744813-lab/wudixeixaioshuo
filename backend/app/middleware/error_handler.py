@@ -7,7 +7,7 @@ import traceback
 from typing import Any, Dict, Union
 
 from fastapi import FastAPI, Request, status
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -82,6 +82,49 @@ def setup_exception_handlers(app: FastAPI):
     ) -> JSONResponse:
         """处理 Pydantic 验证错误"""
         return await handle_validation_error(request, RequestValidationError(exc.errors()))
+
+    @app.exception_handler(ResponseValidationError)
+    async def handle_response_validation_error(
+        request: Request, exc: ResponseValidationError
+    ) -> JSONResponse:
+        """P1-1: 兜底 ResponseValidationError。
+
+        FastAPI 在 serialize_response 阶段抛出的 ResponseValidationError
+        不被 RequestValidationError handler 捕获——它会被 starlette 的
+        ServerErrorMiddleware 兜底为 500 纯文本，导致 axios 显示
+        "Network Error" 而非明确错误信息。这里把它降级为 500 + 标准 JSON。
+        """
+        errors = exc.errors() if hasattr(exc, "errors") else []
+        error_id = f"err_respval_{id(exc):x}"
+        logger.error(
+            f"ResponseValidationError [{error_id}]: {errors[:3]}",
+            extra={"extra_fields": {
+                "error_id": error_id,
+                "path": request.url.path,
+                "method": request.method,
+                "errors": errors[:5],
+            }}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "error": {
+                    "code": "RESPONSE_VALIDATION_ERROR",
+                    "message": "Server response did not match schema",
+                    "details": {
+                        "error_id": error_id,
+                        "errors": [
+                            {
+                                "loc": ".".join(str(x) for x in e.get("loc", [])),
+                                "msg": e.get("msg", ""),
+                                "type": e.get("type", ""),
+                            }
+                            for e in errors[:5]
+                        ],
+                    },
+                }
+            },
+        )
 
     @app.exception_handler(IntegrityError)
     async def handle_integrity_error(

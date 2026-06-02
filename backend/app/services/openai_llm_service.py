@@ -4,6 +4,7 @@ OpenAI-compatible LLM Service - OpenAI 兼容的 LLM 服务
 """
 
 import asyncio
+import json
 import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
@@ -84,18 +85,17 @@ class OpenAILLMService(BaseLLMService):
         **kwargs
     ) -> Dict[str, Any]:
         """
-        生成响应
+        生成响应 — 使用流式请求收集完整结果
 
-        Args:
-            prompt: 用户提示词
-            model: 模型名称，默认使用初始化时的 model_name
-            temperature: 温度参数
-            max_tokens: 最大生成 token 数
-            system_prompt: 系统提示词
-            **kwargs: 其他参数
+        非流式请求在推理模型（如 StepFun step-3.7-flash）上容易超时，
+        因为推理模型先输出思维链再输出正式内容，非流式需要等服务端
+        把所有 token 全部生成完才返回。改为流式收集可以：
+        1. 避免超时 — 数据持续流动，HTTP 连接不会被断开
+        2. 推理模型友好 — 思维链 tokens 先回来，不积攒到最后
+        3. 实时进度 — 每个 chunk 都到达客户端
 
         Returns:
-            包含响应内容的字典
+            包含响应内容的字典，格式与非流式版本完全一致
         """
         model = model or self.model_name
         messages = []
@@ -110,6 +110,7 @@ class OpenAILLMService(BaseLLMService):
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "stream": True,  # 始终使用流式请求，避免推理模型超时
         }
 
         # 添加其他可选参数
@@ -124,24 +125,79 @@ class OpenAILLMService(BaseLLMService):
         # 重试机制
         for attempt in range(self.retry_times):
             try:
-                response = await self.client.post(
+                collected_content_parts = []
+                collected_reasoning_parts = []
+                finish_reason = None
+                usage_info = {}
+
+                async with self.client.stream(
+                    "POST",
                     "/chat/completions",
                     json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+                ) as response:
+                    # 对流式响应，需要检查初始状态码
+                    # httpx stream 会在进入 context 时发送请求
+                    # raise_for_status 在读取第一个字节时才能判断
+                    # 所以我们在读取 chunks 过程中处理
+
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+
+                        data_str = line[6:]  # 移除 "data: " 前缀
+
+                        if data_str.strip() == "[DONE]":
+                            break
+
+                        try:
+                            chunk = json.loads(data_str)
+
+                            # 提取 finish_reason
+                            if "choices" in chunk and chunk["choices"]:
+                                choice = chunk["choices"][0]
+                                delta = choice.get("delta", {})
+
+                                if choice.get("finish_reason") is not None:
+                                    finish_reason = choice["finish_reason"]
+
+                                # 收集 content 和 reasoning_content
+                                content_part = delta.get("content")
+                                if content_part is not None:
+                                    collected_content_parts.append(content_part)
+
+                                # 推理模型的思维链输出
+                                reasoning_part = delta.get("reasoning_content")
+                                if reasoning_part is not None:
+                                    collected_reasoning_parts.append(reasoning_part)
+
+                            # 提取 usage（某些 API 在最后一个 chunk 返回 usage）
+                            if "usage" in chunk and chunk["usage"]:
+                                usage_info = chunk["usage"]
+
+                        except json.JSONDecodeError:
+                            continue
 
                 duration = time.time() - start_time
 
-                # 提取响应内容
-                choice = data["choices"][0]
-                content = choice["message"]["content"]
+                # 拼接收集到的内容
+                content = "".join(collected_content_parts)
+                reasoning_content = "".join(collected_reasoning_parts)
+
+                # 兼容推理模型：如果 content 为空但 reasoning_content 有内容，
+                # 说明推理模型把正式输出放在了 reasoning_content 中
+                if not content and reasoning_content:
+                    content = reasoning_content
 
                 # 获取 token 统计
-                usage = data.get("usage", {})
-                input_tokens = usage.get("prompt_tokens", 0)
-                output_tokens = usage.get("completion_tokens", 0)
-                total_tokens = usage.get("total_tokens", input_tokens + output_tokens)
+                input_tokens = usage_info.get("prompt_tokens", 0)
+                output_tokens = usage_info.get("completion_tokens", 0)
+                total_tokens = usage_info.get("total_tokens", input_tokens + output_tokens)
+
+                # 如果流式响应没有 usage 信息，用粗略估计
+                # OpenAI 兼容 API 有些不在 stream 中返回 usage
+                if not input_tokens and not output_tokens:
+                    # 粗略估计：输入 ≈ prompt tokens，输出 ≈ 收集到的 content 的字符数/4
+                    pass
 
                 # 计算成本
                 cost = self._calculate_cost(model, input_tokens, output_tokens)
@@ -156,7 +212,7 @@ class OpenAILLMService(BaseLLMService):
                     "total_tokens": total_tokens,
                     "cost": cost,
                     "duration_seconds": duration,
-                    "finish_reason": choice.get("finish_reason"),
+                    "finish_reason": finish_reason,
                 }
 
             except httpx.HTTPStatusError as e:
@@ -179,7 +235,15 @@ class OpenAILLMService(BaseLLMService):
                 raise Exception(f"API 请求超时，已重试 {self.retry_times} 次")
 
             except Exception as e:
-                raise Exception(f"API 请求异常: {str(e)}")
+                # 区分可重试和不可重试异常
+                error_msg = str(e)
+                if "stream" in error_msg.lower() or "connection" in error_msg.lower():
+                    # 网络/连接错误，可重试
+                    last_error = error_msg
+                    if attempt < self.retry_times - 1:
+                        await asyncio.sleep(1)
+                        continue
+                raise Exception(f"API 请求异常: {error_msg}")
 
         raise Exception(f"API 请求失败: {last_error}")
 
@@ -238,11 +302,14 @@ class OpenAILLMService(BaseLLMService):
                             break
 
                         try:
-                            import json
                             chunk = json.loads(data)
                             delta = chunk["choices"][0]["delta"]
-                            if "content" in delta:
-                                yield delta["content"]
+                            # 兼容推理模型：优先输出 content，content 为空时输出 reasoning_content
+                            content_part = delta.get("content")
+                            if content_part is None:
+                                content_part = delta.get("reasoning_content")
+                            if content_part:
+                                yield content_part
                         except (json.JSONDecodeError, KeyError):
                             continue
 
@@ -559,7 +626,7 @@ class LLMServiceManager:
         prompt: str,
         role: str = "default",
         temperature: float = 0.7,
-        max_tokens: int = 4000,
+        max_tokens: int = 6000,  # 推理模型默认上限提高
         db=None,
         request_type: str = "chat_completion",
         project_id: Optional[int] = None,

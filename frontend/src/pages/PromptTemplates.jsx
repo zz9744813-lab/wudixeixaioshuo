@@ -7,6 +7,7 @@ import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
 import { useToast } from '../contexts/ToastContext';
 import { toArray } from '../utils/nullSafety';
+import api from '../services/api';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
@@ -45,15 +46,14 @@ export default function PromptTemplates() {
     setLoadDetail(true);
     setDetailData(null);
     try {
-      const res = await fetch(`/api/prompts/templates/${id}`);
-      const data = await res.json();
+      const { data } = await api.get(`/prompts/templates/${id}`);
       setDetailData(data);
-      const previewRes = await fetch('/api/prompts/render-preview', {
+      const previewRes = await api.post('/prompts/render-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: data.role, variables: { chapter_index: 1, project_name: '示例项目', genre: '都市', word_goal: 3000 } }),
       });
-      const previewJson = await previewRes.json();
+      const previewJson = await previewRes.data;
       setPreviewText(previewJson.prompt || '');
     } catch {
       toast.error('加载模板详情失败');
@@ -66,12 +66,13 @@ export default function PromptTemplates() {
     if (!form.name || !form.content) { toast.error('请填写名称和内容'); return; }
     setSubmitting(true);
     try {
-      await fetch('/api/prompts/templates', {
+      await api.post('/prompts/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        data: form,
       });
-      toast.success('模板已创建');
+      await api.post('/prompts/templates', form);
+  toast.success('模板已创建');
       setShowCreate(false);
       setForm({ role: 'draft', name: '', content: '', description: '', project_id: '', activate: true });
       reload();

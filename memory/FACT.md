@@ -4,3 +4,10 @@
 - 用户要求：开始/继续项目前先核对项目情况，尤其是 `git status`。
 - 用户要求：每完成一个阶段就提交并推送到仓库 `https://github.com/zz9744813-lab/wudixeixaioshuo.git`。
 - 工具使用经验：Read 工具读取普通文本/代码文件时不要传 `pages: ""`，空字符串会报 `Invalid pages parameter`；只有读取 PDF 且需要页码时才传合法页码。
+
+## 项目前端关键事实
+- 路由表（App.js）：所有页面必须在 `<Route>` 里注册，否则点击 `<Link>` 会进入空 main 区（不是 crash，但视觉上像崩溃）。**新增页面后必须确认路由已注册**。
+- bible 路由前缀：后端 `bible.py` 用 `prefix="/api"` 注册，**不是** `/api/bible`。正确路径是 `/api/projects/{id}/bible` 和 `/api/projects/{id}/bible/characters` 等。前端 `BibleEditor.jsx` 原本写成 `/bible/projects/...` 是错的（404）。
+- BibleEditor 缺 `useToast()` 初始化：`useToast` 被 import 但从未调用，错误路径下 catch 块调用 `toast.error` 会抛 ReferenceError。这是"详情页面就会崩溃"的真正根因——用户点"编辑世界观"按钮后跳到 BibleEditor，错误的 API 路径返回 404，catch 块里 `toast` 未初始化直接 crash。
+- 5xx 错误的 axios 显示：FastAPI 的 `ResponseValidationError`（Pydantic 响应模型失败）会被 Starlette 兜底为纯文本 500，axios 无法解析 JSON 就显示"Network Error"。修复：middleware 加 `@app.exception_handler(ResponseValidationError)` 返回标准 JSON 错误结构。
+- **JSX 子表达式是 eager 求值**（不是 lazy）：`{x && <Foo />}` 里的 JSX（包括 `React.createElement` 调用）会在父组件 render 时立即求值。所以 `<AsyncState isEmpty={!x}><div>{x.status}...</div></AsyncState>` 在 `x = null` 时仍然会抛 `Cannot read properties of null (reading 'status')`，因为表达式在父 render 时已经被求值了，根本到不了 AsyncState 的 if 分支。**JSX 内部对可能为 null 的对象做属性访问必须用可选链 `?.` 或显式 null check**——`AsyncState` 的 `isEmpty` 保护不了子表达式，只保护子元素的渲染。

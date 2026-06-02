@@ -73,19 +73,19 @@ class DailyUsageStatsService:
             )
             self.db.add(stats)
 
-        # 更新统计
-        stats.input_tokens += input_tokens
-        stats.output_tokens += output_tokens
-        stats.total_tokens += input_tokens + output_tokens
-        stats.cost += cost
-        stats.chapter_count += chapter_count
-        stats.task_count += task_count
-        stats.word_count += word_count
+        # 更新统计（防御 NULL 值：数据库中旧记录可能为 NULL）
+        stats.input_tokens = (stats.input_tokens or 0) + input_tokens
+        stats.output_tokens = (stats.output_tokens or 0) + output_tokens
+        stats.total_tokens = (stats.total_tokens or 0) + input_tokens + output_tokens
+        stats.cost = (stats.cost or 0.0) + cost
+        stats.chapter_count = (stats.chapter_count or 0) + chapter_count
+        stats.task_count = (stats.task_count or 0) + task_count
+        stats.word_count = (stats.word_count or 0) + word_count
 
         if success:
-            stats.success_count += 1
+            stats.success_count = (stats.success_count or 0) + 1
         else:
-            stats.failure_count += 1
+            stats.failure_count = (stats.failure_count or 0) + 1
 
         stats.updated_at = utc_now()
         self.db.commit()

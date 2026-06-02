@@ -3,6 +3,8 @@ import { useFetch } from '../hooks/useFetch';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import { Table } from '../components/ui/Table';
+import Modal from '../components/ui/Modal';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';

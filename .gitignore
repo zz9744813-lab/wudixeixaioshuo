@@ -82,3 +82,29 @@ secrets/
 .claude/
 test*.txt
 *_test_output.txt
+
+# Stray debug / fix scripts (often created during troubleshooting)
+__fix_*.py
+__fix_*.js
+__direct_setup__.py
+__list_routes__.py
+*__fix__.*
+*__list_routes__.*
+fix_*.py
+fix_*.js
+final_fix*.py
+patch_*.js
+inject_*.js
+touch_trigger.py
+start.bat
+p[0-9]_*_test.py
+
+# Project state dumps / step logs
+project*.json
+step_*.txt
+test_output.txt
+test_*.log
+backend/novel_ai.db
+backend/data/uploads/
+backend/data/artifacts/
+backend/data/exports/

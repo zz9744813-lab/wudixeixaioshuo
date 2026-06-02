@@ -1,5 +1,16 @@
 version: '3.8'
 
+# ============================================================
+# 小说 Agent 工作台 - Docker Compose
+# ============================================================
+# 部署前请：
+#   1. cp .env.example .env
+#   2. 修改 .env 里的 CORS_ORIGINS 和 REACT_APP_API_URL
+#      - 远程访问：填公网 IP 或域名
+#      - 本机访问：保持 http://localhost:xxxx 即可
+#   3. 重新生成 APP_API_KEY / APP_SECRET_KEY（见 .env.example 注释）
+# ============================================================
+
 services:
   backend:
     build:
@@ -10,15 +21,15 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-      - ./backend:/app/backend
     environment:
-      - DATABASE_URL=sqlite:///app/data/novel_agent.db
-      - UPLOAD_DIR=/app/data/uploads
-      - ARTIFACTS_DIR=/app/data/artifacts
-      - LOG_LEVEL=info
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://107.172.138.14:3005,http://localhost:3005,http://127.0.0.1:3000}
-      - APP_SECRET_KEY=${APP_SECRET_KEY}
-      - APP_API_KEY=${APP_API_KEY}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - UPLOAD_DIR=${UPLOAD_DIR:-/app/data/uploads}
+      - ARTIFACTS_DIR=${ARTIFACTS_DIR:-/app/data/artifacts}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3005}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-}
+      - APP_API_KEY=${APP_API_KEY:-}
+      - APP_ENV=${APP_ENV:-development}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
@@ -34,11 +45,8 @@ services:
     container_name: novel-agent-frontend
     ports:
       - "3005:3000"
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://107.172.138.14:8000/api}
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000/api}
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend

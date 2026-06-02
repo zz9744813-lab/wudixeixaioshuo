@@ -58,10 +58,10 @@ class ProviderRouteConfigResponse(ProviderRouteConfigBase):
     circuit_breaker_opened_at: Optional[datetime] = None
     is_circuit_open: bool = False
 
-    # 统计信息
-    total_calls: int = 0
-    success_calls: int = 0
-    failed_calls: int = 0
+    # 统计信息 — Optional 防止旧数据 NULL 导致 422
+    total_calls: Optional[int] = 0
+    success_calls: Optional[int] = 0
+    failed_calls: Optional[int] = 0
     avg_latency_ms: Optional[int] = None
 
     created_at: datetime

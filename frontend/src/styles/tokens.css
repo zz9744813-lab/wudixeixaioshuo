@@ -40,24 +40,42 @@
   --fs-xs:11px; --fs-sm:12px; --fs-base:13px; --fs-md:14px; --fs-lg:18px; --fs-xl:22px; --fs-2xl:26px;
 
   --sidebar-w: 200px;
+
+  /* 增强令牌 */
+  --sidebar-bg: var(--bg-sunken);
+  --sidebar-hover: var(--bg-elevated);
+  --sidebar-active: var(--accent-weak);
+  --header-h: 56px;
+  --card-shadow: 0 1px 0 rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.18);
+  --transition-fast: .15s ease;
+  --transition-base: .2s ease;
 }
 
-/* ===== 浅色（备用，给 ThemeSwitcher 的"浅色"用）===== */
-
-/* ===== 增强令牌（UI Redesign Plan v16）===== */
---sidebar-bg: var(--bg-sunken);
---sidebar-hover: var(--bg-elevated);
---sidebar-active: var(--accent-weak);
---header-h: 56px;
---card-shadow: 0 1px 0 rgba(0,0,0,.12), 0 8px 24px rgba(0,0,0,.18);
---transition-fast: .15s ease;
---transition-base: .2s ease;
-
+/* ===== 浅色 ===== */
 [data-theme="light"] {
-  --bg-app:#f4f6fb; --bg-surface:#fff; --bg-elevated:#fff; --bg-sunken:#f1f5f9;
-  --border:#e5e7eb; --border-strong:#d1d5db;
+  --bg-app:#f4f6fb; --bg-surface:#fff; --bg-elevated:#f8f9fb; --bg-sunken:#f1f5f9;
+  --border:#e5e7eb; --border-strong:#d1d5db; --border-focus:#3a6df0;
   --text:#0f1222; --text-secondary:#4b5563; --text-muted:#6b7280;
   --accent:#2563eb; --accent-hover:#1d4ed8; --accent-weak:#eff6ff;
   --success:#059669; --warning:#d97706; --danger:#dc2626; --info:#2563eb;
+  --success-weak:#ecfdf5; --warning-weak:#fffbeb; --danger-weak:#fef2f2; --info-weak:#eff6ff;
   --shadow-overlay:0 8px 24px rgba(16,18,34,.16);
+  --card-shadow: 0 1px 0 rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.1);
+  --sidebar-bg: var(--bg-sunken);
+  --sidebar-hover: var(--bg-elevated);
+  --sidebar-active: var(--accent-weak);
+}
+
+/* ===== 浅色模式下的组件修正 ===== */
+[data-theme="light"] .theme-switcher {
+  background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .theme-switcher__btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
+[data-theme="light"] .theme-switcher__btn.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }

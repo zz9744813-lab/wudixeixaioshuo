@@ -6,6 +6,7 @@ import { useConfirm } from '../hooks/useConfirm';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { Link } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
 
 import PageHeader from '../components/console/PageHeader';
@@ -15,7 +16,7 @@ import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './ModelConfig.module.css';
 
 const PAGE_TITLE = '⚙️ 模型配置中心';
-const PAGE_SUBTITLE = '运行态诊断 + Quick Setup + Provider 管理 + 角色映射';
+const PAGE_SUBTITLE = '运行态诊断 + Provider 管理 + 角色映射';
 
 const PROVIDER_TYPES = [
   { value: 'openai', label: 'OpenAI 兼容' },
@@ -31,7 +32,6 @@ export default function ModelConfig() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showProviderModal, setShowProviderModal] = useState(false);
-  const [showQuickSetup, setShowQuickSetup] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [testingId, setTestingId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -41,12 +41,6 @@ export default function ModelConfig() {
   const [discoveredModels, setDiscoveredModels] = useState([]);
   const [discoverError, setDiscoverError] = useState('');
   const [manualModelMode, setManualModelMode] = useState(false);
-
-  // P0-4: Quick Setup 模型发现状态
-  const [qsDiscovering, setQsDiscovering] = useState(false);
-  const [qsModels, setQsModels] = useState([]);
-  const [qsDiscoverError, setQsDiscoverError] = useState('');
-  const [qsManualModelMode, setQsManualModelMode] = useState(false);
 
   const [diagnostics, setDiagnostics] = useState({
     apiBaseUrl: '', hasApiKey: false, providersOk: false, rolesOk: false,
@@ -64,13 +58,6 @@ export default function ModelConfig() {
   const [defaultModel, setDefaultModel] = useState('');
   const [isEnabled, setIsEnabled] = useState(true);
 
-  // Quick setup form
-  const [qsName, setQsName] = useState('默认配置');
-  const [qsType, setQsType] = useState('openai');
-  const [qsUrl, setQsUrl] = useState('');
-  const [qsKey, setQsKey] = useState('');
-  const [qsModel, setQsModel] = useState('');
-
   const updateDiagnostics = useCallback(() => {
     try {
       const info = getApiRuntimeInfo();
@@ -84,7 +71,7 @@ export default function ModelConfig() {
       const res = await api.get('/models/providers');
       const data = toArray(res.data);
       setProviders(data);
-      setDiagnostics((d) => ({ ...d, providersOk: true, providersCount: data.length }));
+      setDiagnostics((d) => ({ ...d, providersOk: true, providersCount: data.length, lastError: '' }));
       return data;
     } catch (err) {
       const msg = getApiErrorMessage(err);
@@ -99,7 +86,7 @@ export default function ModelConfig() {
       const res = await api.get('/models/roles');
       const data = toArray(res.data);
       setRoles(data);
-      setDiagnostics((d) => ({ ...d, rolesOk: true, rolesCount: data.length }));
+      setDiagnostics((d) => ({ ...d, rolesOk: true, rolesCount: data.length, lastError: '' }));
       return data;
     } catch (err) {
       const msg = getApiErrorMessage(err);
@@ -179,48 +166,6 @@ export default function ModelConfig() {
     }
   };
 
-  // P0-4: 模型发现 - Quick Setup
-  const handleQuickDiscoverModels = async () => {
-    if (!qsUrl.trim() || !qsKey.trim()) {
-      toast.error('请先填写 Base URL 和 API Key');
-      return;
-    }
-    setQsDiscovering(true);
-    setQsDiscoverError('');
-    setQsModels([]);
-    try {
-      const res = await api.post('/models/discover', {
-        provider_type: qsType,
-        base_url: qsUrl.trim(),
-        api_key: qsKey.trim(),
-      });
-      if (!res.data?.ok) {
-        const msg = res.data?.error?.message || res.data?.note || '模型发现失败';
-        setQsDiscoverError(msg);
-        toast.error(msg, 6000);
-        return;
-      }
-      const models = toArray(res.data?.models);
-      setQsModels(models);
-
-      if (models.length > 0) {
-        setQsModel(models[0].id);
-        toast.success(`已拉取 ${models.length} 个模型`);
-      } else {
-        const note = res.data?.note || '没有拉取到模型，请手动填写模型名';
-        setQsDiscoverError(note);
-        toast.warning(note, 6000);
-        setQsManualModelMode(true);
-      }
-    } catch (err) {
-      const msg = getApiErrorMessage(err);
-      setQsDiscoverError(msg);
-      toast.error(msg, 6000);
-    } finally {
-      setQsDiscovering(false);
-    }
-  };
-
   const handleSaveProvider = async () => {
     if (!name.trim() || !baseUrl.trim() || !defaultModel.trim()) {
       toast.error('请填写名称、Base URL 和默认模型', 4000);
@@ -293,36 +238,6 @@ export default function ModelConfig() {
     }
   };
 
-  const handleQuickSetup = async () => {
-    if (!qsUrl.trim() || !qsKey.trim() || !qsModel.trim()) {
-      toast.error('请填写 URL、API Key 和默认模型', 4000);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await api.post('/models/quick-setup', {
-        name: qsName.trim() || '默认配置', provider_type: qsType,
-        base_url: qsUrl.trim(), api_key: qsKey.trim(), default_model: qsModel.trim(),
-      });
-      const rolesLen = res.data?.roles_configured?.length || 0;
-      const detail = [
-        '配置成功：', `Provider ID: ${res.data?.provider_id || '-'}`,
-        `Provider: ${res.data?.provider_name || qsName}`, `模型: ${qsModel}`,
-        `已配置角色: ${rolesLen} 个`,
-      ].join('\n');
-      toast.success(detail, 8000);
-      setDiagnostics((d) => ({ ...d, lastSaveMessage: detail }));
-      setShowQuickSetup(false);
-      await fetchAll();
-    } catch (err) {
-      const msg = getApiErrorMessage(err);
-      setDiagnostics((d) => ({ ...d, lastError: msg }));
-      toast.error(msg, 6000);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const typeLabel = (t) => (PROVIDER_TYPES.find((x) => x.value === t)?.label) || t;
   const diagOk = diagnostics.providersOk && diagnostics.rolesOk;
 
@@ -349,50 +264,13 @@ export default function ModelConfig() {
         </div>
       )}
 
-      {/* Quick Setup */}
-      <SectionCard title="⚡ 快速配置中转站" subtitle="一键配置所有角色模型映射" actions={
-        !showQuickSetup ? (
-          <Button variant="primary" size="sm" onClick={() => {
-            setQsName('默认配置'); setQsType('openai'); setQsUrl(''); setQsKey('');
-            setQsModel(''); setQsModels([]); setQsDiscoverError('');
-            setQsManualModelMode(false); setShowQuickSetup(true);
-          }}>一键快速配置</Button>
-        ) : (
-          <Button variant="secondary" size="sm" onClick={() => setShowQuickSetup(false)}>取消</Button>
-        )
-      }>
-        {showQuickSetup && (
-          <div className={styles.formGrid}>
-            <label><span>配置名</span><input value={qsName} onChange={(e) => setQsName(e.target.value)} placeholder="默认配置" /></label>
-            <label><span>Provider 类型</span><select value={qsType} onChange={(e) => { setQsType(e.target.value); if (e.target.value === 'openai') setQsUrl('https://api.openai.com/v1'); else if (e.target.value === 'anthropic') setQsUrl('https://api.anthropic.com'); else setQsUrl('http://localhost:8000/v1'); }}>{PROVIDER_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select></label>
-            <label><span>Base URL</span><input value={qsUrl} onChange={(e) => setQsUrl(e.target.value)} placeholder="https://api.openai.com/v1" /></label>
-            <label><span>API Key</span><input value={qsKey} onChange={(e) => setQsKey(e.target.value)} type="password" placeholder="sk-..." /></label>
-            <label>
-              <span>默认模型</span>
-              {!qsManualModelMode && qsModels.length > 0 ? (
-                <select value={qsModel} onChange={(e) => setQsModel(e.target.value)}>
-                  {qsModels.map((m) => <option key={m.id} value={m.id}>{m.name || m.id}</option>)}
-                </select>
-              ) : (
-                <input value={qsModel} onChange={(e) => setQsModel(e.target.value)} placeholder="gpt-4o-mini" />
-              )}
-            </label>
-            <div className={styles.fullWidth}>
-              <Button variant="secondary" size="sm" onClick={handleQuickDiscoverModels} disabled={qsDiscovering || !qsUrl || !qsKey}>
-                {qsDiscovering ? '拉取中…' : '测试并拉取模型'}
-              </Button>
-            </div>
-            <div className={styles.fullWidth}>
-              <Button variant="ghost" size="sm" onClick={() => setQsManualModelMode((v) => !v)}>
-                {qsManualModelMode ? '使用模型列表' : '高级：手动输入模型名'}
-              </Button>
-            </div>
-            {qsDiscoverError && <p className={styles.errorText}>{qsDiscoverError}</p>}
-            <div className={styles.formActions}>
-              <Button variant="primary" onClick={handleQuickSetup} disabled={submitting}>{submitting ? '配置中…' : '一键保存并配置所有角色'}</Button>
-            </div>
-          </div>
-        )}
+      {/* Per-role model assignment → Agent 分配页面 */}
+      <SectionCard title="🤖 Agent 模型分配" subtitle="为每个 Agent 角色独立分配模型和参数"
+        actions={<Link to="/agent-models"><Button variant="primary" size="sm">前往 Agent 分配页面</Button></Link>}
+      >
+        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--fs-sm, 13px)', margin: 0 }}>
+          每个 Agent 角色现在可以独立选择 Provider、模型、温度、最大 Token 等参数。点击右上角按钮前往独立配置页面。
+        </p>
       </SectionCard>
 
       {/* Provider List */}
@@ -444,7 +322,7 @@ export default function ModelConfig() {
             </tbody>
           </table>
         </div>
-        {roles.length === 0 && !loading && <EmptyPanel title="暂无角色映射" description="请先配置 Provider，然后使用快速配置" />}
+        {roles.length === 0 && !loading && <EmptyPanel title="暂无角色映射" description="请先配置 Provider，然后在 Agent 模型分配页面分配角色" />}
       </SectionCard>
 
       {/* Provider Edit/Create Modal */}

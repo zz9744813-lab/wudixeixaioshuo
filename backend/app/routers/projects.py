@@ -41,8 +41,10 @@ class ProjectResponse(BaseModel):
     description: Optional[str]
     genre: str
     status: str
-    current_chapter_index: int
-    total_words_written: int
+    # P1-1: 数据库历史数据可能为 NULL（手工迁移/插入时未走 SQLAlchemy default），
+    # 响应模型兜底为 0，避免 Pydantic 验证失败导致 500。
+    current_chapter_index: Optional[int] = 0
+    total_words_written: Optional[int] = 0
     created_at: Optional[str]
 
     class Config:

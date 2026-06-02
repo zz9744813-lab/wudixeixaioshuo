@@ -12,12 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def _get_fernet() -> Fernet:
-    key = os.getenv("APP_SECRET_KEY")
+    # 优先从 Pydantic Settings 读取（支持 .env 文件），回退到 OS 环境变量
+    from app.config import get_settings
+    key = get_settings().APP_SECRET_KEY or os.getenv("APP_SECRET_KEY")
     if not key:
         raise RuntimeError(
             "APP_SECRET_KEY 未配置。请使用："
             "python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\" "
-            "生成密钥，并写入环境变量。"
+            "生成密钥，并写入环境变量或 .env 文件。"
         )
 
     try:

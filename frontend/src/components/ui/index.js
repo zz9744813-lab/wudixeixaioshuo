@@ -7,3 +7,4 @@ export { Skeleton } from './Skeleton';
 export { EmptyState } from './EmptyState';
 export { ErrorState } from './ErrorState';
 export { AsyncState } from './AsyncState';
+export { Input } from './Input';
