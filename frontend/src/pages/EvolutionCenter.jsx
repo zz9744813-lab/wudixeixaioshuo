@@ -79,8 +79,7 @@ export default function EvolutionCenter() {
     setSubmitting(true);
     try {
       await api.post('/evolution/', createForm);
-    await api.post('/evolution/', createForm);
-    toast.success('进化轮次已创建');
+      toast.success('进化轮次已创建');
       setShowCreate(false);
       reload();
     } catch (err) {
@@ -93,8 +92,7 @@ export default function EvolutionCenter() {
   const handleAction = async (id, action) => {
     try {
       await api.post(`/evolution/${id}/action`, { action: action === 'apply' ? 'apply' : 'rollback' });
-    await api.post(`/evolution/${id}/action`, { action: action === 'apply' ? 'apply' : 'rollback' });
-    toast.success(action === 'apply' ? '进化已应用' : '进化已回滚');
+      toast.success(action === 'apply' ? '进化已应用' : '进化已回滚');
       reload();
       if (runId === id) openDetail(id);
     } catch (err) {

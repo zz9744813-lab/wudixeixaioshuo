@@ -37,6 +37,9 @@ class EvolutionAction(BaseModel):
 
 
 # ============== 进化管理 API ==============
+# ⚠️ 路由顺序很重要：FastAPI 按定义顺序匹配。
+# 必须在 `/{evolution_id}` 这类参数化路由之前注册固定路径路由，
+# 否则 `/{evolution_id}` 会"吃掉" `/dimensions`、`/best-practices` 等请求。
 
 @router.get("/")
 async def list_evolutions(
@@ -110,6 +113,58 @@ async def create_evolution(
         "decision": evolution.decision.value,
     }
 
+
+# ============== 统计和最佳实践 API ==============
+# 必须在 `/{evolution_id}` 之前注册，否则会被参数化路由吞掉
+
+@router.get("/stats/overview")
+async def get_evolution_stats(
+    project_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """获取进化统计"""
+    service = EvolutionService(db)
+    stats = service.get_evolution_stats(project_id)
+
+    return stats
+
+
+@router.get("/best-practices")
+async def get_best_practices(
+    project_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """获取最佳实践"""
+    service = EvolutionService(db)
+    practices = service.get_best_practices(project_id)
+
+    return {
+        "count": len(practices),
+        "practices": practices
+    }
+
+
+@router.get("/dimensions")
+async def get_evolution_dimensions():
+    """获取支持的进化维度"""
+    return {
+        "dimensions": [
+            {"id": "plot", "name": "剧情连贯性", "description": "改进剧情逻辑和伏笔回收"},
+            {"id": "character", "name": "人物一致性", "description": "保持人物行为符合其设定"},
+            {"id": "pacing", "name": "节奏把控", "description": "优化叙事节奏，避免拖沓"},
+            {"id": "style", "name": "文笔质量", "description": "提升描写细节和句式多样性"},
+            {"id": "engagement", "name": "吸引力", "description": "增强悬念和读者兴趣"},
+        ],
+        "strategies": [
+            {"id": "auto", "name": "自动", "description": "根据问题自动选择策略"},
+            {"id": "conservative", "name": "保守", "description": "小幅改进，低风险"},
+            {"id": "aggressive", "name": "激进", "description": "大幅改进，可能引入新问题"},
+            {"id": "targeted", "name": "针对性", "description": "针对特定问题精准改进"},
+        ]
+    }
+
+
+# ============== 参数化路由（必须放在最后） ==============
 
 @router.get("/{evolution_id}")
 async def get_evolution(
@@ -225,52 +280,3 @@ async def evolution_action(
 
     else:
         raise HTTPException(status_code=400, detail=f"未知操作: {request.action}")
-
-
-# ============== 统计和最佳实践 API ==============
-
-@router.get("/stats/overview")
-async def get_evolution_stats(
-    project_id: Optional[int] = None,
-    db: Session = Depends(get_db)
-):
-    """获取进化统计"""
-    service = EvolutionService(db)
-    stats = service.get_evolution_stats(project_id)
-
-    return stats
-
-
-@router.get("/best-practices")
-async def get_best_practices(
-    project_id: Optional[int] = None,
-    db: Session = Depends(get_db)
-):
-    """获取最佳实践"""
-    service = EvolutionService(db)
-    practices = service.get_best_practices(project_id)
-
-    return {
-        "count": len(practices),
-        "practices": practices
-    }
-
-
-@router.get("/dimensions")
-async def get_evolution_dimensions():
-    """获取支持的进化维度"""
-    return {
-        "dimensions": [
-            {"id": "plot", "name": "剧情连贯性", "description": "改进剧情逻辑和伏笔回收"},
-            {"id": "character", "name": "人物一致性", "description": "保持人物行为符合其设定"},
-            {"id": "pacing", "name": "节奏把控", "description": "优化叙事节奏，避免拖沓"},
-            {"id": "style", "name": "文笔质量", "description": "提升描写细节和句式多样性"},
-            {"id": "engagement", "name": "吸引力", "description": "增强悬念和读者兴趣"},
-        ],
-        "strategies": [
-            {"id": "auto", "name": "自动", "description": "根据问题自动选择策略"},
-            {"id": "conservative", "name": "保守", "description": "小幅改进，低风险"},
-            {"id": "aggressive", "name": "激进", "description": "大幅改进，可能引入新问题"},
-            {"id": "targeted", "name": "针对性", "description": "针对特定问题精准改进"},
-        ]
-    }

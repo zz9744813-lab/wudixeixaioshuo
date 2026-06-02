@@ -76,8 +76,7 @@ export default function FeedbackCenter() {
     setSubmitting(true);
     try {
       await api.post('/feedback/', form);
-    await api.post('/feedback/', form);
-    toast.success('反馈已提交');
+      toast.success('反馈已提交');
       setShowCreate(false);
       setForm((f) => ({ ...f, raw_text: '', chapter_id: '' }));
       reload();
@@ -91,8 +90,7 @@ export default function FeedbackCenter() {
   const handleProcess = async (id) => {
     try {
       await api.post(`/feedback/${id}/process`, {});
-    await api.post(`/feedback/${id}/process`, {});
-    toast.success('已标记为处理');
+      toast.success('已标记为处理');
       reload();
     } catch (err) {
       toast.error(err?.response?.data?.detail || '处理失败');
