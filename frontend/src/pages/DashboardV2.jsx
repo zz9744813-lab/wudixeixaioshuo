@@ -26,10 +26,13 @@ const PIPELINE_STEPS = [
 ];
 
 export default function DashboardV2() {
+  // eslint-disable-next-line no-unused-vars
   const toast = useToast();
   const [worker, setWorker] = useState({ status: 'unknown', stats: null, health: null });
   const [providers, setProviders] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [roles, setRoles] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {

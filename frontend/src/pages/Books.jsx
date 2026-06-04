@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
@@ -12,11 +12,9 @@ import { toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Books.module.css';
 
 const PAGE_TITLE = '📚 拆书学习';
-const PAGE_ICON = 'BookOpen';
 const PAGE_SUBTITLE = '上传书籍 → 智能分章 → 拆书分析 → 提取技巧';
 
 const SOURCE_TYPES = [
@@ -42,7 +40,6 @@ export default function Books() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
-  const fileInputRef = useRef(null);
 
   const [createTitle, setCreateTitle] = useState('');
   const [createAuthor, setCreateAuthor] = useState('');

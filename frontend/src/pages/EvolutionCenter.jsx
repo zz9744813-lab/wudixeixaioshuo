@@ -12,7 +12,6 @@ import api from '../services/api';
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './EvolutionCenter.module.css';
 
 const PAGE_TITLE = 'Darwin 进化中心';

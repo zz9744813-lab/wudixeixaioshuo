@@ -4,10 +4,11 @@ import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { useConfirm } from '../hooks/useConfirm';
-import { Button } from '../components/ui/Button';
+
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
+import { Button } from '../components/ui/Button';
 import styles from './TaskDetail.module.css';
 
 const AGENT_LABELS = {
@@ -101,7 +102,9 @@ function StepCard({ step }) {
 
 export default function TaskDetail() {
   const { id } = useParams();
+  // eslint-disable-next-line no-unused-vars
   const toast = useToast();
+  // eslint-disable-next-line no-unused-vars
   const { confirm, state: confirmState, handleOk, handleCancel } = useConfirm({
     title: '请确认',
     message: '确定要执行此操作吗？',
@@ -110,6 +113,7 @@ export default function TaskDetail() {
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [sseTaskId, setSseTaskId] = useState(null);
 
   useEffect(() => { setSseTaskId(id ? Number(id) : null); }, [id]);

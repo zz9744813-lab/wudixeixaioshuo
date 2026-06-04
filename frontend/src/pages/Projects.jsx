@@ -12,12 +12,10 @@ import { toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Projects.module.css';
 
 const PAGE_TITLE = '📖 小说项目';
 const PAGE_SUBTITLE = '创建和管理你的小说项目';
-const PAGE_ICON = 'FolderKanban';
 
 const STATUS_MAP = {
   draft: { label: '草稿', variant: 'muted' },

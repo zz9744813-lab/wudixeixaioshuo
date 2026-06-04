@@ -7,6 +7,7 @@ const ROLES = ['draft', 'critic', 'rewrite', 'continuity'];
 function EvolutionAutoPage() {
   const [policies, setPolicies] = useState([]);
   const [runs, setRuns] = useState([]);
+  // eslint-disable-next-line no-unused-vars
   const [metrics, setMetrics] = useState({});
   const [newRole, setNewRole] = useState('draft');
   const [loading, setLoading] = useState(false);

@@ -1,21 +1,15 @@
 import React, { useState } from 'react';
 import { useFetch } from '../hooks/useFetch';
 import { AsyncState } from '../components/ui/AsyncState';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { useToast } from '../contexts/ToastContext';
-import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
-import { toObject, toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Logs.module.css';
 
 const PAGE_TITLE = '系统日志';
-const PAGE_ICON = 'Terminal';
 const PAGE_SUBTITLE = '查看运行日志';
 
 function LevelDot({ level }) {

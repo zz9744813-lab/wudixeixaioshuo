@@ -7,7 +7,6 @@ import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { Table } from '../components/ui/Table';
-import { toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
@@ -15,7 +14,6 @@ import SectionCard from '../components/console/SectionCard';
 import styles from './AgentConsole.module.css';
 
 const PAGE_TITLE = 'Agent 控制台';
-const PAGE_ICON = 'Bot';
 const PAGE_SUBTITLE = '管理和触发 AI Agent';
 
 const AGENT_STATUS_COLORS = {
@@ -48,8 +46,10 @@ export default function AgentConsole() {
     if (projects.length && !selectedProjectId) {
       setSelectedProjectId(String(projects[0]?.id));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
+  // eslint-disable-next-line no-unused-vars
   const fetchRunDetail = useCallback(async (id) => {
     setRunDetailId(id);
     setLoadingDetail(true);
@@ -78,6 +78,7 @@ export default function AgentConsole() {
     finally { setGenerating(false); }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleStartRun = async () => {
     if (!selectedProjectId) { toast.error('请先选择项目'); return; }
     setGenerating(true);

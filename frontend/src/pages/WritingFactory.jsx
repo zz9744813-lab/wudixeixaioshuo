@@ -13,11 +13,9 @@ import { toObject, toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './WritingFactory.module.css';
 
 const PAGE_TITLE = '24小时写作工厂';
-const PAGE_ICON = 'Factory';
 const PAGE_SUBTITLE = '选择项目 → 规划章节 → 加入队列 → 自动写作';
 
 export default function WritingFactory() {
@@ -83,6 +81,7 @@ export default function WritingFactory() {
     finally { setActionLoading(false); }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleRemoveFromQueue = async (chapterId) => {
     try {
       await api.del(`/worker/queue/${chapterId}`);

@@ -34,6 +34,7 @@ export function ToastProvider({ children }) {
     ? `${process.env.REACT_APP_API_URL}/events/stream`
     : 'http://localhost:8000/api/events/stream';
   const token = getApiKey();
+  // eslint-disable-next-line no-unused-vars
   const { connected } = useEventSource(sseBase, { token, auto: Boolean(token) });
 
   useEffect(() => {

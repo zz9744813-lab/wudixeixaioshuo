@@ -2,17 +2,14 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFetch } from '../hooks/useFetch';
 import { AsyncState } from '../components/ui/AsyncState';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Table } from '../components/ui/Table';
 import { toObject, toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
-import StatusPill from '../components/console/StatusPill';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
 import ServiceStatusBar from '../components/console/ServiceStatusBar';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './UsageDashboard.module.css';
 
 const PAGE_TITLE = '用量与成本看板';

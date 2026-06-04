@@ -12,7 +12,6 @@ import api from '../services/api';
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './FeedbackCenter.module.css';
 
 const PAGE_TITLE = '读者反馈闭环中心';
@@ -26,6 +25,7 @@ export default function FeedbackCenter() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ project_id: '', chapter_id: '', raw_text: '', source: 'user' });
+  // eslint-disable-next-line no-unused-vars
   const [submitting, setSubmitting] = useState(false);
   const [detailId, setDetailId] = useState(null);
   const [detailData, setDetailData] = useState(null);
@@ -36,6 +36,7 @@ export default function FeedbackCenter() {
     : '/feedback/?limit=50';
 
   const { data: rawListData = {}, loading, error, reload } = useFetch(url, { initialData: { total: 0, items: [] } });
+  // eslint-disable-next-line no-unused-vars
   const { data: rawProjects, loading: loadingProjects } = useFetch('/projects/', { initialData: [] });
   const { data: rawStats } = useFetch('/feedback/stats/overview', { initialData: {} });
 
@@ -48,12 +49,14 @@ export default function FeedbackCenter() {
     if (projects.length && !selectedProjectId) {
       setSelectedProjectId(String(projects[0]?.id));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects]);
 
   useEffect(() => {
     setForm((f) => ({ ...f, project_id: selectedProjectId }));
   }, [selectedProjectId]);
 
+  // eslint-disable-next-line no-unused-vars
   const openDetail = async (id) => {
     setDetailId(id);
     setLoadingDetail(true);

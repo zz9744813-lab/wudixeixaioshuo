@@ -18,6 +18,7 @@ export default function ReaderTrainingPage() {
   const toast = useToast();
 
   // ---- Breakpoint state (declared first) ----
+  // eslint-disable-next-line no-unused-vars
   const [showBp, setShowBp] = React.useState(() => {
     try {
       const raw = localStorage.getItem('reader_training:bp');
@@ -45,6 +46,7 @@ export default function ReaderTrainingPage() {
   // ---- Chapter data effects ----
   React.useEffect(() => {
     if (pid && cid) { chapterQuery.reload(); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pid, cid]);
 
   React.useEffect(() => {

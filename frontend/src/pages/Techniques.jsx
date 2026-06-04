@@ -3,31 +3,19 @@ import { useFetch } from '../hooks/useFetch';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Table } from '../components/ui/Table';
 import Modal from '../components/ui/Modal';
+import { Table } from '../components/ui/Table';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { toObject, toArray } from '../utils/nullSafety';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Techniques.module.css';
 
 const PAGE_TITLE = '🎯 技巧库';
-const PAGE_ICON = 'FileText';
 const PAGE_SUBTITLE = '管理各角色的 Prompt 模板';
-
-const ROLE_LABELS = {
-  planner: 'Planner',
-  draft: 'Draft',
-  critic: 'Critic',
-  rewrite: 'Rewrite',
-  continuity: 'Continuity',
-  memory_update: 'Memory Update',
-};
 
 const CATEGORY_COLORS = {
   '人物塑造': 'success',
@@ -47,6 +35,7 @@ export default function Techniques() {
   const { data: techniques = [], loading, error, reload } = useFetch(
     selectedCategory ? `/techniques/?category=${encodeURIComponent(selectedCategory)}` : '/techniques/'
   );
+  // eslint-disable-next-line no-unused-vars
   const { data: categories = [], loading: loadingCats } = useFetch('/techniques/categories');
 
   const openDetail = async (id) => {

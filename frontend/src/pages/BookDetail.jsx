@@ -13,11 +13,9 @@ import { toArray } from '../utils/nullSafety';
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './BookDetail.module.css';
 
 const PAGE_TITLE = '书籍详情';
-const PAGE_ICON = 'BookOpen';
 const PAGE_SUBTITLE = '拆书学习详情';
 
 const BOOK_STATUS = {

@@ -12,7 +12,6 @@ import api from '../services/api';
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './PromptTemplates.module.css';
 
 const PAGE_TITLE = 'Prompt 模板中心';
@@ -35,6 +34,7 @@ export default function PromptTemplates() {
   const [loadDetail, setLoadDetail] = useState(false);
   const [previewRole, setPreviewRole] = useState('');
   const [previewText, setPreviewText] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ role: 'draft', name: '', content: '', description: '', project_id: '' });
 

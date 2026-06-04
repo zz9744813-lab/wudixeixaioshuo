@@ -10,7 +10,6 @@ import api, { API_BASE_URL, getApiErrorMessage } from '../services/api';
 
 import PageHeader from '../components/console/PageHeader';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './ExportPage.module.css';
 
 const PAGE_TITLE = '小说导出中心';
@@ -47,6 +46,7 @@ export default function ExportPage() {
 
   useEffect(() => {
     if (projectId) fetchHistory(projectId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const fetchHistory = async (pid) => {
@@ -87,6 +87,7 @@ export default function ExportPage() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const handleDelete = async (filename) => {
     try {
       await api.delete(`/export/${encodeURIComponent(filename)}`);

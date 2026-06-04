@@ -16,7 +16,6 @@ import SectionCard from '../components/console/SectionCard';
 import styles from './ProjectDetail.module.css';
 
 const PAGE_TITLE = '项目详情';
-const PAGE_ICON = 'FileText';
 const PAGE_SUBTITLE = '项目信息、写作手册和失败记录';
 
 const STATUS_MAP = {
@@ -101,6 +100,7 @@ export default function ProjectDetail() {
 
   const st = project ? STATUS_MAP[project.status] || STATUS_MAP.draft : STATUS_MAP.draft;
   const goals = project?.goals || {};
+  // eslint-disable-next-line no-unused-vars
   const quality = project?.quality || {};
   const progress = project?.progress || {};
   const bible = project?.bible || null;

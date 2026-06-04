@@ -1,21 +1,15 @@
 import React from 'react';
-import { useFetch } from '../hooks/useFetch';
 import { Link } from 'react-router-dom';
 import { Icon } from '../components/ui/Icon';
 import { AsyncState } from '../components/ui/AsyncState';
-import { Badge } from '../components/ui/Badge';
-import { Button } from '../components/ui/Button';
-import { useConfirm } from '../hooks/useConfirm';
-import { useToast } from '../contexts/ToastContext';
+import { useFetch } from '../hooks/useFetch';
 
 import PageHeader from '../components/console/PageHeader';
 import MetricCard from '../components/console/MetricCard';
 import SectionCard from '../components/console/SectionCard';
-import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './Dashboard.module.css';
 
 const PAGE_TITLE = '仪表盘';
-const PAGE_ICON = 'LayoutDashboard';
 const PAGE_SUBTITLE = '欢迎来到 24小时小说 Agent 工作台';
 
 function StatCardLocal({ icon, label, value, detail }) {
@@ -36,7 +30,6 @@ function QuickAction({ to, icon, label }) {
 export default function Dashboard() {
   const statsState = useFetch('/dashboard/stats');
   const activityState = useFetch('/dashboard/recent-activity');
-  const { confirm } = useConfirm();
 
   const stats = statsState.data;
   const activities = activityState.data?.activities || [];

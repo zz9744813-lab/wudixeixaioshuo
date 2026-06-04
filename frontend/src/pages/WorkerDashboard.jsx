@@ -3,12 +3,10 @@ import api from '../services/api';
 import { getApiErrorMessage } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
-import { AsyncState } from '../components/ui/AsyncState';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import ConfirmModal from '../components/ConfirmModal';
 import { toObject, toArray } from '../utils/nullSafety';
-
 import PageHeader from '../components/console/PageHeader';
 import StatusPill from '../components/console/StatusPill';
 import MetricCard from '../components/console/MetricCard';
@@ -19,7 +17,6 @@ import EmptyPanel from '../components/console/EmptyPanel';
 import styles from './WorkerDashboard.module.css';
 
 const PAGE_TITLE = '24小时自动写作控制台';
-const PAGE_ICON = 'Bot';
 
 const WORKER_STATUS_MAP = {
   idle: { label: '空闲', variant: 'muted' },
@@ -36,10 +33,14 @@ export default function WorkerDashboard() {
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(null);
   const [statusError, setStatusError] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [statsError, setStatsError] = useState('');
   const [healthError, setHealthError] = useState('');
+  // eslint-disable-next-line no-unused-vars
   const [loadingStatus, setLoadingStatus] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [loadingStats, setLoadingStats] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [loadingHealth, setLoadingHealth] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
