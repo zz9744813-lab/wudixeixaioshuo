@@ -13,6 +13,7 @@ import PageHeader from '../components/console/PageHeader';
 import StatusPill from '../components/console/StatusPill';
 import SectionCard from '../components/console/SectionCard';
 import EmptyPanel from '../components/console/EmptyPanel';
+import AgentMatrix from '../components/model-config/AgentMatrix';
 import styles from './ModelConfig.module.css';
 
 const PAGE_TITLE = '⚙️ 模型配置中心';
@@ -226,7 +227,7 @@ export default function ModelConfig() {
   const handleTest = async (id) => {
     setTestingId(id);
     try {
-      const res = await api.post(`/models/providers/${id}/test`);
+      await api.post(`/models/providers/${id}/test`);
       toast.success('连接测试成功', 4000);
       fetchAll();
     } catch (err) {
@@ -323,6 +324,14 @@ export default function ModelConfig() {
           </table>
         </div>
         {roles.length === 0 && !loading && <EmptyPanel title="暂无角色映射" description="请先配置 Provider，然后在 Agent 模型分配页面分配角色" />}
+      </SectionCard>
+
+      {/* P7 调度中心 - Agent 矩阵 */}
+      <SectionCard
+        title="🤖 Agent 矩阵"
+        subtitle="按角色分组的模型调度状态 · 支持 AUTO/MANUAL 切换与一键自动分配"
+      >
+        <AgentMatrix onToast={toast} />
       </SectionCard>
 
       {/* Provider Edit/Create Modal */}
