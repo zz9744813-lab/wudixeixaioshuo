@@ -42,6 +42,10 @@ class ModelProvider(Base):
     retry_times = Column(Integer, default=3)
     rate_limit = Column(Integer)  # 每分钟请求数限制
 
+    # P7 调度中心: 健康状态与延迟聚合
+    status = Column(String(30), default="unknown")  # unknown/healthy/warning/failed/disabled
+    avg_latency_ms = Column(Integer, nullable=True)
+
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -70,6 +74,17 @@ class ModelRole(Base):
 
     # 优先级（用于多个配置时的选择）
     priority = Column(Integer, default=1)
+
+    # P7 调度中心: 绑定模式与策略字段
+    assignment_mode = Column(String(20), default="auto")  # auto / manual
+    allowed_provider_ids = Column(Text)                  # JSON 数组，限制 auto 候选
+    preferred_quality = Column(String(30), default="balanced")  # cheap/fast/balanced/quality/long_context
+    max_cost_per_million = Column(Float, nullable=True)
+    min_context_tokens = Column(Integer, nullable=True)
+    require_json = Column(Integer, default=0)            # 0/1
+    require_streaming = Column(Integer, default=0)        # 0/1
+    fallback_enabled = Column(Integer, default=1)         # 0/1 - 手动锁定失败时是否回退
+    updated_by = Column(String(50), default="system")     # user/system/migration
 
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
@@ -112,6 +127,9 @@ class ModelCallLog(Base):
     # 请求内容摘要
     prompt_summary = Column(Text)
     response_summary = Column(Text)
+
+    # P7 调度中心: 关联 routing event
+    routing_event_id = Column(Integer, nullable=True, index=True)
 
     # 时间戳
     created_at = Column(DateTime, default=utc_now)

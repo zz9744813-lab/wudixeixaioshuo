@@ -24,6 +24,7 @@ from app.models.memory import (
     ConsolidatedMemory,
 )
 from app.models.model_config import ModelCallLog, ModelProvider, ModelRole
+from app.models.model_routing_event import ModelRoutingEvent
 from app.models.project import NovelBible, Project
 from app.models.task import GenerationStep, GenerationTask
 from app.models.technique import (
@@ -120,6 +121,7 @@ __all__ = [
     "ModelProvider",
     "ModelRole",
     "ModelCallLog",
+    "ModelRoutingEvent",
     "Feedback",
     "UserPreference",
     "EvolutionRun",

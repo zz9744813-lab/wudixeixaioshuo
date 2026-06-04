@@ -13,6 +13,7 @@ from app.database import init_db, SessionLocal
 from app.deps.auth import require_api_key
 from app.middleware import LoggingMiddleware, setup_exception_handlers
 from app.routers import (
+    agent_model_configs,
     agent_runs,
     agents,
     bible,
@@ -121,6 +122,7 @@ app.include_router(subagents.router, prefix="/api", tags=["SubAgents"], dependen
 app.include_router(models.router, prefix="/api/models", tags=["Models"], dependencies=PROTECTED)
 app.include_router(model_assignments.router, prefix="/api/model-assignments", tags=["Model Assignments"], dependencies=PROTECTED)
 app.include_router(llm_routes.router, prefix="/api/llm-routes", tags=["LLM Routes"], dependencies=PROTECTED)
+app.include_router(agent_model_configs.router, prefix="/api/agent-model-configs", tags=["Agent Model Configs"], dependencies=PROTECTED)
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"], dependencies=PROTECTED)
 app.include_router(reader_training.router, prefix="/api/reader-training", tags=["Reader Training"], dependencies=PROTECTED)
 app.include_router(evolution.router, prefix="/api/evolution", tags=["Evolution"], dependencies=PROTECTED)

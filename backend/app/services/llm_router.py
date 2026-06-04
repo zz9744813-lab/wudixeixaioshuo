@@ -48,6 +48,7 @@ class LLMRouteResult:
         cost: float = 0.0,
         duration_ms: int = 0,
         role: str = "",
+        routing_event_id: Optional[int] = None,  # P7
     ):
         self.content = content
         self.provider_id = provider_id
@@ -59,6 +60,7 @@ class LLMRouteResult:
         self.cost = cost
         self.duration_ms = duration_ms
         self.role = role
+        self.routing_event_id = routing_event_id
 
 
 class LLMRouter:
@@ -83,6 +85,8 @@ class LLMRouter:
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
         trace: Optional[Dict[str, Any]] = None,
+        project_id: Optional[int] = None,
+        record_routing_event: bool = True,
     ) -> LLMRouteResult:
         """
         根据role选择可用provider并生成响应
@@ -95,9 +99,11 @@ class LLMRouter:
             max_tokens: 最大token数
             temperature: 温度参数
             trace: 追踪信息
+            project_id: 项目ID（用于 routing event 关联）
+            record_routing_event: 是否记录 routing 决策事件 (P7)
 
         Returns:
-            LLMRouteResult: 调用结果
+            LLMRouteResult: 调用结果（含 routing_event_id 字段）
 
         Raises:
             LLMRouterAllProvidersFailed: 所有provider都失败
@@ -108,6 +114,19 @@ class LLMRouter:
         if not routes:
             raise LLMRouterAllProvidersFailed(f"角色 '{role}' 没有配置任何路由")
 
+        # P7 Phase 3: 检查 model_role 的 assignment_mode, manual 锁强制只用指定 provider
+        assignment_mode, manual_locked_provider_id, fallback_enabled = self._get_model_role_lock(role)
+        if assignment_mode == "manual" and manual_locked_provider_id is not None:
+            filtered = [r for r in routes if r.provider_id == manual_locked_provider_id]
+            if filtered:
+                routes = filtered
+            elif not fallback_enabled:
+                # manual 锁 + 无 fallback + 锁定 provider 没 route → 拒绝
+                raise LLMRouterAllProvidersFailed(
+                    f"角色 '{role}' 手动锁定 provider_id={manual_locked_provider_id} 但无对应 route, 且 fallback 关闭"
+                )
+            # 否则: manual 锁 + fallback 开启 + 锁定 provider 没 route → 保持原 routes 走 fallback
+
         # 如果指定了优先provider，将其移到最前面
         if preferred_provider_id:
             routes = self._prioritize_route(routes, preferred_provider_id)
@@ -117,6 +136,8 @@ class LLMRouter:
 
         # 尝试调用，按优先级顺序
         last_error = None
+        tried_routes: List[Dict[str, Any]] = []  # P7: 记录实际尝试过的 route
+        selected_route: Optional[ProviderRouteConfig] = None
 
         for priority, priority_routes in sorted(routes_by_priority.items()):
             # 同优先级内按权重选择
@@ -145,12 +166,36 @@ class LLMRouter:
                 # 更新成功统计
                 self._update_route_stats(route, success=True, duration_ms=result.duration_ms)
 
+                # P7: 记录 routing event
+                if record_routing_event:
+                    self._record_routing_event(
+                        role=role,
+                        selected_route=route,
+                        result=result,
+                        task_id=task_id,
+                        project_id=project_id,
+                        tried_routes=tried_routes,
+                        fallback_used=bool(tried_routes),
+                        assignment_mode=assignment_mode,
+                    )
+                    if result.routing_event_id:
+                        # 把 event_id 透传出去
+                        pass  # 已在 _record_routing_event 内 attach 到 result
+
                 return result
 
             except Exception as e:
                 last_error = e
                 # 更新失败统计
                 self._update_route_stats(route, success=False)
+                tried_routes.append({
+                    "route_id": route.id,
+                    "provider_id": route.provider_id,
+                    "provider_name": route.provider.name if route.provider else None,
+                    "priority": route.priority,
+                    "weight": route.weight,
+                    "error": str(e)[:200],
+                })
                 continue
 
         # 所有provider都失败了
@@ -168,6 +213,34 @@ class LLMRouter:
             .order_by(ProviderRouteConfig.priority.asc())
             .all()
         )
+
+    def _get_model_role_lock(self, role: str):
+        """P7 Phase 3: 读取 model_role 的 binding 锁信息。
+
+        Returns:
+            (assignment_mode, manual_locked_provider_id, fallback_enabled)
+            - assignment_mode: "auto" | "manual" | None
+            - manual_locked_provider_id: int | None (manual 时锁定到该 provider)
+            - fallback_enabled: bool (manual 锁失败时是否允许回退)
+        """
+        try:
+            from app.models.model_config import ModelRole
+            mr = (
+                self.db.query(ModelRole)
+                .filter(ModelRole.role == role, ModelRole.project_id.is_(None))
+                .first()
+            )
+            if mr is None:
+                return "auto", None, True
+            return (
+                mr.assignment_mode or "auto",
+                mr.provider_id if (mr.assignment_mode == "manual") else None,
+                bool(mr.fallback_enabled) if mr.fallback_enabled is not None else True,
+            )
+        except Exception as exc:
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning(f"[LLMRouter] 读取 model_role 锁失败: {exc}, 退化为 auto")
+            return "auto", None, True
 
     def _prioritize_route(
         self,
@@ -433,6 +506,76 @@ class LLMRouter:
         if provider_id not in self._token_history:
             self._token_history[provider_id] = []
         self._token_history[provider_id].append((now, tokens))
+
+    def _record_routing_event(
+        self,
+        *,
+        role: str,
+        selected_route: ProviderRouteConfig,
+        result: "LLMRouteResult",
+        task_id: Optional[str],
+        project_id: Optional[int],
+        tried_routes: List[Dict[str, Any]],
+        fallback_used: bool,
+        assignment_mode: str = "auto",
+    ) -> None:
+        """P7: 写一条 routing 决策事件，落库 model_routing_events。失败不抛错。"""
+        try:
+            from app.services.agent_model_config_service import AgentModelConfigService
+            service = AgentModelConfigService(self.db)
+
+            candidates = []
+            for r in (
+                self.db.query(ProviderRouteConfig)
+                .filter(ProviderRouteConfig.role == role)
+                .all()
+            ):
+                p = r.provider
+                candidates.append({
+                    "route_id": r.id,
+                    "provider_id": r.provider_id,
+                    "provider_name": p.name if p else None,
+                    "priority": r.priority,
+                    "weight": r.weight,
+                    "enabled": r.enabled,
+                    "is_circuit_open": self._is_circuit_open(r),
+                    "total_calls": r.total_calls,
+                    "success_calls": r.success_calls,
+                    "failed_calls": r.failed_calls,
+                })
+
+            # P7 Phase 3: 区分 manual 锁和 auto 选路的 reason
+            if assignment_mode == "manual":
+                reason = (
+                    f"手动锁定：{selected_route.provider.name if selected_route.provider else '?'} "
+                    f"(优先级 {selected_route.priority})"
+                )
+            else:
+                reason = (
+                    f"优先级 {selected_route.priority} · 成功"
+                    if not fallback_used
+                    else f"回退到 {selected_route.provider.name if selected_route.provider else '?'}（{len(tried_routes)} 次失败后）"
+                )
+
+            event = service.record_routing_decision(
+                role=role,
+                assignment_mode=assignment_mode,  # P7 Phase 3: 透传真实模式
+                selected_provider_id=selected_route.provider_id,
+                selected_provider_name=selected_route.provider.name if selected_route.provider else None,
+                selected_route_id=selected_route.id,
+                selected_model_name=result.model_name,
+                candidates=candidates,
+                decision_reason=reason,
+                fallback_used=fallback_used,
+                fallback_chain=tried_routes if tried_routes else None,
+                task_id=task_id,
+                project_id=project_id,
+            )
+            result.routing_event_id = event.id
+        except Exception as exc:
+            # 记录失败不能影响主流程
+            logger = __import__("logging").getLogger(__name__)
+            logger.warning(f"[LLMRouter] 记录 routing event 失败: {exc}")
 
     def get_route_stats(self, role: Optional[str] = None) -> List[Dict[str, Any]]:
         """获取路由统计信息"""

@@ -48,6 +48,7 @@ class ModelCallLogService:
         error_message: Optional[str] = None,
         prompt: Optional[str] = None,
         response: Optional[str] = None,
+        routing_event_id: Optional[int] = None,
     ) -> Optional[ModelCallLog]:
         """
         创建调用日志 - 使用独立 session 立即提交
@@ -57,8 +58,7 @@ class ModelCallLogService:
         - 即使业务事务失败并 rollback，此日志也不会丢失
         - 成功和失败都会记录
 
-        Returns:
-            ModelCallLog 或 None（如果记录失败）
+        P7 扩展: routing_event_id 关联调度决策事件
         """
         if total_tokens <= 0:
             total_tokens = (input_tokens or 0) + (output_tokens or 0)
@@ -86,6 +86,7 @@ class ModelCallLogService:
                 error_message=error_message,
                 prompt_summary=(prompt or "")[:500],
                 response_summary=(response or "")[:500],
+                routing_event_id=routing_event_id,
                 created_at=utc_now(),
             )
             db.add(log)
