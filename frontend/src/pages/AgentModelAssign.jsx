@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import api, { getApiErrorMessage } from '../services/api';
-import { toArray } from '../utils/nullSafety';
 import { useToast } from '../contexts/ToastContext';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';

@@ -4,7 +4,6 @@ import { useFetch } from '../hooks/useFetch';
 import { toArray, toObject } from '../utils/nullSafety';
 import api from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { AsyncState } from '../components/ui/AsyncState';
 import { Table } from '../components/ui/Table';
@@ -16,10 +15,6 @@ import SectionCard from '../components/console/SectionCard';
 import styles from './BibleEditor.module.css';
 
 const PAGE_TITLE = 'Bible 编辑器';
-const PAGE_ICON = 'BookOpen';
-const PAGE_SUBTITLE = '管理世界观、人物和设定';
-
-const CHARACTER_ROLE_COLORS = { '主角': 'primary', '配角': 'accent', '反派': 'danger', '导师': 'success' };
 
 export default function BibleEditor() {
   const [projectId, setProjectId] = useState('');
@@ -48,6 +43,7 @@ export default function BibleEditor() {
     if (projects.length && !projectId) {
       setProjectId(String(projects[0]?.id));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects, searchParams]);
 
   const fetchBible = async (pid) => {
@@ -63,6 +59,7 @@ export default function BibleEditor() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchBible(projectId); }, [projectId]);
 
   const openDetail = async (charId) => {
