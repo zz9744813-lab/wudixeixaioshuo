@@ -41,6 +41,7 @@ from app.routers import (
     research,
     review,
     reviews,
+    reviews_p6,
     skills,
     subagents,
     tasks,
@@ -113,6 +114,7 @@ app.include_router(techniques.router, prefix="/api/techniques", tags=["Technique
 app.include_router(skills.router, prefix="/api/skills", tags=["Skills"], dependencies=PROTECTED)
 app.include_router(foreshadows.router, prefix="/api/foreshadows", tags=["Foreshadows"], dependencies=PROTECTED)
 app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"], dependencies=PROTECTED)
+app.include_router(reviews_p6.router, prefix="/api/reviews", tags=["Reviews (P6)"], dependencies=PROTECTED)
 app.include_router(production.router, prefix="/api/production", tags=["Production"], dependencies=PROTECTED)
 app.include_router(editor.router, prefix="/api/editor", tags=["Editor"], dependencies=PROTECTED)
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"], dependencies=PROTECTED)

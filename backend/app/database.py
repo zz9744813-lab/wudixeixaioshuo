@@ -85,8 +85,14 @@ def init_db():
     # 初始化默认Prompt模板
     try:
         db = SessionLocal()
-        from app.services.default_prompt_templates import seed_default_prompt_templates
+        from app.services.default_prompt_templates import (
+            seed_default_prompt_templates,
+            seed_p6_prompt_templates,
+        )
+        from app.services.review.reader_setup_service import seed_p6_reader_agents
         seed_default_prompt_templates(db)
+        seed_p6_prompt_templates(db)
+        seed_p6_reader_agents(db)
         db.close()
     except Exception as e:
         logger.warning(f"[Database] 默认模板初始化失败: {e}")
@@ -124,6 +130,10 @@ def _ensure_columns():
         ("model_call_logs", [
             ("routing_event_id", "INTEGER"),
         ]),
+        # P6: 给 GenerationTask 加 payload JSON 列 (Worker 多任务调度需要存 task 参数)
+        ("generation_tasks", [
+            ("payload", "TEXT"),
+        ]),
     ]
 
     with engine.begin() as conn:
@@ -149,8 +159,10 @@ def _ensure_columns():
     try:
         Base.metadata.create_all(bind=engine, tables=[
             t for t in Base.metadata.tables.values()
-            if t.name == "model_routing_events"
+            if t.name in ("model_routing_events", "reader_agent_profiles",
+                          "review_comments", "review_comment_groups",
+                          "reader_review_runs", "review_settings")
         ])
-        logger.info("[Database] 已检查 model_routing_events 表")
+        logger.info("[Database] 已检查 P7/P6 新表")
     except Exception as e:
-        logger.warning(f"[Database] 创建 model_routing_events 失败: {e}")
+        logger.warning(f"[Database] 创建新表失败: {e}")

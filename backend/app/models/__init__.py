@@ -50,6 +50,13 @@ from app.models.review import (
     ReviewProfile,
     ReviewResult,
 )
+from app.models.comment_review import (
+    ReaderAgentProfile,
+    ReaderReviewRun,
+    ReviewComment,
+    ReviewCommentGroup,
+    ReviewSettings,
+)
 from app.models.agent_run import (
     AgentRun,
     AgentRunStatus,
@@ -113,6 +120,12 @@ __all__ = [
     "ReviewProfile",
     "ReviewResult",
     "FinalReview",
+    # P6 Comment Review models
+    "ReaderAgentProfile",
+    "ReviewComment",
+    "ReviewCommentGroup",
+    "ReaderReviewRun",
+    "ReviewSettings",
     # Production models (P4 Phase 5)
     "ProductionPolicy",
     "ProductionLog",

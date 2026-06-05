@@ -86,6 +86,9 @@ class GenerationTask(Base):
     # 重试退避
     retry_count = Column(Integer, default=0)  # 重试次数（保留兼容）
 
+    # P6: Worker 多任务调度的 JSON payload (存 task_type 需要的参数)
+    payload = Column(Text, nullable=True)
+
     # 时间戳
     created_at = Column(DateTime, default=utc_now)
     started_at = Column(DateTime)

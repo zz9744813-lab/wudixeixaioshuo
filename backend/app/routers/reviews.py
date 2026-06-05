@@ -310,3 +310,6 @@ def get_project_review_stats(project_id: int, db: Session = Depends(get_db)):
     service = ReviewService(db)
     stats = service.get_project_review_stats(project_id)
     return stats
+
+
+# P6 评论区/读者评审系统的 14 个端点已迁移到 routers/reviews_p6.py
