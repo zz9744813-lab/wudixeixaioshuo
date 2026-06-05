@@ -52,6 +52,11 @@
 .badge--idle { background: var(--bg-elevated); color: var(--text-muted); }
 .badge--accent { background: var(--accent-weak); color: var(--accent); }
 .badge--muted { background: var(--bg-elevated); color: var(--text-muted); }
+.badge--success { background: var(--success-weak); color: var(--success); }
+.badge--warning { background: var(--warning-weak); color: var(--warning); }
+.badge--danger { background: var(--danger-weak); color: var(--danger); }
+.badge--info { background: var(--info-weak); color: var(--info); }
+.badge--primary { background: var(--accent-weak); color: var(--accent); }
 
 /* —— 表格 —— */
 .table {

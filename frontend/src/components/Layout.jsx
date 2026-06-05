@@ -23,6 +23,7 @@ const NAV_GROUPS = [
       { to: '/factory', label: '写作工厂', icon: 'Factory' },
       { to: '/worker', label: '自动写作控制台', icon: 'Cpu' },
       { to: '/agents', label: 'Agent 控制台', icon: 'Bot' },
+      { to: '/reviews', label: '评论区', icon: 'MessageCircle' },
       { to: '/agent-orchestrator', label: '自主 Orchestrator', icon: 'Workflow' },
       { to: '/tasks', label: '任务队列', icon: 'ListChecks' },
     ],

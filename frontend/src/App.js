@@ -29,6 +29,7 @@ import LLMRouterPage from './pages/LLMRouterPage';
 import ResearchAgentPage from './pages/ResearchAgentPage';
 import EvolutionAutoPage from './pages/EvolutionAutoPage';
 import ReaderTrainingPage from './pages/ReaderTrainingPage';
+import ReviewCommentsPage from './pages/ReviewCommentsPage';
 import ToastContainer from './pages/ToastContainer';
 import NotFound from './components/NotFound';
 
@@ -69,6 +70,7 @@ function App() {
           <Route path="/reader-training" element={<ReaderTrainingPage />} />
 <Route path="/reader-training/projects/:projectId" element={<ReaderTrainingPage />} />
 <Route path="/reader-training/projects/:projectId/chapters/:chapterId" element={<ReaderTrainingPage />} />
+<Route path="/reviews" element={<ReviewCommentsPage />} />
 <Route path="*" element={<NotFound />} />
 </Routes>
       </Layout>
