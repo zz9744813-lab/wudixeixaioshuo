@@ -136,10 +136,16 @@ def _persist_beliefs(db: Session, scene: Scene, out: BeliefExtraction, run_id: s
 
 def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) -> None:
     for g in out.goals:
+        char_id = _character_id(db, scene.book_id, g.character) if g.character else None
+        if char_id is None:
+            # Unattributable goal: keep it as a Claim only (goals.character_id
+            # is NOT NULL), never silently drop the model's statement.
+            _claim(db, "(unattributed)", f"goal:{g.lifecycle}", g.statement, 0.5, run_id)
+            continue
         db.add(
             Goal(
                 id=new_id("GOAL"),
-                character_id=_character_id(db, scene.book_id, g.character),
+                character_id=char_id,
                 scene_id=scene.id,
                 statement=g.statement or "(unspecified)",
                 lifecycle=g.lifecycle,
@@ -149,6 +155,47 @@ def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) 
         _claim(db, f"character:{g.character}", f"goal:{g.lifecycle}", g.statement, 0.5, run_id)
 
 
+_EMOTION_ALIASES = {
+    "anger": "ANGER", "愤怒": "ANGER", "怒": "ANGER", "恼怒": "ANGER",
+    "sadness": "SADNESS", "悲伤": "SADNESS", "难过": "SADNESS", "哀伤": "SADNESS",
+    "fear": "FEAR", "恐惧": "FEAR", "害怕": "FEAR", "畏惧": "FEAR", "寒意": "FEAR",
+    "joy": "JOY", "喜悦": "JOY", "高兴": "JOY", "开心": "JOY",
+    "anxiety": "ANXIETY", "焦虑": "ANXIETY", "不安": "ANXIETY", "担忧": "ANXIETY", "紧张": "ANXIETY",
+    "shame": "SHAME", "羞耻": "SHAME", "羞愧": "SHAME", "丢脸": "SHAME",
+    "guilt": "GUILT", "内疚": "GUILT", "愧疚": "GUILT", "自责": "GUILT",
+    "jealousy": "JEALOUSY", "嫉妒": "JEALOUSY", "醋意": "JEALOUSY",
+    "hope": "HOPE", "希望": "HOPE", "期待": "HOPE",
+    "disappointment": "DISAPPOINTMENT", "失望": "DISAPPOINTMENT",
+    "surprise": "SURPRISE", "惊讶": "SURPRISE", "震惊": "SURPRISE", "意外": "SURPRISE",
+    "contempt": "CONTEMPT", "轻蔑": "CONTEMPT", "鄙夷": "CONTEMPT",
+    "pride": "PRIDE", "骄傲": "PRIDE", "自豪": "PRIDE",
+    "relief": "RELIEF", "如释重负": "RELIEF", "松了口气": "RELIEF",
+    "curiosity": "CURIOSITY", "好奇": "CURIOSITY",
+    "tenderness": "TENDERNESS", "温柔": "TENDERNESS", "心软": "TENDERNESS",
+    "confusion": "CONFUSION", "困惑": "CONFUSION", "疑惑": "CONFUSION",
+    "numbness": "NUMBNESS", "麻木": "NUMBNESS", "五味杂陈": "CONFUSION",
+}
+
+
+def _coerce_emotion(type_str: str) -> str:
+    """Map free-form (often Chinese) emotion words onto the EmotionType enum."""
+    from app.models.enums import EmotionType
+
+    key = (type_str or "").strip().lower()
+    if not key:
+        return EmotionType.CONFUSION.value
+    if key in _EMOTION_ALIASES:
+        return EmotionType[_EMOTION_ALIASES[key]].value
+    # substring fallback, then the value itself if already valid, else CONFUSION
+    for alias, name in _EMOTION_ALIASES.items():
+        if alias in key or key in alias:
+            return EmotionType[name].value
+    try:
+        return EmotionType(key).value
+    except ValueError:
+        return EmotionType.CONFUSION.value
+
+
 def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id: str) -> None:
     for em in out.emotions:
         db.add(
@@ -156,9 +203,9 @@ def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id:
                 id=new_id("EMO"),
                 character_id=_character_id(db, scene.book_id, em.character),
                 scene_id=scene.id,
-                emotion=em.type or "unknown",
+                emotion=_coerce_emotion(em.type),
                 intensity=em.intensity,
-                trigger_event=None,
+                trigger_event_id=None,
                 appraisal=em.appraisal,
                 action_tendency=em.action_tendency,
                 evidence=em.evidence,
@@ -170,19 +217,35 @@ def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id:
 
 
 def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtraction, run_id: str) -> None:
-    for r in out.changes:
-        db.add(
-            RelationshipState(
-                id=new_id("REL"),
-                character_a_id=_character_id(db, scene.book_id, r.source),
-                character_b_id=_character_id(db, scene.book_id, r.target),
-                dimension=r.dimension or "trust",
-                value=r.delta,
-                confidence=0.5,
-                cause=r.cause,
-                last_changed_scene=scene.id,
-            )
+    # RelationshipState is a per-pair row: one row per (pair, scene) with the
+    # changed dimensions folded into `dimensions` JSON (schema §36).
+    from app.models.relationship import RelationshipState as _RS
+
+    pair_count = len(out.changes)
+    if pair_count == 0:
+        return
+    first = out.changes[0]
+    dims = [
+        {
+            "dimension": r.dimension or "trust",
+            "delta": r.delta,
+            "cause": r.cause,
+        }
+        for r in out.changes
+    ]
+    db.add(
+        _RS(
+            id=new_id("REL"),
+            book_id=scene.book_id,
+            scene_id=scene.id,
+            from_character_id=_character_id(db, scene.book_id, first.source),
+            to_character_id=_character_id(db, scene.book_id, first.target),
+            dimensions=dims,
+            overall=round(sum(d["delta"] for d in dims) / len(dims), 4),
+            confidence=0.5,
         )
+    )
+    for r in out.changes:
         _claim(db, f"character:{r.source}", f"{r.dimension}:delta:{r.delta}",
                f"character:{r.target}", 0.5, run_id, [{"cause": r.cause}] if r.cause else [])
 

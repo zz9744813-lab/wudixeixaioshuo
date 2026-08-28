@@ -7,6 +7,7 @@ against the controlled vocabularies (spec §5, P-03).
 """
 from __future__ import annotations
 
+import json
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -165,11 +166,34 @@ class RolloutStep(BaseModel):
     character_reactions: List[str] = Field(default_factory=list)
     causal_justification: str = ""
 
+    from pydantic import field_validator as _fv2
+
+    @_fv2("character_reactions", mode="before")
+    def _coerce_reactions(cls, v):
+        # Models often return {"张三": "..."} — flatten to "张三: ..." entries.
+        if isinstance(v, dict):
+            return [f"{k}: {val}" if isinstance(val, str) else f"{k}: {json.dumps(val, ensure_ascii=False)}"
+                    for k, val in v.items()]
+        return v
+
 
 class RolloutResult(BaseModel):
     steps: List[RolloutStep] = Field(default_factory=list)
     causal_risks: List[str] = Field(default_factory=list)
     knowledge_violations: List[str] = Field(default_factory=list)
+
+    from pydantic import model_validator
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_scenes_alias(cls, data):
+        # Models frequently name the list "scenes"; map it to "steps" at the
+        # model level — a missing field never reaches field validators.
+        if isinstance(data, dict) and not data.get("steps") and data.get("scenes"):
+            data = {**data, "steps": data["scenes"]}
+        return data
+
+    _coerce = _str_list("causal_risks", "knowledge_violations")
 
 
 class JudgeVerdict(BaseModel):
