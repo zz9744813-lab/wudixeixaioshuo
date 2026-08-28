@@ -108,3 +108,7 @@ backend/novel_ai.db
 backend/data/uploads/
 backend/data/artifacts/
 backend/data/exports/
+
+# ---- Novel Genome (小说基因组计划) backend, repo root ----
+data/object_store/
+alembic/versions/*.pyc

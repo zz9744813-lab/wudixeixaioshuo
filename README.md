@@ -102,14 +102,12 @@ npm start   # 默认 http://localhost:3000
 | `/evolution-auto` | 自动进化触发器 |
 
 ### 三、自我进化
-
 - `/feedback` — 多维度反馈收集
 - `/evolution` — Darwin 进化引擎 + A/B 测试
 - `/prompts` — Prompt 模板管理 + 模板版本化
 - `/skills` — 写作技能库
 
 ### 四、运维
-
 - `/dashboard` / `/dashboard-v2` — 统计 + 快捷入口
 - `/llm-routes` — LLM 路由（按角色分配 provider）
 - `/agent-models` — Agent × 模型矩阵
@@ -365,3 +363,55 @@ python -m pytest tests/ -v
 ## 📄 License
 
 [MIT](LICENSE)
+
+<!-- ============================================================ -->
+<!-- 以下为仓库内第二个独立后端：Novel Genome（小说基因组计划） -->
+<!-- ============================================================ -->
+
+# Novel Genome · 小说基因组计划（仓库根目录 `app/`）
+
+**Computational Narrative Science & Story World Modeling Platform** —— 计算叙事科学与小说世界模型平台。
+
+本目录（`app/`、`alembic/`、`tests/` 在仓库根）是《小说基因组计划 Novel Genome 工程总设计规范 v2.0》的实现，与上面的 NovelForge 工作台是**同一个仓库里的两个独立后端**，各自有独立的数据库与端口：
+
+| | NovelForge（工作台） | Novel Genome（基因组） |
+|---|---|---|
+| 代码位置 | `backend/` | 仓库根 `app/` |
+| 目标 | 自动写小说 + 自我进化 | 读小说、拆叙事、建世界模型、反事实推演、验证写作规律 |
+| 数据库 | `backend/data/` (SQLite/PG) | `novel_genome.db` (SQLite/PG) |
+| 端口 | 8000 | 8123 |
+| LLM | `llm_router` + `MockLLMService` | 自己的 `app/llm/`（OpenAI 兼容 + 确定性 Fake Provider） |
+
+> Novel Genome 当前进度：**Stage 0 / EPIC-A / EPIC-B 已完成**（协议冻结、42 表 Schema、语料摄入流水线 TXT/MD/EPUB/DOCX）。
+> 人物世界模型（EPIC-C）、反事实/假设引擎（EPIC-D）、读者模拟/Judge（EPIC-E）、知识晋升（EPIC-F）、NovelForge 适配器闭环（EPIC-G）按计划持续推进中。
+
+## 快速开始（Novel Genome）
+
+```bash
+# 在仓库根目录
+python -m venv .venv && source .venv/Scripts/activate   # Windows
+pip install -e ".[dev]"
+cp .env.example .env          # 可只设 NOVEL_GENOME_* 变量；LLM 留空则走 Fake Provider
+uvicorn app.main:app --reload --port 8123
+# → http://127.0.0.1:8123/docs
+```
+
+摄入 API：
+
+```http
+POST /api/v1/corpus/ingest          # 文件 → CorpusSource + Book + 章节/场景
+POST /api/v1/books/{book_id}/ingest # 文件 → 摄入到已有 Book
+```
+
+测试：`python -m pytest tests/ -q`（smoke + ingest，22 个用例全绿）。
+
+## 设计约束（来自规范）
+
+- 文本不是唯一真相；所有心理/因果判断必须有 Evidence（§3 P-03）
+- 人物状态必须连续更新，禁止每章重新初始化（§4 P-04）
+- 故事内因果 与 作者结构 必须分开（§5 P-05）
+- 生成与验证分离：提出假设的 Agent 不宣布假设成立（§8 P-08）
+- 研究语料与 AI 生成文本必须区分（§9 P-09）
+- 任何 LLM 调用必须可追溯（model / prompt_version / context_package / input / output / schema_version / run_id，§11 P-11）
+- 拒绝"万能超级 Prompt"，复杂分析拆成独立 Agent / Pass（§12 P-12）
+- 禁止把 Vector DB 当知识真相；禁止研究数据直接污染生产（禁止 9 / 10）

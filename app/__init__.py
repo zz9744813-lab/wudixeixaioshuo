@@ -1,0 +1,1 @@
+"""Novel Genome application package."""
