@@ -5,11 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.ids import new_id, context_package_id
-from app.core.run_registry import create_run, finalize_run
+from app.core.ids import new_id
 from app.db import get_db
 from app.models.research import Hypothesis, Experiment, ExperimentVariant
-from app.models.enums import VariantType, ExperimentStatus, TaskStatus
+from app.models.enums import VariantType
 from app.schemas.domain import HypothesisCreate, HypothesisOut, ExperimentCreate, ExperimentOut
 
 router = APIRouter(prefix="/api/v1", tags=["research"])
@@ -61,13 +60,12 @@ def run_experiment(experiment_id: str, db: Session = Depends(get_db)):
     exp = db.get(Experiment, experiment_id)
     if not exp:
         raise HTTPException(404, "experiment not found")
-    cp_id = context_package_id()
-    run = create_run(db, task_type="experiment_run", context_package_id=cp_id,
-                     idempotency_key=f"exp-run:{exp.id}")
-    exp.status = ExperimentStatus.COMPLETED
-    finalize_run(db, run, TaskStatus.SUCCESS.value, output_ref={"experiment_id": exp.id})
-    db.commit()
-    return {"experiment_id": exp.id, "run_id": run.id, "status": exp.status.value}
+    from app.research.runner import run_experiment as execute
+
+    try:
+        return execute(db, experiment_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
 
 @router.get("/experiments/{experiment_id}", response_model=ExperimentOut)

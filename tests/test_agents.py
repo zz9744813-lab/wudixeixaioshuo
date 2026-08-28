@@ -59,19 +59,33 @@ def test_extract_json_repair():
 
 
 def test_analyze_endpoint_runs_all_passes(client):
+    # Hermetic: clear prior agent runs so counts are exact for this run.
+    from sqlalchemy import delete
+
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        db.execute(delete(ModelCall))
+        db.execute(delete(Run).where(Run.task_type.in_([
+            "event", "perception", "knowledge", "belief", "goal", "emotion",
+            "relationship", "causality", "technique", "counterinterpretation", "reconcile",
+        ])))
+        db.commit()
+    finally:
+        db.close()
+
     book = _ingest(client)
     scenes = client.get(f"/api/v1/books/{book['book_id']}/scenes").json()
     scene_id = scenes[0]["id"]
 
-    r = client.post(f"/api/v1/scenes/{scene_id}/analyze")
+    r = client.post(f"/api/v1/scenes/{scene_id}/analyze?force=true")
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["analyzed"] is True
     assert len(body["passes"]) == 11  # 11 passes wired
 
     # Provenance: every pass recorded a Run + ModelCall (spec §35).
-    from app.db import SessionLocal
-
     db = SessionLocal()
     try:
         run_count = db.scalar(
@@ -86,8 +100,7 @@ def test_analyze_endpoint_runs_all_passes(client):
     assert run_count == 11
     assert call_count == 11
 
-    scene = db_scalar_scene(scene_id)
-    assert scene is not None
+    assert db_scalar_scene(scene_id) is not None
 
 
 def db_scalar_scene(scene_id):

@@ -132,3 +132,29 @@ class ReconcileResult(BaseModel):
     confidence: float = 0.5
     uncertainties: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
+
+
+# ---- EPIC-D: Rollout (spec §20) + Judge (spec §23) ------------------------ #
+class RolloutStep(BaseModel):
+    step: int = 0
+    state_transition: str = ""
+    event_plan: str = ""
+    character_reactions: List[str] = Field(default_factory=list)
+    causal_justification: str = ""
+
+
+class RolloutResult(BaseModel):
+    steps: List[RolloutStep] = Field(default_factory=list)
+    causal_risks: List[str] = Field(default_factory=list)
+    knowledge_violations: List[str] = Field(default_factory=list)
+
+
+class JudgeVerdict(BaseModel):
+    """Pairwise judgment. The judge never sees group labels (禁止7)."""
+
+    winner: str = "TIE"  # A | B | TIE
+    confidence: float = 0.0
+    decisive_dimensions: List[str] = Field(default_factory=list)
+    metrics: dict = Field(default_factory=dict)  # dimension -> score 0..1
+    evidence_spans: List[str] = Field(default_factory=list)
+    failure_reasons: List[str] = Field(default_factory=list)
