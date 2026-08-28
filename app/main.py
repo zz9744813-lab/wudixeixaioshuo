@@ -27,6 +27,17 @@ async def lifespan(app: FastAPI):
             logger.info("Ensured local tables via metadata.create_all")
         except Exception as exc:  # pragma: no cover
             logger.warning("create_all skipped: %s", exc)
+        # Load versioned prompts into the Prompt Registry (spec §28) so analysis
+        # agents read prompts from the DB at runtime.
+        try:
+            from app.db import SessionLocal
+            from app.prompts.registry import load_prompts
+
+            with SessionLocal() as s:
+                n = load_prompts(s)
+            logger.info("Loaded %d prompts into registry", n)
+        except Exception as exc:  # pragma: no cover
+            logger.warning("prompt load skipped: %s", exc)
     yield
 
 

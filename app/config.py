@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     broker_dsn: str = ""
     default_source_class: str = "human_original"
 
+    # LLM layer (EPIC-C+). OpenAI-compatible. Left empty -> deterministic FakeProvider.
+    llm_base_url: str = ""
+    llm_api_key: str = ""
+    llm_model: str = ""
+    # Force the deterministic fake provider even if a key is set (tests / offline).
+    force_fake_llm: bool = False
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")
