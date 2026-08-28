@@ -158,3 +158,22 @@ class JudgeVerdict(BaseModel):
     metrics: dict = Field(default_factory=dict)  # dimension -> score 0..1
     evidence_spans: List[str] = Field(default_factory=list)
     failure_reasons: List[str] = Field(default_factory=list)
+
+
+# ---- EPIC-E: Reader Simulator (spec §21) + Benchmark ---------------------- #
+class ReaderResult(BaseModel):
+    """Reader Simulator output (spec §21.2). All values 0..1."""
+
+    continue_reading_probability: float = 0.0
+    confusion: float = 0.0
+    boredom: float = 0.0
+    curiosity: float = 0.0
+    tension: float = 0.0
+    satisfaction: float = 0.0
+    surprise: float = 0.0
+    character_attachment: float = 0.0
+    trust_in_author: float = 0.0
+
+
+class BenchmarkPrediction(BaseModel):
+    answer: dict = Field(default_factory=dict)
