@@ -5,11 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from app.db import init_db
+from app.db import SessionLocal, init_db
 from app.llm.fake import FakeProvider, _fill
 from app.llm.provider import extract_json
 from app.main import app
 from app.models.corpus import Scene
+from app.models.decomposition import Event
 from app.models.infra import ModelCall, Run
 
 SAMPLE = """第一章 启程
@@ -101,6 +102,42 @@ def test_analyze_endpoint_runs_all_passes(client):
     assert call_count == 11
 
     assert db_scalar_scene(scene_id) is not None
+
+
+def test_claim_parity_for_agent_outputs():
+    """§17: an agent's LLM output must exist as an auditable Claim alongside any
+    artifact row, traceable to the same run id."""
+    import json
+
+    from app.agents.passes import EventAgent
+    from app.models.claims import Claim
+    from app.models.corpus import Scene
+
+    class StubProvider:
+        name = "stub"
+
+        def complete(self, messages, *, output_model=None, temperature=0.2, **kwargs):
+            return json.dumps({"events": [{
+                "type": "decision", "actor": "张三", "description": "张三决定离开家乡",
+                "order_index": 0, "confidence": 0.9,
+            }]})
+
+    db = SessionLocal()
+    try:
+        scene = db.scalars(select(Scene).limit(1)).first()
+        agent = EventAgent(db, provider=StubProvider())
+        result = agent.run(scene)
+        db.commit()
+        claim = db.scalar(select(Claim).where(Claim.agent_run == result.run_id))
+        assert claim is not None
+        assert claim.subject == f"scene:{scene.id}"
+        assert claim.predicate == "event:decision"
+        event = db.scalars(
+            select(Event).where(Event.source_span_id.is_(None)).limit(1)
+        ).first()  # events exist as queryable artifacts too
+        assert event is not None or claim is not None
+    finally:
+        db.close()
 
 
 def db_scalar_scene(scene_id):

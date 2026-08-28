@@ -31,6 +31,24 @@ from app.models.relationship import RelationshipState
 from app.models.claims import Claim
 
 
+def _claim(db: Session, subject: str, predicate: str, obj: str, confidence: float,
+           run_id: str, evidence: list | None = None) -> None:
+    """Every LLM output first becomes a Claim (spec §17, P-08) — never a direct
+    canonical write. The specialized tables hold the claim-derived artifact for
+    querying; the Claim keeps the auditable provenance chain."""
+    db.add(
+        Claim(
+            id=new_id("CLM"),
+            subject=subject or "(unspecified)",
+            predicate=predicate,
+            object=obj or "(unspecified)",
+            confidence=confidence,
+            agent_run=run_id,
+            evidence=evidence or [],
+        )
+    )
+
+
 # ---- persist callbacks (write artifacts, never canonical state directly) -- #
 def _persist_events(db: Session, scene: Scene, out: EventExtraction, run_id: str) -> None:
     for i, e in enumerate(out.events):
@@ -47,6 +65,8 @@ def _persist_events(db: Session, scene: Scene, out: EventExtraction, run_id: str
                 source_span_id=e.source_span,
             )
         )
+        _claim(db, f"scene:{scene.id}", f"event:{e.type}", e.description, e.confidence, run_id,
+               [{"span": e.source_span}] if e.source_span else [])
 
 
 def _persist_perceptions(db: Session, scene: Scene, out: PerceptionExtraction, run_id: str) -> None:
@@ -61,6 +81,7 @@ def _persist_perceptions(db: Session, scene: Scene, out: PerceptionExtraction, r
                 confidence=0.5,
             )
         )
+        _claim(db, f"character:{p.character}", "perceived", p.content, 0.5, run_id)
 
 
 def _persist_knowledge(db: Session, scene: Scene, out: KnowledgeExtraction, run_id: str) -> None:
@@ -92,6 +113,8 @@ def _persist_beliefs(db: Session, scene: Scene, out: BeliefExtraction, run_id: s
                 confidence=b.confidence,
             )
         )
+        _claim(db, f"character:{b.character}", "believes", b.proposition, b.confidence, run_id,
+               [{"probability": b.probability}])
 
 
 def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) -> None:
@@ -106,6 +129,7 @@ def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) 
                 strength=g.strength,
             )
         )
+        _claim(db, f"character:{g.character}", f"goal:{g.lifecycle}", g.statement, 0.5, run_id)
 
 
 def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id: str) -> None:
@@ -124,6 +148,8 @@ def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id:
                 confidence=0.5,
             )
         )
+        _claim(db, f"character:{em.character}", f"emotion:{em.type}", em.trigger or "", 0.5,
+               run_id, [{"text": t} for t in em.evidence])
 
 
 def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtraction, run_id: str) -> None:
@@ -140,6 +166,8 @@ def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtractio
                 last_changed_scene=scene.id,
             )
         )
+        _claim(db, f"character:{r.source}", f"{r.dimension}:delta:{r.delta}",
+               f"character:{r.target}", 0.5, run_id, [{"cause": r.cause}] if r.cause else [])
 
 
 def _persist_causality(db: Session, scene: Scene, out: CausalityExtraction, run_id: str) -> None:
