@@ -68,6 +68,10 @@ def run_experiment(db: Session, experiment_id: str, *, provider=None, horizon_sc
         variants = sorted(exp.variants, key=lambda v: (v.variant_type != "control", v.label))
         if not variants:
             raise ValueError("experiment has no variants")
+        control = next((v for v in variants if v.variant_type == "control"), None)
+        if control is None:
+            # 禁止6: an experiment without a declared control is not an experiment.
+            raise ValueError("experiment has no control variant (禁止6)")
         # Anchor scene: first scene of the book the hypothesis came from, or a
         # caller-provided one. We use the first scene of the book containing the
         # hypothesis' origin evidence, else any scene of the first book.
@@ -89,7 +93,6 @@ def run_experiment(db: Session, experiment_id: str, *, provider=None, horizon_sc
             }
 
         # ---- 2. blind pairwise judge: each treatment vs control ----------- #
-        control = next((v for v in variants if v.variant_type == "control"), variants[0])
         evaluations: list[dict] = []
         for v in variants:
             if v.id == control.id:

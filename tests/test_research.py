@@ -141,3 +141,18 @@ def test_experiment_requires_variants_and_scene(client):
     }).json()
     r = client.post(f"/api/v1/experiments/{exp['id']}/run")
     assert r.status_code == 400
+
+
+def test_experiment_without_control_is_refused(client):
+    """禁止6: an experiment without a declared control must fail loudly, not
+    silently promote the first treatment to control."""
+    h = client.post("/api/v1/hypotheses", json={"statement": "no-control exp"}).json()
+    exp = client.post(f"/api/v1/hypotheses/{h['id']}/design-experiment", json={
+        "variants": [
+            {"label": "t1", "variant_type": "treatment", "changed": {"stakes_change": {"level": "high"}}},
+            {"label": "t2", "variant_type": "treatment", "changed": {}},
+        ],
+    }).json()
+    r = client.post(f"/api/v1/experiments/{exp['id']}/run")
+    assert r.status_code == 400
+    assert "control" in r.json()["detail"]
