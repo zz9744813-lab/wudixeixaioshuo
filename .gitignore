@@ -111,4 +111,5 @@ backend/data/exports/
 
 # ---- Novel Genome (小说基因组计划) backend, repo root ----
 data/object_store/
+data/obsidian_vault/
 alembic/versions/*.pyc

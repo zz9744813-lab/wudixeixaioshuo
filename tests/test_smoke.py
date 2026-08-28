@@ -68,12 +68,19 @@ def test_research_loop(client):
 
 
 def test_novelforge_gate(client):
-    # No validated knowledge yet → adapter reports the governance gap, not fake advice.
+    # P-10: the adapter must never reference knowledge below VALIDATED, and must
+    # report the governance gap when nothing validated exists. (Other tests may
+    # have legitimately promoted rules in this DB, so assert consistency.)
+    validated_ids = {r["id"] for r in client.get("/api/v1/rules").json()}
     r = client.post("/api/v1/novelforge/scene-advice", json={
         "scene_goal": "make A suspect B without confirmation",
         "desired_effects": {"curiosity": "high"},
     })
     assert r.status_code == 200
     body = r.json()
-    assert body["recommended_techniques"] == []
-    assert "no_validated_knowledge_yet" in body["risk_flags"]
+    assert set(body["evidence_refs"]) <= validated_ids
+    if not validated_ids:
+        assert body["recommended_techniques"] == []
+        assert "no_validated_knowledge_yet" in body["risk_flags"]
+    else:
+        assert "no_validated_knowledge_yet" not in body["risk_flags"]
