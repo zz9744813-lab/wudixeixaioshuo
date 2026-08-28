@@ -70,8 +70,12 @@ class BaseAgent:
             "chapter_id": scene.chapter_id,
             "scene_index": scene.index,
             "pov": scene.pov,
+            "time": getattr(scene, "time", None),
             "location": scene.location,
             "participants": scene.participants,
+            "scene_goal": getattr(scene, "scene_goal", None),
+            "dominant_conflict": getattr(scene, "dominant_conflict", None),
+            "entry_state": scene.entry_state or {},
             "summary": scene.summary,
             "raw_text": raw_text,
         }
@@ -84,9 +88,12 @@ class BaseAgent:
     def run(self, scene) -> AgentRunResult:
         prompt = self._load_prompt()
         cp = self._build_context(scene)
+        import json as _json
+
+        user_content = _json.dumps(cp.payload, ensure_ascii=False, default=str)
         messages = [
             LLMMessage(role="system", content=prompt),
-            LLMMessage(role="user", content=cp.payload.get("raw_text") or prompt),
+            LLMMessage(role="user", content=user_content),
         ]
         raw = self.provider.complete(messages, output_model=self.output_model)
 
@@ -106,7 +113,10 @@ class BaseAgent:
             task_type=self.agent_type,
             prompt_version=self.prompt_id,
             context_package_id=cp.id,
-            idempotency_key=f"{self.agent_type}:{scene.id}",
+            # Sub-agent runs don't claim idempotency: the orchestrator / experiment
+            # runner owns the idempotency key (spec §33). NULL is allowed and
+            # unique-constraint friendly.
+            idempotency_key=getattr(self, "idempotency_key", None),
             status=TaskStatus.SUCCESS,
             input_ref={"scene_id": scene.id},
             output_ref={"agent_type": self.agent_type},
