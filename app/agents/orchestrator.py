@@ -31,6 +31,7 @@ from app.agents.passes import (
     TechniqueAgent,
 )
 from app.models.corpus import Scene
+from app.models.enums import TaskStatus
 
 SCENE_PASSES = [
     EventAgent,
@@ -64,6 +65,22 @@ def analyze_scene(
             # provider outage) must not discard the other passes' work (§33 PARTIAL).
             failed += 1
             db.rollback()
+            # Persist the failure so it is diagnosable later (spec §34, §49):
+            # a FAILED run row with the error beats a silent gap.
+            from app.core.ids import run_id as _rid
+            from app.models.infra import Run as _Run
+
+            db.add(
+                _Run(
+                    id=_rid(),
+                    task_type=AgentCls.agent_type,
+                    prompt_version=AgentCls.prompt_id,
+                    status=TaskStatus.FAILED_RETRYABLE,
+                    input_ref={"scene_id": scene.id},
+                    output_ref={"error": str(exc)[:1000]},
+                )
+            )
+            db.commit()
             passes.append({"agent": AgentCls.agent_type, "error": str(exc)[:500]})
             continue
         if isinstance(agent, ReconcileAgent):

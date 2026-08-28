@@ -90,7 +90,13 @@ class BaseAgent:
         cp = self._build_context(scene)
         import json as _json
 
-        user_content = _json.dumps(cp.payload, ensure_ascii=False, default=str)
+        payload = dict(cp.payload)
+        raw_text = payload.pop("raw_text", "") or ""
+        meta = {k: v for k, v in payload.items() if v not in (None, [], {})}
+        user_content = (
+            "【场景原文】\n" + raw_text + "\n\n【上下文（元数据）】\n"
+            + _json.dumps(meta, ensure_ascii=False, default=str)
+        )
         messages = [
             LLMMessage(role="system", content=prompt),
             LLMMessage(role="user", content=user_content),
@@ -137,8 +143,37 @@ class BaseAgent:
             )
         )
 
-        self.persist(self.db, scene, out, run.id)
-        self.db.flush()
+        try:
+            self.persist(self.db, scene, out, run.id)
+            self.db.flush()
+        except Exception:
+            # A persist bug must not destroy the model's raw output (spec §35):
+            # roll back the half-written artifacts, then re-record the Run and
+            # ModelCall as FAILED with the raw payload for diagnosis.
+            self.db.rollback()
+            self.db.add(
+                Run(
+                    id=run_id(),
+                    task_type=self.agent_type,
+                    prompt_version=self.prompt_id,
+                    status=TaskStatus.FAILED_RETRYABLE,
+                    input_ref={"scene_id": scene.id},
+                    output_ref={"error": "persist failed; raw preserved", "raw": raw[:4000]},
+                )
+            )
+            self.db.add(
+                ModelCall(
+                    id=new_id("MC"),
+                    run_id=run_id(),
+                    model=self.provider.name,
+                    prompt_version=self.prompt_id,
+                    input_payload={"messages": [m.model_dump() for m in messages]},
+                    output_payload={"raw": raw[:4000], "persist_error": True},
+                    schema_version="1.0",
+                )
+            )
+            self.db.flush()
+            raise
 
         return AgentRunResult(
             agent_type=self.agent_type,
