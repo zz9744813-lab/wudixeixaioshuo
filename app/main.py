@@ -55,9 +55,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from app.api import corpus, scene, character, research, knowledge, novelforge, ingest  # noqa: E402
+from app.api import corpus, scene, character, research, knowledge, novelforge, ingest, evaluation  # noqa: E402
 
-for r in (corpus, scene, character, research, knowledge, novelforge, ingest):
+for r in (corpus, scene, character, research, knowledge, novelforge, ingest, evaluation):
     app.include_router(r.router)
 
 
