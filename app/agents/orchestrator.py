@@ -55,9 +55,17 @@ def analyze_scene(
 
     passes: List[dict] = []
     reconcile: Optional[AgentRunResult] = None
+    failed = 0
     for AgentCls in SCENE_PASSES:
         agent = AgentCls(db, provider=provider)
-        res = agent.run(scene)
+        try:
+            res = agent.run(scene)
+        except Exception as exc:  # noqa: BLE001 — one pass failing (network, parse,
+            # provider outage) must not discard the other passes' work (§33 PARTIAL).
+            failed += 1
+            db.rollback()
+            passes.append({"agent": AgentCls.agent_type, "error": str(exc)[:500]})
+            continue
         if isinstance(agent, ReconcileAgent):
             reconcile = res
         passes.append(
@@ -79,6 +87,8 @@ def analyze_scene(
         if not scene.exit_state:
             scene.exit_state = {"confidence": scene.confidence}
 
-    scene.analyzed = True
+    # Scene counts as analyzed only when every pass succeeded; a PARTIAL run
+    # stays re-analyzable (force=true) per the §33 state machine.
+    scene.analyzed = failed == 0
     db.commit()
-    return {"scene_id": scene.id, "analyzed": True, "passes": passes}
+    return {"scene_id": scene.id, "analyzed": scene.analyzed, "failed_passes": failed, "passes": passes}

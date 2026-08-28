@@ -25,13 +25,15 @@ class OpenAICompatibleProvider:
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
-        timeout: float = 120.0,
+        timeout: float = 300.0,
+        max_retries: int = 2,
     ) -> None:
         s = get_settings()
         self.base_url = (base_url or s.llm_base_url or "").rstrip("/")
         self.api_key = api_key or s.llm_api_key or ""
         self.model = model or s.llm_model or ""
         self.timeout = timeout
+        self.max_retries = max_retries
         if not self.base_url or not self.api_key or not self.model:
             raise RuntimeError(
                 "OpenAICompatibleProvider not configured: set NOVEL_GENOME_LLM_BASE_URL / "
@@ -63,6 +65,23 @@ class OpenAICompatibleProvider:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
-        return body["choices"][0]["message"]["content"]
+        # Bounded retry on transient failures (timeout / 429 / 5xx) — never
+        # infinite (禁止11): at most ``max_retries`` extra attempts.
+        import time
+
+        last_exc: Exception | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                return body["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as exc:
+                if exc.code == 429 or exc.code >= 500:
+                    last_exc = exc
+                else:
+                    raise  # 4xx (except 429) is a caller error, not transient
+            except (TimeoutError, urllib.error.URLError) as exc:
+                last_exc = exc
+            if attempt < self.max_retries:
+                time.sleep(2.0 * (2 ** attempt))
+        raise last_exc  # type: ignore[misc]

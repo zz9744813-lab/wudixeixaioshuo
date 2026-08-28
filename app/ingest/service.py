@@ -112,6 +112,10 @@ def _prepare(
         imported_at=_now(),
     )
     db.add(source)
+    # The source row must physically exist before any book references it: with
+    # no relationship() between the two, the unit of work orders tables
+    # alphabetically and PostgreSQL would enforce the FK mid-flush otherwise.
+    db.flush()
 
     if book is None:
         book = Book(
@@ -306,6 +310,14 @@ def enqueue_ingest(
         db, raw, filename, book=book, title=title, author=author, genre=genre, source_class=source_class
     )
     db.commit()
+    # Dispatch via Redis when available (spec §40); the DB task row is the
+    # source of truth either way, and a Redis outage degrades to local scanning.
+    from app.core.queue import get_queue
+
+    try:
+        get_queue().enqueue(task.id)
+    except Exception:  # noqa: BLE001 — queue notification is best-effort
+        pass
     return task
 
 

@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # Force the deterministic fake provider even if a key is set (tests / offline).
     force_fake_llm: bool = False
 
+    # CORS allowlist (comma-separated). "*" only if explicitly configured.
+    cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
+
+    # Redis-backed queue (optional; empty = local queue only)
+    # redis_url already defined above.
+
+
     @property
     def is_sqlite(self) -> bool:
         return self.database_url.startswith("sqlite")

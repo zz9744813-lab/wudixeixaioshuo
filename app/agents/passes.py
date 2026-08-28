@@ -28,25 +28,44 @@ from app.models.corpus import Scene
 from app.models.decomposition import BeliefState, Event, Goal, Perception
 from app.models.emotion import EmotionState
 from app.models.relationship import RelationshipState
-from app.models.claims import Claim
+from app.models.claims import Claim, Evidence
+from app.models.enums import EvidenceType
 
 
 def _claim(db: Session, subject: str, predicate: str, obj: str, confidence: float,
-           run_id: str, evidence: list | None = None) -> None:
+           run_id: str, evidence: list | None = None) -> Claim:
     """Every LLM output first becomes a Claim (spec §17, P-08) — never a direct
-    canonical write. The specialized tables hold the claim-derived artifact for
-    querying; the Claim keeps the auditable provenance chain."""
-    db.add(
-        Claim(
-            id=new_id("CLM"),
-            subject=subject or "(unspecified)",
-            predicate=predicate,
-            object=obj or "(unspecified)",
-            confidence=confidence,
-            agent_run=run_id,
-            evidence=evidence or [],
-        )
+    canonical write. Evidence items become real Evidence rows (§17.2), so the
+    claim is auditable down to its supporting spans."""
+    claim = Claim(
+        id=new_id("CLM"),
+        subject=subject or "(unspecified)",
+        predicate=predicate,
+        object=obj or "(unspecified)",
+        confidence=confidence,
+        agent_run=run_id,
+        scope="scene",
     )
+    db.add(claim)
+    import json as _json
+
+    for item in evidence or []:
+        if isinstance(item, dict):
+            span = item.get("span") or item.get("source_span")
+            content = item.get("text") or item.get("observation") or _json.dumps(item, ensure_ascii=False)
+        else:
+            span, content = None, str(item)
+        db.add(
+            Evidence(
+                id=new_id("EV"),
+                claim=claim,
+                type=EvidenceType.NARRATION,
+                source_span_id=span,
+                content=content[:2000],
+                confidence=confidence,
+            )
+        )
+    return claim
 
 
 # ---- persist callbacks (write artifacts, never canonical state directly) -- #
@@ -87,16 +106,14 @@ def _persist_perceptions(db: Session, scene: Scene, out: PerceptionExtraction, r
 def _persist_knowledge(db: Session, scene: Scene, out: KnowledgeExtraction, run_id: str) -> None:
     # Knowledge updates are Claims until reconciled (spec P-08); persist as Claims.
     for k in out.updates:
-        db.add(
-            Claim(
-                id=new_id("CLM"),
-                subject=k.fact or "(unspecified)",
-                predicate=f"knowledge:{k.status}",
-                object=k.character,
-                confidence=k.confidence,
-                agent_run=run_id,
-                evidence=[{"span": k.source_span}] if k.source_span else [],
-            )
+        _claim(
+            db,
+            k.fact or "(unspecified)",
+            f"knowledge:{k.status}",
+            k.character,
+            k.confidence,
+            run_id,
+            [{"span": k.source_span}] if k.source_span else [],
         )
 
 
@@ -172,47 +189,33 @@ def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtractio
 
 def _persist_causality(db: Session, scene: Scene, out: CausalityExtraction, run_id: str) -> None:
     for c in out.edges:
-        db.add(
-            Claim(
-                id=new_id("CLM"),
-                subject=c.frm or "(event)",
-                predicate=f"causes:{c.type}",
-                object=c.to or "(event)",
-                confidence=c.confidence,
-                agent_run=run_id,
-                evidence=[{"text": t} for t in c.evidence],
-            )
+        _claim(
+            db,
+            c.frm or "(event)",
+            f"causes:{c.type}",
+            c.to or "(event)",
+            c.confidence,
+            run_id,
+            [{"text": t} for t in c.evidence],
         )
 
 
 def _persist_techniques(db: Session, scene: Scene, out: TechniqueExtraction, run_id: str) -> None:
     for t in out.candidates:
-        db.add(
-            Claim(
-                id=new_id("CLM"),
-                subject=t.name or "(technique)",
-                predicate="technique:candidate",
-                object=t.category,
-                confidence=0.4,
-                agent_run=run_id,
-                evidence=[{"text": e} for e in t.evidence],
-            )
+        _claim(
+            db,
+            t.name or "(technique)",
+            "technique:candidate",
+            t.category,
+            0.4,
+            run_id,
+            [{"text": e} for e in t.evidence],
         )
 
 
 def _persist_counter(db: Session, scene: Scene, out: CounterInterpretation, run_id: str) -> None:
     for alt in out.alternatives:
-        db.add(
-            Claim(
-                id=new_id("CLM"),
-                subject=scene.id,
-                predicate="counterinterpretation",
-                object=alt,
-                confidence=0.3,
-                agent_run=run_id,
-                evidence=[],
-            )
-        )
+        _claim(db, scene.id, "counterinterpretation", alt, 0.3, run_id, [])
 
 
 def _character_id(db: Session, book_id: str, name: str | None):

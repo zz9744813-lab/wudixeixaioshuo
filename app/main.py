@@ -48,9 +48,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Wildcard CORS is a dev convenience the spec never allowed for production:
+# the allowlist comes from settings (CORS_ORIGINS, comma-separated). A literal
+# "*" is honoured only when explicitly configured.
+_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_origins,
+    allow_credentials="*" not in _origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
