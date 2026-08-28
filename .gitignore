@@ -36,6 +36,7 @@ ENV/
 
 # Database
 *.db
+*.db-journal
 *.sqlite
 *.sqlite3
 backend/data/

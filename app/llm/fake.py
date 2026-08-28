@@ -41,9 +41,9 @@ def _default_for_type(annotation: Any, fallback) -> Any:
             args = get_args(annotation)
     if isinstance(annotation, type) and issubclass(annotation, BaseModel):
         return _fill(annotation)
-    if origin in (list, List):
+    if origin in (list, List) or annotation is list:
         return []
-    if origin is dict:
+    if origin is dict or annotation is dict:
         return {}
     if annotation is str:
         return "[fake]"

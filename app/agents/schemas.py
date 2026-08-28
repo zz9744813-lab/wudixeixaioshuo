@@ -9,7 +9,22 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _str_list(*fields: str):
+    """Coerce a bare string into a single-item list.
+
+    LLMs routinely return "evidence": "one sentence" instead of a list; strict
+    validation would silently discard the entire extraction, so we accept both
+    (spec §34: repair rather than fail)."""
+    from pydantic import field_validator
+
+    def _inner(cls, v):
+        return [v] if isinstance(v, str) else v
+
+    return field_validator(*fields, mode="before")(_inner)
+
 
 
 class EventItem(BaseModel):
@@ -79,6 +94,8 @@ class EmotionItem(BaseModel):
     action_tendency: dict = Field(default_factory=dict)
     evidence: List[str] = Field(default_factory=list)
 
+    _coerce = _str_list("evidence")
+
 
 class EmotionExtraction(BaseModel):
     emotions: List[EmotionItem] = Field(default_factory=list)
@@ -107,6 +124,8 @@ class CausalityItem(BaseModel):
     evidence: List[str] = Field(default_factory=list)
     alternatives: List[str] = Field(default_factory=list)
 
+    _coerce = _str_list("evidence", "alternatives")
+
 
 class CausalityExtraction(BaseModel):
     edges: List[CausalityItem] = Field(default_factory=list)
@@ -118,6 +137,8 @@ class TechniqueItem(BaseModel):
     mechanism: List[str] = Field(default_factory=list)
     evidence: List[str] = Field(default_factory=list)
 
+    _coerce = _str_list("mechanism", "evidence")
+
 
 class TechniqueExtraction(BaseModel):
     candidates: List[TechniqueItem] = Field(default_factory=list)
@@ -125,6 +146,8 @@ class TechniqueExtraction(BaseModel):
 
 class CounterInterpretation(BaseModel):
     alternatives: List[str] = Field(default_factory=list)
+
+    _coerce = _str_list("alternatives")
 
 
 class ReconcileResult(BaseModel):
