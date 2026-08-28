@@ -122,6 +122,28 @@ class KnowledgeRuleOut(BaseModel):
     confidence: float
 
 
+class KnowledgeRuleCreate(BaseModel):
+    name: str
+    statement: str
+    category: TechniqueCategory | None = None
+    mechanism: str | None = None
+    preconditions: list[str] = Field(default_factory=list)
+    failure_modes: list[str] = Field(default_factory=list)
+    evidence: list[Any] = Field(default_factory=list)
+    scope: dict[str, Any] = Field(default_factory=dict)
+    tier: KnowledgeTier = KnowledgeTier.OBSERVATION
+
+
+class CounterexampleCreate(BaseModel):
+    observation: str
+    evidence: list[Any] = Field(default_factory=list)
+
+
+class DemoteRequest(BaseModel):
+    reason: str
+    to: str = "DEPRECATED"
+
+
 # ---- Ingestion (spec §6, EPIC-B) ----
 class IngestResultOut(BaseModel):
     book_id: str
@@ -149,7 +171,8 @@ class NovelForgeSceneAdvice(BaseModel):
     knowledge_constraints: list[dict[str, Any]] = Field(default_factory=list)
     causal_constraints: list[dict[str, Any]] = Field(default_factory=list)
     recommended_techniques: list[str] = Field(default_factory=list)
-    avoid_patterns: list[str] = Field(default_factory=list)
+    # Each pattern keeps its rule provenance so NovelForge can trace advice (§35).
+    avoid_patterns: list[dict[str, Any]] = Field(default_factory=list)
     candidate_events: list[dict[str, Any]] = Field(default_factory=list)
     risk_flags: list[str] = Field(default_factory=list)
     evidence_refs: list[str] = Field(default_factory=list)

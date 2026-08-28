@@ -10,7 +10,14 @@ from app.db import get_db
 from app.models.technique import Technique
 from app.models.knowledge_registry import KnowledgeRule
 from app.models.enums import KnowledgeTier
-from app.schemas.domain import TechniqueCreate, TechniqueOut, KnowledgeRuleOut
+from app.schemas.domain import (
+    TechniqueCreate,
+    TechniqueOut,
+    KnowledgeRuleCreate,
+    KnowledgeRuleOut,
+    CounterexampleCreate,
+    DemoteRequest,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["knowledge"])
 
@@ -56,3 +63,57 @@ def get_rule(rule_id: str, db: Session = Depends(get_db)):
     if not r:
         raise HTTPException(404, "rule not found")
     return KnowledgeRuleOut(id=r.id, name=r.name, tier=r.tier, confidence=r.confidence)
+
+
+@router.post("/rules", response_model=KnowledgeRuleOut, status_code=201)
+def create_rule(payload: KnowledgeRuleCreate, db: Session = Depends(get_db)):
+    rule = KnowledgeRule(
+        id=new_id("KR"), name=payload.name, statement=payload.statement,
+        category=payload.category, tier=payload.tier, mechanism=payload.mechanism,
+        preconditions=payload.preconditions, failure_modes=payload.failure_modes,
+        evidence=payload.evidence, scope=payload.scope,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return KnowledgeRuleOut(id=rule.id, name=rule.name, tier=rule.tier, confidence=rule.confidence)
+
+
+@router.post("/rules/{rule_id}/promote")
+def promote_rule(rule_id: str, db: Session = Depends(get_db)):
+    from app.knowledge.promotion import promote
+
+    try:
+        return promote(db, rule_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.post("/rules/{rule_id}/demote")
+def demote_rule(rule_id: str, payload: DemoteRequest, db: Session = Depends(get_db)):
+    from app.knowledge.promotion import demote
+
+    try:
+        return demote(db, rule_id, payload.reason, to=KnowledgeTier(payload.to))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.post("/rules/{rule_id}/counterexamples", status_code=201)
+def register_counterexample(rule_id: str, payload: CounterexampleCreate, db: Session = Depends(get_db)):
+    from app.knowledge.promotion import add_counterexample
+
+    try:
+        return add_counterexample(db, rule_id, payload.observation, payload.evidence)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+
+@router.get("/rules/{rule_id}/gate")
+def rule_gate(rule_id: str, db: Session = Depends(get_db)):
+    from app.knowledge.promotion import gate_checklist
+
+    try:
+        return gate_checklist(db, rule_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
