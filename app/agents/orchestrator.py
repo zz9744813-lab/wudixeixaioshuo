@@ -1,0 +1,84 @@
+"""Scene analysis orchestrator (spec §32 workflow).
+
+Runs the multi-pass decomposition chain for one Scene in the canonical order,
+each Pass as an independent Agent (spec P-12), then has the Reconciler summarize
+into the Scene's canonical genome. All artifacts are written as Claims /
+Events / Perceptions / ... with their ``Run`` id (never overwrite canonical
+state directly, spec P-08).
+
+Order (subset of §16 / §32 implemented so far):
+Event → Perception → Knowledge → Belief → Goal → Emotion → Relationship →
+Causality → TechniqueMining → CounterInterpretation → Reconcile.
+"""
+from __future__ import annotations
+
+from typing import List, Optional
+
+from sqlalchemy.orm import Session
+
+from app.agents.base import AgentRunResult
+from app.agents.passes import (
+    BeliefAgent,
+    CausalityAgent,
+    CounterInterpretationAgent,
+    EmotionAgent,
+    EventAgent,
+    GoalAgent,
+    KnowledgeAgent,
+    PerceptionAgent,
+    ReconcileAgent,
+    RelationshipAgent,
+    TechniqueAgent,
+)
+from app.models.corpus import Scene
+
+SCENE_PASSES = [
+    EventAgent,
+    PerceptionAgent,
+    KnowledgeAgent,
+    BeliefAgent,
+    GoalAgent,
+    EmotionAgent,
+    RelationshipAgent,
+    CausalityAgent,
+    TechniqueAgent,
+    CounterInterpretationAgent,
+    ReconcileAgent,
+]
+
+
+def analyze_scene(
+    db: Session, scene: Scene, provider=None, force: bool = False
+) -> dict:
+    if scene.analyzed and not force:
+        return {"scene_id": scene.id, "skipped": True, "reason": "already analyzed"}
+
+    passes: List[dict] = []
+    reconcile: Optional[AgentRunResult] = None
+    for AgentCls in SCENE_PASSES:
+        agent = AgentCls(db, provider=provider)
+        res = agent.run(scene)
+        if isinstance(agent, ReconcileAgent):
+            reconcile = res
+        passes.append(
+            {
+                "agent": res.agent_type,
+                "run_id": res.run_id,
+                "model": res.model,
+                "confidence": res.confidence,
+                "warnings": res.warnings,
+            }
+        )
+
+    # Reconciler lifts its summary into the canonical Scene genome (spec §32).
+    if reconcile is not None:
+        out = reconcile.output
+        scene.confidence = float(getattr(out, "confidence", scene.confidence) or scene.confidence)
+        if getattr(out, "summary", None):
+            scene.summary = out.summary
+        if not scene.exit_state:
+            scene.exit_state = {"confidence": scene.confidence}
+
+    scene.analyzed = True
+    db.commit()
+    return {"scene_id": scene.id, "analyzed": True, "passes": passes}

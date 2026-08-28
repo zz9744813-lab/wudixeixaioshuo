@@ -59,13 +59,11 @@ def list_claims(scene_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{scene_id}/analyze")
-def analyze_scene(scene_id: str, db: Session = Depends(get_db)):
+def analyze_scene(scene_id: str, db: Session = Depends(get_db), force: bool = False):
     scene = db.get(Scene, scene_id)
     if not scene:
         raise HTTPException(404, "scene not found")
-    run = create_run(db, task_type="scene_analyze", idempotency_key=f"analyze:{scene_id}")
-    # Placeholder for the 20-pass decomposition (EPIC-C). Marks readiness + provenance.
-    scene.analyzed = True
-    finalize_run(db, run, TaskStatus.SUCCESS.value, output_ref={"scene_id": scene.id})
-    db.commit()
-    return {"scene_id": scene.id, "run_id": run.id, "analyzed": True}
+    from app.agents.orchestrator import analyze_scene as run_chain
+
+    result = run_chain(db, scene, force=force)
+    return result
