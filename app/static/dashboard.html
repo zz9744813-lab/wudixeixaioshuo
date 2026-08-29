@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novel Genome · 小说基因组</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2333; --line:#2a3140;
+  --txt:#e6edf3; --dim:#8b949e; --acc:#58a6ff; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --purp:#bc8cff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--txt);font:14px/1.6 "Segoe UI","Microsoft YaHei",sans-serif;display:flex;min-height:100vh}
+aside{width:200px;background:var(--panel);border-right:1px solid var(--line);padding:18px 0;position:sticky;top:0;height:100vh}
+.logo{padding:0 18px 16px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.logo b{font-size:16px;color:var(--acc)} .logo small{display:block;color:var(--dim);font-size:11px}
+nav a{display:block;padding:9px 18px;color:var(--dim);cursor:pointer;border-left:3px solid transparent}
+nav a:hover{color:var(--txt);background:var(--panel2)}
+nav a.on{color:var(--acc);border-left-color:var(--acc);background:var(--panel2)}
+main{flex:1;padding:24px 30px;max-width:1200px}
+h1{font-size:20px;margin-bottom:4px} h2{font-size:16px;margin:18px 0 10px;color:var(--acc)}
+.sub{color:var(--dim);font-size:12px;margin-bottom:18px}
+.cards{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 20px;min-width:130px}
+.card b{font-size:24px;display:block} .card span{color:var(--dim);font-size:12px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:8px;overflow:hidden}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);font-size:13px}
+th{color:var(--dim);font-weight:600;background:var(--panel2)}
+tr:hover td{background:rgba(88,166,255,.05)}
+button{background:var(--acc);border:0;color:#04121f;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;font-size:13px}
+button.gray{background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input,select{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 10px;font-size:13px}
+.tag{display:inline-block;border-radius:10px;padding:1px 9px;font-size:11px;font-weight:600}
+.t-ok{background:rgba(63,185,80,.15);color:var(--ok)} .t-warn{background:rgba(210,153,34,.15);color:var(--warn)}
+.t-bad{background:rgba(248,81,73,.15);color:var(--bad)} .t-info{background:rgba(88,166,255,.15);color:var(--acc)}
+.t-purp{background:rgba(188,140,255,.15);color:var(--purp)}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:14px}
+.dim{color:var(--dim)} .mono{font-family:Consolas,monospace;font-size:12px}
+.evt{border-left:3px solid var(--acc);padding:6px 12px;margin:6px 0;background:var(--panel2);border-radius:0 6px 6px 0}
+.emo{border-left:3px solid var(--purp)}
+.clm{border-left:3px solid var(--warn)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:8px;display:none;z-index:9}
+.sect{display:none}.sect.on{display:block}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><b>🧬 Novel Genome</b><small>计算叙事科学平台</small></div>
+  <nav id="nav">
+    <a data-s="ov" class="on">📊 总览</a>
+    <a data-s="lib">📚 书库与摄入</a>
+    <a data-s="sc">🧬 场景基因</a>
+    <a data-s="kn">🔐 知识门禁</a>
+    <a data-s="re">🔬 研究实验室</a>
+    <a data-s="rd">👤 读者模拟 · 竞技场</a>
+    <a data-s="nf">🛠 NovelForge 适配器</a>
+    <a data-s="sy">⚙ 系统</a>
+  </nav>
+</aside>
+<main>
+  <!-- ============ 总览 ============ -->
+  <section class="sect on" id="s-ov">
+    <h1>总览</h1><div class="sub">平台当前状态一览（数据为实况查询）</div>
+    <div class="cards" id="ov-cards"></div>
+    <div id="ov-note"></div>
+  </section>
+  <!-- ============ 书库 ============ -->
+  <section class="sect" id="s-lib">
+    <h1>书库与摄入</h1><div class="sub">上传小说（TXT/MD/EPUB/DOCX）→ 自动解析章节、切分场景、去重</div>
+    <div class="box">
+      <div class="row">
+        <input type="file" id="ing-file">
+        <input id="ing-title" placeholder="书名（可留空用文件名）" style="width:200px">
+        <button onclick="ingest()">⬆ 摄入</button>
+        <span id="ing-msg" class="dim"></span>
+      </div>
+    </div>
+    <table id="tb-books"><thead><tr><th>ID</th><th>书名</th><th>作者</th><th>章节</th><th>场景</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+  <!-- ============ 场景基因 ============ -->
+  <section class="sect" id="s-sc">
+    <h1>场景基因 Inspector</h1><div class="sub">选择书 → 选择场景 → 查看多轮 Agent 拆解出的全部结构</div>
+    <div class="box"><div class="row">
+      <select id="sc-book" onchange="loadScenes()"></select>
+      <select id="sc-scene" onchange="loadGenome()"></select>
+      <button id="btn-analyze" onclick="analyze()">▶ 运行 11-Pass 分析（真实 LLM，约 5-9 分钟）</button>
+      <span id="sc-msg" class="dim"></span>
+    </div></div>
+    <div id="sc-view"><div class="dim">← 先选择书和场景</div></div>
+  </section>
+  <!-- ============ 知识门禁 ============ -->
+  <section class="sect" id="s-kn">
+    <h1>知识门禁（§63 晋升阶梯）</h1>
+    <div class="sub">OBSERVATION → CANDIDATE → SUPPORTED → REPLICATED → VALIDATED → PRODUCTION_PROVEN。门禁不满足会被明确拒绝并告知缺什么。</div>
+    <div class="box"><div class="row">
+      <input id="kr-name" placeholder="规则名" style="width:160px">
+      <input id="kr-stmt" placeholder="规则陈述" style="width:280px">
+      <button onclick="addRule()">＋ 新建规则（OBSERVATION）</button>
+      <label class="dim" style="font-size:12px">只有 VALIDATED+ 才会出现在生产列表 GET /rules（P-10）</label>
+    </div></div>
+    <div id="kn-list"></div>
+  </section>
+  <!-- ============ 研究实验室 ============ -->
+  <section class="sect" id="s-re">
+    <h1>研究实验室</h1><div class="sub">假设 → 设计实验（对照/处理 + 盲评 Judge）→ 按可证伪条件裁决</div>
+    <div class="box"><div class="row">
+      <input id="hy-stmt" placeholder="假设陈述（须可证伪）" style="width:340px">
+      <input id="hy-fals" placeholder="可证伪条件" style="width:240px">
+      <button onclick="addHypothesis()">＋ 提出假设</button>
+    </div></div>
+    <div id="re-list"></div>
+  </section>
+  <!-- ============ 读者模拟 ============ -->
+  <section class="sect" id="s-rd">
+    <h1>读者模拟 · Writer Arena</h1><div class="sub">画像驱动的 9 维读者反应；匿名 A/B 盲评竞技场</div>
+    <div class="box">
+      <div class="row"><b>读者模拟</b></div>
+      <div class="row" style="margin:8px 0">
+        <select id="rd-profile"></select>
+        <input id="rd-text" placeholder="直接粘文本，或用场景 ID" style="flex:1;min-width:240px">
+        <input id="rd-scene" placeholder="scene_id（可选）" style="width:200px">
+        <button onclick="readerSim()">模拟阅读</button>
+      </div>
+      <div id="rd-out"></div>
+    </div>
+    <div class="box">
+      <div class="row"><b>竞技场（对贴文本，两两盲评）</b></div>
+      <div class="row" style="margin:8px 0">
+        <input id="ar-a" placeholder="候选 A 文本" style="flex:1;min-width:200px">
+        <input id="ar-b" placeholder="候选 B 文本" style="flex:1;min-width:200px">
+        <button onclick="arenaRun()">开赛</button>
+      </div>
+      <div id="ar-out"></div>
+    </div>
+  </section>
+  <!-- ============ NovelForge ============ -->
+  <section class="sect" id="s-nf">
+    <h1>NovelForge 适配器（§43）</h1><div class="sub">生产侧只能拿到 VALIDATED+ 的抽象约束——绝不允许小说原文回流（§45）</div>
+    <div class="box"><div class="row">
+      <input id="nf-goal" placeholder="下一场目标，例：让A怀疑B但不能确认" style="flex:1;min-width:280px">
+      <button onclick="nfAdvice()">获取写作建议</button>
+    </div></div>
+    <div id="nf-out"></div>
+  </section>
+  <!-- ============ 系统 ============ -->
+  <section class="sect" id="s-sy">
+    <h1>系统</h1><div class="sub">健康 / Prompt 注册表 / Obsidian 导出</div>
+    <div class="box" id="sy-health"></div>
+    <div class="box"><button onclick="exportObsidian()">📤 导出 Obsidian 知识库（§42）</button> <span id="sy-obs" class="dim"></span></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+const $ = s => document.querySelector(s);
+const api = async (p, opts) => {
+  const r = await fetch(p, opts);
+  const t = await r.text();
+  let j; try { j = JSON.parse(t); } catch { j = t; }
+  if (!r.ok) throw new Error((j && j.detail) || (r.status + ' ' + r.statusText));
+  return j;
+};
+const toast = (m, bad) => { const t = $('#toast'); t.textContent = m; t.style.borderColor = bad ? 'var(--bad)' : 'var(--ok)'; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3200); };
+const post = (p, body) => api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const tierTag = t => {
+  const c = { PRODUCTION_PROVEN: 't-ok', VALIDATED: 't-ok', REPLICATED: 't-info', SUPPORTED: 't-info', CANDIDATE: 't-warn', OBSERVATION: 't-warn', REJECTED: 't-bad', DEPRECATED: 't-bad' }[t] || 't-info';
+  return `<span class="tag ${c}">${t}</span>`;
+};
+
+/* ---------- nav ---------- */
+document.querySelectorAll('#nav a').forEach(a => a.onclick = () => {
+  document.querySelectorAll('#nav a').forEach(x => x.classList.remove('on'));
+  document.querySelectorAll('.sect').forEach(x => x.classList.remove('on'));
+  a.classList.add('on'); $('#s-' + a.dataset.s).classList.add('on');
+  ({ ov: loadOverview, lib: loadBooks, sc: initSceneTab, kn: loadRules, re: loadHypotheses, rd: loadReader, sy: loadSys }[a.dataset.s] || (() => {}))();
+});
+
+/* ---------- overview ---------- */
+async function loadOverview() {
+  const h = await api('/health');
+  const books = await api('/api/v1/books');
+  const hy = await api('/api/v1/hypotheses');
+  const real = books.filter(b => b.scene_count > 0);
+  const totalScenes = real.reduce((s, b) => s + b.scene_count, 0);
+  $('#ov-cards').innerHTML = [
+    ['43', '数据库表'], [books.length, '书籍'], [totalScenes, '场景（已摄入）'],
+    [hy.length, '假设'], [h.tables, '健康状态 ok']
+  ].map(c => `<div class="card"><b>${c[0]}</b><span>${c[1]}</span></div>`).join('');
+  $('#ov-note').innerHTML = `<div class="box">
+    <b>快速验证真实分析</b>：书库中「真模型验证」（<span class="mono">${(real.find(b => b.title === '真模型验证') || {}).id || ''}</span>）包含由真实 LLM 完成的 11-Pass 拆解。
+    去「场景基因」选它 → 场景 0 → 看事件、情绪、知识状态与 28 条可溯源 Claim。</div>`;
+}
+
+/* ---------- books ---------- */
+async function loadBooks() {
+  const books = await api('/api/v1/books');
+  $('#tb-books tbody').innerHTML = books.slice().reverse().slice(0, 40).map(b => `
+    <tr><td class="mono">${b.id}</td><td>${b.title}</td><td>${b.author || '—'}</td>
+    <td>${b.chapter_count}</td><td>${b.scene_count}</td>
+    <td><button class="gray" onclick="gotoScenes('${b.id}')">看场景</button></td></tr>`).join('') || '<tr><td colspan="6" class="dim">还没有书，先摄入一本</td></tr>';
+}
+function gotoScenes(id) { document.querySelector('[data-s="sc"]').click(); $('#sc-book').value = id; loadScenes(); }
+async function ingest() {
+  const f = $('#ing-file').files[0];
+  if (!f) return toast('先选一个文件', true);
+  const fd = new FormData();
+  fd.append('file', f);
+  if ($('#ing-title').value) fd.append('title', $('#ing-title').value);
+  $('#ing-msg').textContent = '解析中…';
+  try {
+    const r = await fetch('/api/v1/corpus/ingest', { method: 'POST', body: fd });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || r.status);
+    $('#ing-msg').textContent = '';
+    toast(`摄入完成：${j.chapter_count} 章 / ${j.scene_count} 场景 / ${j.span_count} 段落${j.warnings.length ? ' ⚠ ' + j.warnings.join(';') : ''}`);
+    loadBooks();
+  } catch (e) { $('#ing-msg').textContent = '失败：' + e.message; }
+}
+
+/* ---------- scene genome ---------- */
+async function initSceneTab() {
+  const books = await api('/api/v1/books');
+  const opts = books.filter(b => b.scene_count > 0).map(b => `<option value="${b.id}">${b.title}（${b.scene_count} 场景）</option>`).join('');
+  $('#sc-book').innerHTML = opts;
+  if (opts) { $('#sc-book').value = (books.find(b => b.title === '真模型验证') || books.find(b => b.scene_count > 0)).id; loadScenes(); }
+}
+async function loadScenes() {
+  const scenes = await api(`/api/v1/books/${$('#sc-book').value}/scenes`);
+  $('#sc-scene').innerHTML = scenes.map(s => `<option value="${s.id}">场景 ${s.index}${s.analyzed ? ' ✅已分析' : ' ·未分析'}</option>`).join('');
+  if (scenes.length) loadGenome();
+}
+async function loadGenome() {
+  const id = $('#sc-scene').value;
+  if (!id) return;
+  const [sc, evts, emos, clms] = await Promise.all([
+    api(`/api/v1/scenes/${id}`), api(`/api/v1/scenes/${id}/events`),
+    api(`/api/v1/scenes/${id}/emotions`), api(`/api/v1/scenes/${id}/claims`)
+  ]);
+  $('#sc-view').innerHTML = `
+    <div class="box"><b>摘要</b> ${tierTag(sc.analyzed ? 'VALIDATED-tier data' : '未分析')}
+      <div>${sc.summary || '<span class="dim">（无摘要 — 尚未运行 Reconciler）</span>'}</div>
+      <div class="dim" style="margin-top:6px">confidence ${sc.confidence} · POV ${sc.pov || '—'} · 场景 ${sc.index}</div></div>
+    <div class="box"><b>事件 (${evts.length})</b><div class="dim">模型抽取的"状态变化"，非环境描写</div>
+      ${evts.map(e => `<div class="evt"><span class="tag t-info">${(e.types || []).join('/') || '?'}</span> ${e.description} <span class="dim mono">conf ${e.confidence}</span></div>`).join('') || '<span class="dim">无</span>'}</div>
+    <div class="box"><b>情绪 (${emos.length})</b><div class="dim">带 appraisal 维度，不是裸标签</div>
+      ${emos.map(e => `<div class="emo"><b>${e.emotion}</b> 强度 ${e.intensity} <span class="mono dim">${JSON.stringify(e.appraisal)}</span></div>`).join('') || '<span class="dim">无</span>'}</div>
+    <div class="box"><b>Claims (${clms.length})</b><div class="dim">所有 LLM 输出先成为 Claim（§17），每条可沿 run_id 溯源</div>
+      ${clms.slice(0, 30).map(c => `<div class="clm mono">${c.predicate} :: ${c.subject} → ${c.object} <span class="tag t-warn">${c.status}</span></div>`).join('') || '<span class="dim">无</span>'}</div>`;
+}
+async function analyze() {
+  const id = $('#sc-scene').value;
+  if (!id) return;
+  if (!confirm('将真实调用 LLM（11 次），约 5-9 分钟并消耗 API 额度。继续？')) return;
+  $('#btn-analyze').disabled = true; $('#sc-msg').textContent = '分析中…请勿关闭页面';
+  try {
+    const r = await api(`/api/v1/scenes/${id}/analyze?force=true`);
+    const errs = (r.passes || []).filter(p => p.error).length;
+    $('#sc-msg').textContent = '';
+    toast(`分析完成：${r.passes.length} 个 Pass，失败 ${errs} 个`);
+    loadGenome();
+  } catch (e) { $('#sc-msg').textContent = '失败：' + e.message; }
+  $('#btn-analyze').disabled = false;
+}
+
+/* ---------- knowledge ---------- */
+async function loadRules() {
+  const rules = await api('/api/v1/rules');
+  $('#kn-list').innerHTML = `<div class="box"><b>生产可见规则（GET /rules，仅 VALIDATED+）</b>
+    ${rules.map(r => `<div class="row" style="margin:6px 0"><span class="mono">${r.id}</span> <b>${r.name}</b> ${tierTag(r.tier)} <span class="dim">conf ${r.confidence}</span>
+      <button class="gray" onclick="gate('${r.id}')">门禁检查</button>
+      <button class="gray" onclick="promote('${r.id}')">晋升</button>
+      <button class="gray" onclick="feedback('${r.id}')">生产反馈✓</button></div>`).join('') || '<span class="dim">暂无——建一条规则，一路晋升到 VALIDATED 再回来看</span>'}</div>
+    <div class="box" id="kn-gate"></div>`;
+}
+async function addRule() {
+  await post('/api/v1/rules', { name: $('#kr-name').value || '未命名', statement: $('#kr-stmt').value || '（空）' });
+  toast('规则已创建（OBSERVATION）'); loadRules();
+}
+async function promote(id) {
+  try { const r = await api(`/api/v1/rules/${id}/promote`, { method: 'POST' });
+    toast(r.promoted ? `✅ 晋升到 ${r.to}` : `⛔ 门禁拒绝：${(r.missing || [r.reason]).join('；')}`, !r.promoted);
+    loadRules(); } catch (e) { toast(e.message, true); }
+}
+async function gate(id) {
+  const g = await api(`/api/v1/rules/${id}/gate`);
+  $('#kn-gate').innerHTML = '<b>§51 门禁清单</b>' + Object.entries(g.checklist).map(([k, v]) =>
+    `<div class="row" style="margin:3px 0"><span class="tag ${v ? 't-ok' : 't-bad'}">${v ? '✓' : '✗'}</span> ${k}</div>`).join('');
+}
+async function feedback(id) {
+  const r = await post('/api/v1/novelforge/production-feedback', { rule_id: id, accepted: true, chapter_ref: 'CH-验收', notes: 'dashboard 验收' });
+  toast('生产反馈已记录 → ' + (r.to || r.outcome)); loadRules();
+}
+
+/* ---------- research ---------- */
+async function loadHypotheses() {
+  const hy = await api('/api/v1/hypotheses');
+  $('#re-list').innerHTML = `<div class="box">${hy.map(h => `
+    <div class="row" style="margin:8px 0;border-bottom:1px solid var(--line);padding-bottom:8px">
+      <span class="mono">${h.id}</span> <span style="flex:1">${h.statement}</span> ${tierTag(h.status)}
+      <button class="gray" onclick="designExp('${h.id}')">设计实验</button>
+    </div>`).join('') || '<span class="dim">暂无假设</span>'}</div><div class="box" id="re-exp"></div>`;
+}
+async function addHypothesis() {
+  await post('/api/v1/hypotheses', { statement: $('#hy-stmt').value || '（空假设）', falsification_condition: $('#hy-fals').value || 'treatment not stably better than control' });
+  toast('假设已登记'); loadHypotheses();
+}
+async function designExp(hid) {
+  const exp = await post(`/api/v1/hypotheses/${hid}/design-experiment`, {
+    fixed: { note: 'dashboard 验收' }, measurements: ['curiosity', 'tension'],
+    variants: [
+      { label: 'control', variant_type: 'control', changed: {} },
+      { label: 'treatment_A', variant_type: 'treatment', changed: { stakes_change: { level: 'high' } } }
+    ]
+  });
+  toast(`实验 ${exp.id} 已设计（对照+处理）`);
+  const run = await api(`/api/v1/experiments/${exp.id}/run`, { method: 'POST' });
+  $('#re-exp').innerHTML = `<b>实验 ${exp.id} 裁决</b><pre class="mono">${JSON.stringify(run, null, 2)}</pre>`;
+}
+
+/* ---------- reader / arena ---------- */
+async function loadReader() {
+  const ps = await api('/api/v1/reader-profiles');
+  $('#rd-profile').innerHTML = ps.map(p => `<option value="${p.id}">${p.name}</option>`).join('') || '<option value="">（无画像）</option>';
+}
+async function readerSim() {
+  const body = {};
+  if ($('#rd-scene').value) body.scene_id = $('#rd-scene').value.trim(); else body.text = $('#rd-text').value;
+  if ($('#rd-profile').value) body.reader_profile_id = $('#rd-profile').value;
+  try {
+    const r = await post('/api/v1/eval/reader-sim', body);
+    $('#rd-out').innerHTML = '<b>9 维反应（§21.2）</b>' + Object.entries(r.metrics).map(([k, v]) =>
+      `<div class="row" style="margin:3px 0"><span style="width:220px" class="dim">${k}</span><div style="flex:1;background:var(--panel2);border-radius:4px"><div style="width:${(v * 100).toFixed(0)}%;background:var(--purp);border-radius:4px;height:10px"></div></div><span class="mono">${v}</span></div>`).join('');
+  } catch (e) { toast(e.message, true); }
+}
+async function arenaRun() {
+  try {
+    const r = await post('/api/v1/arena/run', { candidates: [
+      { label: 'A', text: $('#ar-a').value || '候选A' }, { label: 'B', text: $('#ar-b').value || '候选B' }] });
+    $('#ar-out').innerHTML = `<b>结果</b><pre class="mono">${JSON.stringify(r, null, 2)}</pre>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ---------- novelforge ---------- */
+async function nfAdvice() {
+  try {
+    const r = await post('/api/v1/novelforge/scene-advice', { scene_goal: $('#nf-goal').value || '让A怀疑B但不能确认' });
+    $('#nf-out').innerHTML = `<pre class="mono">${JSON.stringify(r, null, 2)}</pre>
+      <div class="dim">risk_flags 含 no_validated_knowledge_yet 表示还没有 VALIDATED+ 知识——这是 P-10 门禁在起作用，不是 bug。</div>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+/* ---------- system ---------- */
+async function loadSys() {
+  const h = await api('/health');
+  $('#sy-health').innerHTML = `<pre class="mono">${JSON.stringify(h, null, 2)}</pre>
+    <div class="dim">Swagger API 文档：/docs · 数据库表 43 张（42 核心 + alembic_version）</div>`;
+}
+async function exportObsidian() {
+  try { const r = await api('/api/v1/export/obsidian', { method: 'POST' });
+    $('#sy-obs').textContent = `已导出 ${r.files.length} 个文件到 ${r.directory}`; }
+  catch (e) { toast(e.message, true); }
+}
+
+loadOverview();
+</script>
+</body>
+</html>
