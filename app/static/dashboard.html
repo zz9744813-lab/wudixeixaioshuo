@@ -3,305 +3,290 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Novel Genome · 深空指挥舱</title>
+<title>Novel Genome</title>
 <script>
-/* ECharts loader: npmmirror (CN-friendly) primary, bootcdn fallback */
 window._echartsReady = new Promise(res => {
   const s1 = document.createElement('script');
   s1.src = 'https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js';
   s1.onload = () => res(true);
-  s1.onerror = () => {
-    const s2 = document.createElement('script');
+  s1.onerror = () => { const s2 = document.createElement('script');
     s2.src = 'https://cdn.bootcdn.net/ajax/libs/echarts/5.5.1/echarts.min.js';
     s2.onload = () => res(true); s2.onerror = () => res(false);
-    document.head.appendChild(s2);
-  };
+    document.head.appendChild(s2); };
   document.head.appendChild(s1);
 });
 </script>
 <style>
+/* ===== tokens (Linear-style: quiet surfaces, hairline borders, ONE accent) ===== */
 :root{
-  --bg:#0A0E14; --bg2:#0D1420; --glass:rgba(255,255,255,.045); --glass2:rgba(255,255,255,.07);
-  --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
-  --txt:#E8EDF4; --dim:#7C8798; --dimmer:#525C6B;
-  --cy:#22D3EE; --pu:#A78BFA; --ok:#34D399; --warn:#FBBF24; --bad:#FB7185;
-  --grad:linear-gradient(135deg,#22D3EE 0%,#818CF8 55%,#A78BFA 100%);
-  --r:16px; --mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  --bg:#0E1014; --s1:#14161B; --s2:#191C23; --s3:#1F232C;
+  --bd:rgba(255,255,255,.06); --bd2:rgba(255,255,255,.12);
+  --t1:#EDEEF0; --t2:#9BA1AC; --t3:#616774;
+  --acc:#8B8CF9; --acc-dim:rgba(139,140,249,.14);
+  --ok:#4CC38A; --warn:#E2B93B; --bad:#E5697A; --cy:#5AC8E8;
+  --r-s:8px; --r-m:10px; --r-l:12px;
+  --mono:'Cascadia Code','JetBrains Mono',ui-monospace,Consolas,monospace;
+  --sans:'Inter','MiSans','HarmonyOS Sans SC','PingFang SC','Segoe UI',system-ui,sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{height:100%}
-body{background:
-  radial-gradient(1100px 700px at 85% -10%, rgba(129,140,248,.13), transparent 60%),
-  radial-gradient(900px 600px at -10% 110%, rgba(34,211,238,.10), transparent 55%),
-  var(--bg);
-  color:var(--txt);font:14px/1.65 'MiSans','HarmonyOS Sans SC','PingFang SC','Segoe UI',sans-serif;
-  display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden}
-::selection{background:rgba(34,211,238,.28)}
-::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:5px}
+body{background:var(--bg);color:var(--t1);font:400 13.5px/1.6 var(--sans);
+  display:flex;flex-direction:column;min-height:100vh;font-feature-settings:'tnum' on}
+::selection{background:rgba(139,140,249,.30)}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.09);border-radius:4px}
 ::-webkit-scrollbar-track{background:transparent}
+button,input,select{font-family:inherit}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 
-/* ---------- topbar ---------- */
-.topbar{height:60px;display:flex;align-items:center;gap:18px;padding:0 22px;
-  border-bottom:1px solid var(--line);backdrop-filter:blur(14px);position:sticky;top:0;z-index:50;
-  background:rgba(10,14,20,.72)}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.08em;font-size:14px}
-.brand .orb{width:26px;height:26px;border-radius:9px;background:var(--grad);display:grid;place-items:center;
-  font-size:13px;box-shadow:0 0 18px rgba(129,140,248,.5)}
-.brand small{color:var(--dim);font-weight:500;letter-spacing:.04em}
-.kcmd{flex:0 1 420px;margin-left:auto;position:relative;cursor:pointer}
-.kcmd .fake{display:flex;align-items:center;gap:8px;height:36px;border:1px solid var(--line);border-radius:11px;
-  padding:0 12px;color:var(--dim);background:var(--glass);transition:.2s}
-.kcmd .fake:hover{border-color:var(--line2);color:var(--txt)}
-.kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line2);border-radius:6px;padding:1px 7px;color:var(--dim)}
-.live{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--ok)}
-.live .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok);animation:pulse 2s infinite}
-@keyframes pulse{50%{opacity:.4}}
+/* ===== topbar: 48px, quiet ===== */
+.topbar{height:48px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:40;background:var(--bg)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13.5px;letter-spacing:-0.01em}
+.brand .mark{width:20px;height:20px;border-radius:6px;background:var(--acc);display:grid;place-items:center}
+.brand .mark svg{width:12px;height:12px;stroke:#0E1014}
+.brand small{color:var(--t3);font-weight:400;font-size:12px}
+.search{margin-left:auto;width:300px}
+.search .fake{display:flex;align-items:center;gap:8px;height:30px;border:1px solid var(--bd);border-radius:var(--r-m);
+  padding:0 10px;color:var(--t3);background:var(--s1);cursor:pointer;transition:border-color .15s;font-size:12.5px}
+.search .fake:hover{border-color:var(--bd2);color:var(--t2)}
+.kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--bd2);border-radius:5px;padding:1px 6px;color:var(--t3)}
+.live{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--ok)}
+.live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
 
-/* ---------- layout ---------- */
+/* ===== shell: slim icon rail ===== */
 .shell{flex:1;display:flex;min-height:0}
-.dock{width:74px;padding:18px 0;display:flex;flex-direction:column;gap:6px;align-items:center;
-  border-right:1px solid var(--line);position:sticky;top:60px;height:calc(100vh - 60px);backdrop-filter:blur(10px)}
-.dock a{position:relative;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:19px;
-  color:var(--dim);cursor:pointer;transition:.22s;border:1px solid transparent}
-.dock a:hover{background:var(--glass2);color:var(--txt);transform:translateY(-1px)}
-.dock a.on{color:#fff;background:linear-gradient(135deg,rgba(34,211,238,.16),rgba(167,139,250,.16));
-  border-color:rgba(129,140,248,.45);box-shadow:0 0 16px rgba(129,140,248,.28)}
-.dock a .tip{position:absolute;left:58px;top:50%;transform:translateY(-50%) translateX(-6px);opacity:0;pointer-events:none;
-  background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:5px 12px;font-size:12px;white-space:nowrap;transition:.18s}
-.dock a:hover .tip{opacity:1;transform:translateY(-50%) translateX(0)}
-main{flex:1;padding:28px 34px 60px;max-width:1280px;min-width:0}
+.rail{width:52px;padding:10px 8px;display:flex;flex-direction:column;gap:2px;align-items:center;
+  border-right:1px solid var(--bd);position:sticky;top:48px;height:calc(100vh - 48px)}
+.rail a{position:relative;width:36px;height:34px;border-radius:var(--r-m);display:grid;place-items:center;
+  color:var(--t3);cursor:pointer;transition:background .12s,color .12s}
+.rail a svg{width:17px;height:17px;stroke-width:1.75}
+.rail a:hover{background:var(--s2);color:var(--t1)}
+.rail a.on{background:var(--acc-dim);color:var(--acc)}
+.rail a.on::before{content:'';position:absolute;left:-8px;top:7px;bottom:7px;width:2px;border-radius:2px;background:var(--acc)}
+.rail a .tip{position:absolute;left:50px;top:50%;transform:translateY(-50%);opacity:0;pointer-events:none;
+  background:var(--s3);border:1px solid var(--bd2);border-radius:7px;padding:4px 10px;font-size:12px;white-space:nowrap;transition:opacity .1s;z-index:60;color:var(--t1)}
+.rail a:hover .tip{opacity:1}
+main{flex:1;padding:22px 28px 56px;max-width:1160px;min-width:0}
 
-/* ---------- primitives ---------- */
-h1{font-size:22px;letter-spacing:.08em;font-weight:700}
-h1 .thin{color:var(--dim);font-weight:400}
-.sub{color:var(--dim);font-size:12.5px;margin:6px 0 22px;letter-spacing:.02em}
-.glass{background:var(--glass);border:1px solid var(--line);border-radius:var(--r);backdrop-filter:blur(12px);
-  transition:transform .25s,border-color .25s,box-shadow .25s}
-.glass.hover:hover{transform:translateY(-3px);border-color:rgba(129,140,248,.4);box-shadow:0 14px 38px rgba(0,0,0,.4),0 0 22px rgba(129,140,248,.12)}
-.pad{padding:20px 22px}
-.grad-txt{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-button{background:var(--grad);border:0;color:#061019;border-radius:11px;padding:8px 16px;font-weight:700;cursor:pointer;
-  font-size:13px;letter-spacing:.02em;transition:.2s;box-shadow:0 4px 14px rgba(99,102,241,.25)}
-button:hover{filter:brightness(1.12);transform:translateY(-1px)}
-button:disabled{opacity:.45;cursor:not-allowed;transform:none}
-button.ghost{background:var(--glass);color:var(--txt);border:1px solid var(--line);box-shadow:none;font-weight:500}
-button.ghost:hover{border-color:var(--line2);background:var(--glass2)}
-input,select,textarea{background:var(--bg2);border:1px solid var(--line);color:var(--txt);border-radius:11px;
-  padding:8px 13px;font-size:13px;outline:none;transition:.2s;font-family:inherit}
-input:focus,select:focus{border-color:rgba(34,211,238,.55);box-shadow:0 0 0 3px rgba(34,211,238,.10)}
-.mono{font-family:var(--mono);font-size:12px}
-.dim{color:var(--dim)}
-.tag{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 11px;font-size:11px;font-weight:600;letter-spacing:.03em}
-.t-cy{background:rgba(34,211,238,.13);color:var(--cy)} .t-pu{background:rgba(167,139,250,.14);color:var(--pu)}
-.t-ok{background:rgba(52,211,153,.13);color:var(--ok)} .t-warn{background:rgba(251,191,36,.13);color:var(--warn)}
-.t-bad{background:rgba(251,113,133,.13);color:var(--bad)} .t-dim{background:var(--glass2);color:var(--dim)}
+/* ===== type & components ===== */
+h1{font-size:19px;font-weight:600;letter-spacing:-0.01em}
+h1 .crumb{color:var(--t3);font-weight:400;font-size:13px;margin-left:2px}
+.sub{color:var(--t2);font-size:12.5px;margin:5px 0 20px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-l);transition:border-color .15s}
+.card.hover:hover{border-color:var(--bd2)}
+.pad{padding:16px 18px}
+.mono{font-family:var(--mono);font-size:11.5px}
+.dim{color:var(--t2)} .dimmer{color:var(--t3)}
+.grad-txt{color:var(--acc)}
+h2{font-size:13px;font-weight:600;color:var(--t1);letter-spacing:0;margin-bottom:10px}
+button{background:var(--acc);border:0;color:#0E1014;border-radius:var(--r-m);padding:6px 13px;font-weight:600;cursor:pointer;font-size:12.5px;transition:filter .12s}
+button:hover{filter:brightness(1.10)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--t2);border:1px solid var(--bd2);font-weight:500}
+button.ghost:hover{color:var(--t1);border-color:rgba(255,255,255,.22);background:var(--s2)}
+input,select{background:var(--s2);border:1px solid var(--bd);color:var(--t1);border-radius:var(--r-m);padding:6px 11px;font-size:12.5px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:var(--acc)}
+input::placeholder{color:var(--t3)}
+.tag{display:inline-flex;align-items:center;border-radius:6px;padding:1.5px 8px;font-size:11px;font-weight:500;font-family:var(--mono)}
+.t-acc{background:var(--acc-dim);color:var(--acc)} .t-ok{background:rgba(76,195,138,.12);color:var(--ok)}
+.t-warn{background:rgba(226,185,59,.12);color:var(--warn)} .t-bad{background:rgba(229,105,122,.12);color:var(--bad)}
+.t-cy{background:rgba(90,200,232,.12);color:var(--cy)} .t-dim{background:var(--s3);color:var(--t2)}
 table{width:100%;border-collapse:collapse}
-th{color:var(--dim);font-weight:600;font-size:12px;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);letter-spacing:.05em}
-td{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.045);font-size:13px}
-tr:hover td{background:rgba(255,255,255,.03)}
-.sect{display:none;animation:fadein .3s ease}
+th{color:var(--t3);font-weight:500;font-size:11px;text-align:left;padding:8px 14px;border-bottom:1px solid var(--bd);letter-spacing:.04em;text-transform:uppercase}
+td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:rgba(255,255,255,.02)}
+.sect{display:none;animation:fadein .18s ease}
 .sect.on{display:block}
-@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-#toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--line2);
-  padding:12px 18px;border-radius:12px;display:none;z-index:99;box-shadow:0 18px 50px rgba(0,0,0,.5);max-width:420px;font-size:13px}
-.bars .b{height:9px;border-radius:5px;background:var(--glass2);overflow:hidden;margin:4px 0 10px}
-.bars .b i{display:block;height:100%;border-radius:5px;background:var(--grad)}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+#toast{position:fixed;bottom:20px;right:20px;background:var(--s3);border:1px solid var(--bd2);
+  padding:11px 16px;border-radius:var(--r-m);display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:440px;font-size:12.5px}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.bars .b{height:6px;border-radius:3px;background:var(--s3);overflow:hidden;margin:4px 0 9px}
+.bars .b i{display:block;height:100%;border-radius:3px;background:var(--acc)}
 
-/* ---------- overview bento ---------- */
-.bento{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.stat{padding:20px 22px;position:relative;overflow:hidden}
-.stat b{font-family:var(--mono);font-size:34px;font-weight:700;display:block;line-height:1.1}
-.stat span{color:var(--dim);font-size:12px;letter-spacing:.06em}
-.stat::after{content:'';position:absolute;inset:0;background:radial-gradient(300px 90px at 90% 0%,rgba(129,140,248,.14),transparent);pointer-events:none}
-.hero{grid-column:span 2;display:flex;flex-direction:column;justify-content:space-between;padding:24px}
-.hero .big{font-size:17px;font-weight:600;line-height:1.7}
+/* ===== overview ===== */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
+.kpi{padding:13px 16px}
+.kpi b{font-family:var(--mono);font-size:22px;font-weight:600;display:block;letter-spacing:-0.02em}
+.kpi span{color:var(--t3);font-size:11.5px}
 
-/* ---------- scene gene 3-col ---------- */
-.cols{display:grid;grid-template-columns:240px 1fr 340px;gap:16px;align-items:start}
-.scene-item{padding:11px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;transition:.2s;display:flex;justify-content:space-between;align-items:center}
-.scene-item:hover{background:var(--glass2)}
-.scene-item.on{background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(167,139,250,.12));border-color:rgba(129,140,248,.4)}
-.tl{position:relative;padding-left:24px}
-.tl::before{content:'';position:absolute;left:8px;top:8px;bottom:8px;width:2px;background:linear-gradient(180deg,rgba(34,211,238,.5),rgba(167,139,250,.5))}
-.tl .node{position:relative;margin:10px 0;padding:10px 14px;background:var(--glass);border:1px solid var(--line);border-radius:12px}
-.tl .node::before{content:'';position:absolute;left:-21px;top:16px;width:9px;height:9px;border-radius:50%;background:var(--grad);box-shadow:0 0 9px rgba(129,140,248,.8)}
-.kcard{display:flex;justify-content:space-between;align-items:center;padding:9px 13px;border-radius:11px;background:var(--glass);border:1px solid var(--line);margin:7px 0}
-.pillbar{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0}
-.pill{cursor:pointer;border:1px solid var(--line);border-radius:999px;padding:4px 13px;font-size:12px;color:var(--dim);transition:.2s;background:var(--glass)}
-.pill:hover,.pill.on{color:var(--txt);border-color:rgba(34,211,238,.5);background:rgba(34,211,238,.10)}
+/* ===== scene gene ===== */
+.cols{display:grid;grid-template-columns:225px 1fr 330px;gap:12px;align-items:start}
+.scene-item{padding:8px 12px;border-radius:var(--r-m);cursor:pointer;border:1px solid transparent;display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--t2);transition:background .12s}
+.scene-item:hover{background:var(--s2);color:var(--t1)}
+.scene-item.on{background:var(--acc-dim);color:var(--t1);border-color:rgba(139,140,249,.35)}
+.tl{position:relative;padding-left:22px;margin-top:10px}
+.tl::before{content:'';position:absolute;left:6px;top:10px;bottom:10px;width:1px;background:var(--bd2)}
+.tl .node{position:relative;margin:7px 0;padding:9px 13px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-m);font-size:12.5px}
+.tl .node::before{content:'';position:absolute;left:-19.5px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--acc)}
+.kcard{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--r-m);background:var(--s1);border:1px solid var(--bd);margin:6px 0;font-size:12.5px}
+.pillbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.pill{cursor:pointer;border:1px solid var(--bd);border-radius:999px;padding:2.5px 11px;font-size:11.5px;color:var(--t2);transition:.12s;background:transparent}
+.pill:hover{color:var(--t1);border-color:var(--bd2)}
+.pill.on{color:var(--acc);border-color:var(--acc);background:var(--acc-dim)}
 
-/* ---------- stepper ---------- */
-.stepper{display:flex;align-items:center;gap:0;margin:14px 0 22px;flex-wrap:wrap}
+/* ===== stepper ===== */
+.stepper{display:flex;align-items:center;margin:12px 0 18px;flex-wrap:wrap}
 .step{display:flex;align-items:center}
-.step .dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:11px;
-  background:var(--glass);border:1px solid var(--line2);color:var(--dim);transition:.3s}
-.step .lab{margin:0 10px 0 8px;font-size:11px;color:var(--dim);letter-spacing:.04em}
-.step.reached .dot{background:var(--grad);color:#061019;border:0;box-shadow:0 0 14px rgba(129,140,248,.55)}
-.step.reached .lab{color:var(--txt)}
-.step .bar{width:34px;height:2px;background:var(--line2)}
-.step.reached .bar{background:var(--grad)}
+.step .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;
+  background:var(--s2);border:1px solid var(--bd2);color:var(--t3)}
+.step .lab{margin:0 9px 0 7px;font-size:11px;color:var(--t3);font-family:var(--mono)}
+.step.reached .dot{background:var(--acc);color:#0E1014;border:0}
+.step.reached .lab{color:var(--t1)}
+.step .bar{width:26px;height:1px;background:var(--bd2);margin:0 2px}
+.step.reached .bar{background:var(--acc)}
 
-/* ---------- drawer ---------- */
-.drawer{position:fixed;top:0;right:-460px;width:440px;height:100vh;background:rgba(13,20,32,.92);backdrop-filter:blur(18px);
-  border-left:1px solid var(--line2);z-index:80;transition:right .32s cubic-bezier(.2,.8,.2,1);padding:26px;overflow-y:auto}
+/* ===== drawer & palette ===== */
+.drawer{position:fixed;top:0;right:-460px;width:430px;height:100vh;background:var(--s1);border-left:1px solid var(--bd2);
+  z-index:80;transition:right .28s cubic-bezier(.2,.8,.2,1);padding:22px;overflow-y:auto}
 .drawer.open{right:0}
-.drawer h3{letter-spacing:.06em;margin-bottom:14px}
-.gate-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:10px;margin:5px 0;background:var(--glass)}
-.gate-row .ic{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;font-size:12px;font-weight:800}
-.gate-row.pass .ic{background:rgba(52,211,153,.16);color:var(--ok)}
-.gate-row.fail .ic{background:rgba(251,113,133,.16);color:var(--bad)}
-
-/* ---------- palette ---------- */
-.palette{position:fixed;inset:0;background:rgba(5,8,13,.62);backdrop-filter:blur(6px);z-index:90;display:none;justify-content:center;padding-top:12vh}
+.drawer h3{font-size:14px;font-weight:600;margin-bottom:12px;letter-spacing:-0.01em}
+.gate-row{display:flex;align-items:center;gap:10px;padding:7px 11px;border-radius:var(--r-m);margin:4px 0;background:var(--s2);font-size:12.5px}
+.gate-row .ic{width:19px;height:19px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700}
+.gate-row.pass .ic{background:rgba(76,195,138,.14);color:var(--ok)}
+.gate-row.fail .ic{background:rgba(229,105,122,.14);color:var(--bad)}
+.palette{position:fixed;inset:0;background:rgba(8,9,12,.55);z-index:90;display:none;justify-content:center;padding-top:11vh}
 .palette.open{display:flex}
-.palette .box{width:600px;height:fit-content;background:rgba(16,23,35,.96);border:1px solid var(--line2);border-radius:18px;
-  box-shadow:0 30px 90px rgba(0,0,0,.65);overflow:hidden;animation:fadein .18s ease}
-.palette input{width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:17px 20px;font-size:15px}
-.palette .res{max-height:46vh;overflow-y:auto;padding:8px}
-.palette .it{display:flex;align-items:center;gap:11px;padding:10px 14px;border-radius:10px;cursor:pointer}
-.palette .it.sel,.palette .it:hover{background:var(--glass2)}
-.skel{border-radius:11px;background:linear-gradient(90deg,var(--glass) 25%,var(--glass2) 50%,var(--glass) 75%);
-  background-size:200% 100%;animation:sk 1.3s infinite}
+.palette .box{width:560px;height:fit-content;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r-l);
+  box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden}
+.palette input{width:100%;border:0;border-bottom:1px solid var(--bd);border-radius:0;background:transparent;padding:15px 18px;font-size:14px}
+.palette .res{max-height:44vh;overflow-y:auto;padding:6px}
+.palette .it{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-m);cursor:pointer;font-size:13px;color:var(--t2)}
+.palette .it.sel,.palette .it:hover{background:var(--s2);color:var(--t1)}
+.skel{border-radius:var(--r-m);background:linear-gradient(90deg,var(--s1) 25%,var(--s2) 50%,var(--s1) 75%);
+  background-size:200% 100%;animation:sk 1.2s infinite}
 @keyframes sk{to{background-position:-200% 0}}
-@media(max-width:1100px){.cols{grid-template-columns:1fr}.bento{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:1080px){.cols{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
+<!-- lucide-style icon sprite (consistent 24px grid, stroke=currentColor) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-dna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2c0 6 16 6 16 16"/><path d="M20 2c0 6-16 6-16 16"/><path d="M7 6h10M6 10h12M6 14h12M7 18h10"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a.6.6 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.5L4.2 19a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7M7 16h10"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 4c0 5.3 14 5.3 14 16"/><path d="M19 4c0 5.3-14 5.3-14 16"/></symbol>
+</svg>
+
 <div class="topbar">
-  <div class="brand"><div class="orb">🧬</div><div>NOVEL GENOME <small>· 小说基因组 · 深空指挥舱</small></div></div>
-  <div class="kcmd" onclick="openPalette()"><div class="fake">🔍 快速跳转：书籍 / 场景 / 规则… <span class="kbd" style="margin-left:auto">Ctrl K</span></div></div>
-  <div class="live"><span class="dot"></span> 8123 LIVE</div>
+  <div class="brand"><div class="mark"><svg><use href="#i-logo"/></svg></div>Novel Genome <small>· 小说基因组</small></div>
+  <div class="search" onclick="openPalette()"><div class="fake"><svg style="width:13px;height:13px;stroke-width:1.75;fill:none;stroke:currentColor;stroke-linecap:round"><use href="#i-search"/></svg> 快速跳转… <span class="kbd" style="margin-left:auto">Ctrl K</span></div></div>
+  <div class="live"><span class="dot"></span>LIVE</div>
 </div>
 <div class="shell">
-  <div class="dock" id="dock">
-    <a data-s="ov" class="on">📊<span class="tip">总览</span></a>
-    <a data-s="lib">📚<span class="tip">书库与摄入</span></a>
-    <a data-s="sc">🧬<span class="tip">场景基因</span></a>
-    <a data-s="kn">🔐<span class="tip">知识门禁</span></a>
-    <a data-s="re">🔬<span class="tip">研究实验室</span></a>
-    <a data-s="rd">👤<span class="tip">读者 · 竞技场</span></a>
-    <a data-s="nf">🛠<span class="tip">NovelForge</span></a>
-    <a data-s="sy">⚙<span class="tip">系统</span></a>
+  <div class="rail" id="rail">
+    <a data-s="ov" class="on"><svg><use href="#i-dash"/></svg><span class="tip">总览</span></a>
+    <a data-s="lib"><svg><use href="#i-book"/></svg><span class="tip">书库与摄入</span></a>
+    <a data-s="sc"><svg><use href="#i-dna"/></svg><span class="tip">场景基因</span></a>
+    <a data-s="kn"><svg><use href="#i-shield"/></svg><span class="tip">知识门禁</span></a>
+    <a data-s="re"><svg><use href="#i-flask"/></svg><span class="tip">研究实验室</span></a>
+    <a data-s="rd"><svg><use href="#i-user"/></svg><span class="tip">读者 · 竞技场</span></a>
+    <a data-s="nf"><svg><use href="#i-tool"/></svg><span class="tip">NovelForge</span></a>
+    <a data-s="sy"><svg><use href="#i-gear"/></svg><span class="tip">系统</span></a>
   </div>
   <main>
-    <!-- 总览 -->
     <section class="sect on" id="s-ov">
-      <h1>总览 <span class="thin">/ Overview</span></h1>
-      <div class="sub">数据为实况查询 · 所有结论可沿 Claim → Run → ModelCall 溯源（§35）</div>
-      <div class="bento" id="ov-bento"></div>
-      <h2 style="margin-top:24px">快速验收</h2>
-      <div class="glass pad hero" style="width:100%">
-        <div class="big">「真模型验证」已由真实 LLM 完成 11-Pass 拆解。</div>
-        <div class="row" style="margin-top:12px">
-          <button onclick="gotoBook()">🧬 打开场景基因 · 看知识分化</button>
-          <button class="ghost" onclick="nav('lib')">📚 摄入一本新书</button>
-        </div>
-        <div class="dim" style="margin-top:12px;font-size:12.5px">亮点：同一事实「有人来过」—— 李四 <span class="tag t-ok">KNOWN 0.9</span> 而张三 <span class="tag t-warn">BELIEVED 0.8</span>，规范 §10 的知识状态分化真实发生。</div>
+      <h1>总览 <span class="crumb">/ Overview</span></h1>
+      <div class="sub">数据实况查询 · 所有结论可沿 Claim → Run → ModelCall 溯源（§35）</div>
+      <div class="kpis" id="ov-kpis"></div>
+      <div class="card pad" style="margin-top:2px">
+        <h2>快速验收</h2>
+        <div style="margin:4px 0 12px">「真模型验证」已由真实 LLM 完成 11-Pass 拆解。亮点：同一事实「有人来过」——李四 <span class="tag t-ok">KNOWN 0.9</span> 张三 <span class="tag t-warn">BELIEVED 0.8</span>，规范 §10 的知识状态分化真实发生。</div>
+        <div class="row"><button onclick="gotoBook()">打开场景基因</button><button class="ghost" onclick="nav('lib')">摄入一本新书</button></div>
       </div>
     </section>
-    <!-- 书库 -->
     <section class="sect" id="s-lib">
-      <h1>书库与摄入 <span class="thin">/ Corpus</span></h1>
+      <h1>书库与摄入 <span class="crumb">/ Corpus</span></h1>
       <div class="sub">TXT / MD / EPUB / DOCX → 章节检测 → 场景切分 → 查重（规则驱动，确定性）</div>
-      <div class="glass pad" style="margin-bottom:16px">
-        <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <input type="file" id="ing-file" style="padding:7px">
-          <input id="ing-title" placeholder="书名（可留空用文件名）" style="width:210px">
-          <button onclick="ingest()">⬆ 摄入</button>
-          <span id="ing-msg" class="dim"></span>
+      <div class="card pad" style="margin-bottom:12px">
+        <div class="row">
+          <input type="file" id="ing-file" style="padding:6px">
+          <input id="ing-title" placeholder="书名（可留空用文件名）" style="width:200px">
+          <button onclick="ingest()">摄入</button><span id="ing-msg" class="dim"></span>
         </div>
       </div>
-      <div class="glass" style="overflow:hidden"><table id="tb-books">
-        <thead><tr><th>ID</th><th>书名</th><th>作者</th><th>章节</th><th>场景</th><th></th></tr></thead><tbody></tbody></table></div>
+      <div class="card" style="overflow:hidden"><table id="tb-books">
+        <thead><tr><th>书名</th><th>作者</th><th style="text-align:right">章节</th><th style="text-align:right">场景</th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
-    <!-- 场景基因 -->
     <section class="sect" id="s-sc">
-      <h1>场景基因 <span class="thin">/ Scene Genome</span></h1>
+      <h1>场景基因 <span class="crumb">/ Scene Genome</span></h1>
       <div class="sub">11-Pass 多轮拆解：事件 · 情绪 · 知识状态 · 因果 · 技法 · 反直觉解读 · Reconcile</div>
-      <div class="glass pad" style="margin-bottom:16px"><div class="row" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-        <select id="sc-book" onchange="loadScenes()" style="min-width:220px"></select>
-        <select id="sc-scene" onchange="loadGenome()" style="min-width:200px"></select>
-        <button id="btn-analyze" onclick="analyze()">▶ 运行 11-Pass 分析</button>
-        <span id="sc-msg" class="dim"></span>
-      </div></div>
+      <div class="card pad" style="margin-bottom:12px"><div class="row">
+        <select id="sc-book" onchange="loadScenes()" style="min-width:210px"></select>
+        <select id="sc-scene" onchange="loadGenome()" style="min-width:180px"></select>
+        <button id="btn-analyze" onclick="analyze()">运行 11-Pass 分析</button>
+        <span id="sc-msg" class="dim"></span></div></div>
       <div class="cols">
-        <div class="glass pad" id="sc-list"><div class="skel" style="height:120px"></div></div>
-        <div id="sc-mid"><div class="glass pad"><div class="skel" style="height:180px"></div></div></div>
-        <div id="sc-right"><div class="glass pad"><div class="skel" style="height:180px"></div></div></div>
+        <div class="card pad" id="sc-list"><div class="skel" style="height:110px"></div></div>
+        <div id="sc-mid"><div class="card pad"><div class="skel" style="height:170px"></div></div></div>
+        <div id="sc-right"><div class="card pad"><div class="skel" style="height:170px"></div></div></div>
       </div>
     </section>
-    <!-- 知识门禁 -->
     <section class="sect" id="s-kn">
-      <h1>知识门禁 <span class="thin">/ §63 Ladder</span></h1>
-      <div class="sub">只有 VALIDATED+ 可被 NovelForge 消费（P-10）。门禁不满足时逐项告知缺什么。</div>
-      <div class="glass pad" style="margin-bottom:16px"><div class="stepper" id="kn-stepper"></div>
-        <div class="row" style="display:flex;gap:10px;flex-wrap:wrap">
-          <input id="kr-name" placeholder="规则名" style="width:170px">
-          <input id="kr-stmt" placeholder="规则陈述" style="flex:1;min-width:240px">
-          <button onclick="addRule()">＋ 新建规则</button>
-        </div></div>
-      <div class="glass" style="overflow:hidden"><table id="tb-rules">
-        <thead><tr><th>ID</th><th>规则</th><th>等级</th><th>操作</th></tr></thead><tbody></tbody></table></div>
+      <h1>知识门禁 <span class="crumb">/ §63 Ladder</span></h1>
+      <div class="sub">只有 VALIDATED+ 可被 NovelForge 消费（P-10）· 门禁不满足时逐项告知缺什么</div>
+      <div class="card pad" style="margin-bottom:12px"><div class="stepper" id="kn-stepper"></div>
+        <div class="row">
+          <input id="kr-name" placeholder="规则名" style="width:160px">
+          <input id="kr-stmt" placeholder="规则陈述" style="flex:1;min-width:220px">
+          <button onclick="addRule()">新建规则</button></div></div>
+      <div class="card" style="overflow:hidden"><table id="tb-rules">
+        <thead><tr><th>规则</th><th>等级</th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
-    <!-- 研究 -->
     <section class="sect" id="s-re">
-      <h1>研究实验室 <span class="thin">/ Hypothesis → Experiment</span></h1>
-      <div class="sub">假设必须可证伪（§18）；实验必须声明对照（禁止 6）；裁决由盲评 Judge 度量决定（P-08）</div>
-      <div class="glass pad" style="margin-bottom:16px"><div class="row" style="display:flex;gap:10px;flex-wrap:wrap">
-        <input id="hy-stmt" placeholder="假设陈述（须可证伪）" style="flex:1;min-width:300px">
-        <input id="hy-fals" placeholder="可证伪条件" style="width:250px">
-        <button onclick="addHypothesis()">＋ 提出假设</button>
-      </div></div>
+      <h1>研究实验室 <span class="crumb">/ Hypothesis → Experiment</span></h1>
+      <div class="sub">假设必须可证伪（§18）· 实验必须声明对照（禁止 6）· 裁决由盲评 Judge 度量决定（P-08）</div>
+      <div class="card pad" style="margin-bottom:12px"><div class="row">
+        <input id="hy-stmt" placeholder="假设陈述（须可证伪）" style="flex:1;min-width:260px">
+        <input id="hy-fals" placeholder="可证伪条件" style="width:230px">
+        <button onclick="addHypothesis()">提出假设</button></div></div>
       <div id="re-list"></div>
     </section>
-    <!-- 读者 -->
     <section class="sect" id="s-rd">
-      <h1>读者模拟 · 竞技场 <span class="thin">/ §21 · §22</span></h1>
-      <div class="sub">画像驱动的 9 维读者反应；匿名 A/B 盲评（Judge 永远看不到组别，禁止 7）</div>
-      <div class="glass pad" style="margin-bottom:16px">
-        <b style="letter-spacing:.05em">读者模拟</b>
-        <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0">
-          <select id="rd-profile" style="min-width:170px"></select>
-          <input id="rd-scene" placeholder="scene_id（可选）" style="width:230px" class="mono">
-          <input id="rd-text" placeholder="或直接粘贴文本" style="flex:1;min-width:220px">
-          <button onclick="readerSim()">模拟阅读</button>
-        </div>
-        <div id="rd-out"></div>
-      </div>
-      <div class="glass pad">
-        <b style="letter-spacing:.05em">Writer Arena</b>
-        <div class="row" style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0">
+      <h1>读者模拟 · 竞技场 <span class="crumb">/ §21 · §22</span></h1>
+      <div class="sub">画像驱动的 9 维读者反应 · 匿名 A/B 盲评（Judge 永远看不到组别，禁止 7）</div>
+      <div class="card pad" style="margin-bottom:12px">
+        <h2>读者模拟</h2>
+        <div class="row" style="margin-bottom:10px">
+          <select id="rd-profile" style="min-width:160px"></select>
+          <input id="rd-scene" placeholder="scene_id（可选）" style="width:220px" class="mono">
+          <input id="rd-text" placeholder="或直接粘贴文本" style="flex:1;min-width:200px">
+          <button onclick="readerSim()">模拟阅读</button></div>
+        <div id="rd-out"></div></div>
+      <div class="card pad">
+        <h2>Writer Arena</h2>
+        <div class="row">
           <input id="ar-a" placeholder="候选 A 文本" style="flex:1;min-width:200px">
           <input id="ar-b" placeholder="候选 B 文本" style="flex:1;min-width:200px">
-          <button onclick="arenaRun()">开赛</button>
-        </div>
-        <div id="ar-out"></div>
-      </div>
+          <button onclick="arenaRun()">开赛</button></div>
+        <div id="ar-out"></div></div>
     </section>
-    <!-- NovelForge -->
     <section class="sect" id="s-nf">
-      <h1>NovelForge 适配器 <span class="thin">/ §43</span></h1>
+      <h1>NovelForge 适配器 <span class="crumb">/ §43</span></h1>
       <div class="sub">生产侧只拿到 VALIDATED+ 的抽象约束——原文永不回流（§45）</div>
-      <div class="glass pad" style="margin-bottom:16px"><div class="row" style="display:flex;gap:10px">
+      <div class="card pad" style="margin-bottom:12px"><div class="row">
         <input id="nf-goal" placeholder="下一场目标，例：让A怀疑B但不能确认" style="flex:1">
-        <button onclick="nfAdvice()">获取写作建议</button>
-      </div></div>
+        <button onclick="nfAdvice()">获取写作建议</button></div></div>
       <div id="nf-out"></div>
     </section>
-    <!-- 系统 -->
     <section class="sect" id="s-sy">
-      <h1>系统 <span class="thin">/ System</span></h1>
+      <h1>系统 <span class="crumb">/ System</span></h1>
       <div class="sub">健康 · 导出</div>
-      <div class="glass pad" id="sy-health" style="margin-bottom:16px"></div>
-      <div class="glass pad"><button onclick="exportObsidian()">📤 导出 Obsidian 知识库（§42）</button>
-        <span id="sy-obs" class="dim" style="margin-left:12px"></span></div>
+      <div class="card pad" id="sy-health" style="margin-bottom:12px"></div>
+      <div class="card pad"><button onclick="exportObsidian()">导出 Obsidian 知识库（§42）</button>
+        <span id="sy-obs" class="dim" style="margin-left:10px"></span></div>
     </section>
   </main>
 </div>
 
 <div class="drawer" id="drawer"><div class="row" style="display:flex;justify-content:space-between;align-items:center">
   <h3>§51 门禁清单</h3><button class="ghost" onclick="closeDrawer()">✕</button></div>
-  <div id="drawer-body" style="margin-top:14px"></div></div>
+  <div id="drawer-body" style="margin-top:12px"></div></div>
 <div class="palette" id="palette"><div class="box">
   <input id="pal-q" placeholder="跳转到…（书籍 / 场景 / 页面）" oninput="palSearch()">
   <div class="res" id="pal-res"></div></div></div>
@@ -312,24 +297,22 @@ const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAl
 const api = async (p, opts) => { const r = await fetch(p, opts); const t = await r.text();
   let j; try { j = JSON.parse(t) } catch { j = t } if (!r.ok) throw new Error((j && j.detail) || r.status + ' ' + r.statusText); return j; };
 const post = (p, body) => api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const toast = (m, bad) => { const t = $('#toast'); t.innerHTML = m; t.style.borderColor = bad ? 'var(--bad)' : 'rgba(52,211,153,.5)'; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3600); };
+const toast = (m, bad) => { const t = $('#toast'); t.innerHTML = m; t.style.borderColor = bad ? 'var(--bad)' : 'var(--bd2)'; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3600); };
 const esc = s => (s ?? '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-const tierTag = t => { const c = { PRODUCTION_PROVEN:'t-ok', VALIDATED:'t-ok', REPLICATED:'t-cy', SUPPORTED:'t-cy', CANDIDATE:'t-warn', OBSERVATION:'t-warn', REJECTED:'t-bad', DEPRECATED:'t-bad' }[t] || 't-pu';
+const tierTag = t => { const c = { PRODUCTION_PROVEN:'t-ok', VALIDATED:'t-ok', REPLICATED:'t-cy', SUPPORTED:'t-cy', CANDIDATE:'t-warn', OBSERVATION:'t-warn', REJECTED:'t-bad', DEPRECATED:'t-bad' }[t] || 't-acc';
   return `<span class="tag ${c}">${esc(t)}</span>`; };
-function countUp(el, target) { const d = 700, t0 = performance.now();
+function countUp(el, target) { const d = 600, t0 = performance.now();
   const tick = t => { const k = Math.min((t - t0) / d, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
   requestAnimationFrame(tick); }
 
-/* ---------- nav ---------- */
 const PAGES = { ov: loadOverview, lib: loadBooks, sc: initSceneTab, kn: loadRules, re: loadHypotheses, rd: loadReader, sy: loadSys };
 function nav(s) {
-  $$('#dock a').forEach(x => x.classList.toggle('on', x.dataset.s === s));
+  $$('#rail a').forEach(x => x.classList.toggle('on', x.dataset.s === s));
   $$('.sect').forEach(x => x.classList.toggle('on', x.id === 's-' + s));
   (PAGES[s] || (() => {}))();
 }
-$$('#dock a').forEach(a => a.onclick = () => nav(a.dataset.s));
+$$('#rail a').forEach(a => a.onclick = () => nav(a.dataset.s));
 
-/* ---------- palette (Ctrl+K) ---------- */
 let palSel = 0, palItems = [];
 function openPalette() { $('#palette').classList.add('open'); $('#pal-q').value = ''; $('#pal-q').focus(); palSearch(); }
 function closePalette() { $('#palette').classList.remove('open'); }
@@ -345,13 +328,11 @@ document.addEventListener('keydown', e => {
 });
 async function palSearch() {
   const q = $('#pal-q').value.trim().toLowerCase(); palSel = 0; palItems = [];
-  const secs = [['📊 总览', 'ov'], ['📚 书库与摄入', 'lib'], ['🧬 场景基因', 'sc'], ['🔐 知识门禁', 'kn'], ['🔬 研究实验室', 're'], ['👤 读者 · 竞技场', 'rd'], ['🛠 NovelForge', 'nf'], ['⚙ 系统', 'sy']];
-  secs.forEach(([lab, s]) => { if (!q || lab.toLowerCase().includes(q)) palItems.push({ icon: '→', lab, go: () => nav(s) }); });
-  try {
-    const books = await api('/api/v1/books');
+  [['总览','ov'],['书库与摄入','lib'],['场景基因','sc'],['知识门禁','kn'],['研究实验室','re'],['读者 · 竞技场','rd'],['NovelForge','nf'],['系统','sy']]
+    .forEach(([lab, s]) => { if (!q || lab.toLowerCase().includes(q)) palItems.push({ icon: '→', lab, go: () => nav(s) }); });
+  try { const books = await api('/api/v1/books');
     books.filter(b => !q || b.title.toLowerCase().includes(q)).slice(0, 8).forEach(b =>
-      palItems.push({ icon: '📚', lab: `${esc(b.title)} · ${b.scene_count} 场景`, go: () => { nav('sc'); $('#sc-book').value = b.id; loadScenes(); } }));
-  } catch {}
+      palItems.push({ icon: '📚', lab: `${esc(b.title)} · ${b.scene_count} 场景`, go: () => { nav('sc'); $('#sc-book').value = b.id; loadScenes(); } })); } catch {}
   palRender();
 }
 function palRender() {
@@ -359,71 +340,56 @@ function palRender() {
     `<div class="it ${i === palSel ? 'sel' : ''}" onclick="palItems[${i}].go();closePalette()"><span>${it.icon}</span>${it.lab}</div>`).join('') || '<div class="it dim">无结果</div>';
 }
 
-/* ---------- overview ---------- */
-let _verifyBookId = null;
+let _verifyId = null;
 async function loadOverview() {
   const [h, books, hy, rules] = await Promise.all([api('/health'), api('/api/v1/books'), api('/api/v1/hypotheses'), api('/api/v1/rules')]);
-  const real = books.filter(b => b.scene_count > 0);
-  const totalScenes = real.reduce((s, b) => s + b.scene_count, 0);
-  _verifyBookId = (books.find(b => b.title === '真模型验证') || {}).id;
-  const cards = [['📚', books.length, '书籍'], ['🧬', totalScenes, '场景（已摄入）'], ['🔬', hy.length, '假设'], ['🔐', rules.length, '生产规则（VALIDATED+）'], ['🗄', h.tables, '数据库表']];
-  $('#ov-bento').innerHTML = cards.map((c, i) =>
-    `<div class="glass stat hover"><b id="cu-${i}">0</b><span>${c[0]} ${c[2]}</span></div>`).join('') +
-    `<div class="glass hero"><div class="big">所有 Agent 输出先成为 <span class="grad-txt">Claim</span>，再经 Reconcile 进入规范状态。</div>
-     <div class="dim" style="font-size:12.5px">任何心理判断必须有 Evidence（P-03）· 相邻事件不自动成因果（P-05）· 假设提出者不宣布成功（P-08）</div></div>`;
-  cards.forEach((c, i) => countUp($('#cu-' + i), c[1]));
+  const totalScenes = books.reduce((s, b) => s + b.scene_count, 0);
+  _verifyId = (books.find(b => b.title === '真模型验证') || {}).id;
+  const cards = [[books.length, '书籍'], [totalScenes, '场景'], [hy.length, '假设'], [rules.length, '生产规则'], [h.tables, '数据库表']];
+  $('#ov-kpis').innerHTML = cards.map((c, i) => `<div class="card kpi"><b id="cu-${i}">0</b><span>${c[1]}</span></div>`).join('');
+  cards.forEach((c, i) => countUp($('#cu-' + i), c[0]));
 }
 
-/* ---------- books ---------- */
 async function loadBooks() {
   const books = (await api('/api/v1/books')).slice().reverse();
   $('#tb-books tbody').innerHTML = books.slice(0, 30).map(b => `
-    <tr><td class="mono dim">${b.id}</td><td><b>${esc(b.title)}</b></td><td class="dim">${esc(b.author || '—')}</td>
-    <td class="mono">${b.chapter_count}</td><td class="mono">${b.scene_count}</td>
-    <td><button class="ghost" onclick="gotoBook('${b.id}')">看场景 →</button></td></tr>`).join('');
+    <tr><td><b>${esc(b.title)}</b></td><td class="dim">${esc(b.author || '—')}</td>
+    <td class="mono dim" style="text-align:right">${b.chapter_count}</td><td class="mono" style="text-align:right">${b.scene_count}</td>
+    <td style="text-align:right"><button class="ghost" onclick="gotoBook('${b.id}')">看场景</button></td></tr>`).join('');
 }
 function gotoBook(id) {
   nav('sc');
-  (async () => {
-    if (!$('#sc-book').options.length) await initSceneTab();
-    if (id) $('#sc-book').value = id;
-    loadScenes();
-  })();
+  (async () => { if (!$('#sc-book').options.length) await initSceneTab();
+    if (id) $('#sc-book').value = id; loadScenes(); })();
 }
-
-/* ---------- ingest ---------- */
 async function ingest() {
   const f = $('#ing-file').files[0];
   if (!f) return toast('先选一个文件', true);
   const fd = new FormData(); fd.append('file', f);
   if ($('#ing-title').value) fd.append('title', $('#ing-title').value);
   $('#ing-msg').textContent = '解析中…';
-  try {
-    const r = await fetch('/api/v1/corpus/ingest', { method: 'POST', body: fd });
+  try { const r = await fetch('/api/v1/corpus/ingest', { method: 'POST', body: fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     $('#ing-msg').textContent = '';
-    toast(`✅ ${esc(j.chapter_count)} 章 / ${esc(j.scene_count)} 场景 / ${esc(j.span_count)} 段落` + (j.warnings.length ? '<br>⚠ ' + j.warnings.map(esc).join(';') : ''));
-    loadBooks();
-  } catch (e) { $('#ing-msg').textContent = '失败：' + e.message; }
+    toast(`✅ ${j.chapter_count} 章 / ${j.scene_count} 场景 / ${j.span_count} 段落` + (j.warnings.length ? '<br>⚠ ' + j.warnings.map(esc).join(';') : ''));
+    loadBooks(); } catch (e) { $('#ing-msg').textContent = '失败：' + e.message; }
 }
 
-/* ---------- scene gene ---------- */
 async function initSceneTab() {
-  const books = await api('/api/v1/books');
-  const withScenes = books.filter(b => b.scene_count > 0);
-  $('#sc-book').innerHTML = withScenes.map(b => `<option value="${b.id}">${esc(b.title)}（${b.scene_count}）</option>`).join('');
-  const pre = withScenes.find(b => b.title === '真模型验证');
+  const books = (await api('/api/v1/books')).filter(b => b.scene_count > 0);
+  $('#sc-book').innerHTML = books.map(b => `<option value="${b.id}">${esc(b.title)}（${b.scene_count}）</option>`).join('');
+  const pre = books.find(b => b.title === '真模型验证');
   if (pre) $('#sc-book').value = pre.id;
-  if (withScenes.length) loadScenes();
+  if (books.length) loadScenes();
 }
 async function loadScenes() {
   const scenes = await api(`/api/v1/books/${$('#sc-book').value}/scenes`);
-  $('#sc-list').innerHTML = '<b style="letter-spacing:.05em">场景</b><div style="margin-top:8px">' +
+  $('#sc-list').innerHTML = '<h2>场景</h2><div style="margin-top:4px">' +
     scenes.map(s => `<div class="scene-item" data-id="${s.id}" onclick="pickScene('${s.id}')">
       <span>场景 ${s.index}</span>${s.analyzed ? '<span class="tag t-ok">已分析</span>' : '<span class="tag t-dim">未分析</span>'}</div>`).join('') + '</div>';
-  const firstAnalyzed = scenes.find(s => s.analyzed) || scenes[0];
-  if (firstAnalyzed) pickScene(firstAnalyzed.id);
+  const first = scenes.find(s => s.analyzed) || scenes[0];
+  if (first) pickScene(first.id);
 }
 function pickScene(id) {
   $$('#sc-list .scene-item').forEach(x => x.classList.toggle('on', x.dataset.id === id));
@@ -436,37 +402,36 @@ async function loadGenome(id) {
     api(`/api/v1/scenes/${id}`), api(`/api/v1/scenes/${id}/events`),
     api(`/api/v1/scenes/${id}/emotions`), api(`/api/v1/scenes/${id}/claims`)]);
   window._cur = { sc, evts, emos, clms };
-
   $('#sc-mid').innerHTML = `
-    <div class="glass pad" style="margin-bottom:14px">
-      <div class="row" style="display:flex;justify-content:space-between;align-items:center">
-        <b style="letter-spacing:.05em">摘要 · Reconciler</b>${sc.analyzed ? '<span class="tag t-ok">11-PASS ✅</span>' : '<span class="tag t-dim">未分析</span>'}</div>
-      <div style="margin-top:8px">${esc(sc.summary) || '<span class="dim">（尚未运行 Reconciler）</span>'}</div>
-      <div class="dim mono" style="margin-top:8px">confidence ${sc.confidence} · pov ${esc(sc.pov || '—')} · index ${sc.index}</div></div>
-    <div class="glass pad">
-      <b style="letter-spacing:.05em">事件时间线</b> <span class="tag t-cy">${evts.length}</span>
-      <div class="dim" style="font-size:12px;margin-top:2px">只收"状态变化"，环境描写不算（§8）</div>
-      <div class="tl" style="margin-top:12px">${evts.map(e =>
+    <div class="card pad" style="margin-bottom:12px">
+      <div class="row" style="display:flex;justify-content:space-between">
+        <h2>摘要 · Reconciler</h2>${sc.analyzed ? '<span class="tag t-ok">11-PASS</span>' : '<span class="tag t-dim">未分析</span>'}</div>
+      <div style="margin-top:6px;font-size:13px">${esc(sc.summary) || '<span class="dim">（尚未运行 Reconciler）</span>'}</div>
+      <div class="dimmer mono" style="margin-top:8px">confidence ${sc.confidence} · pov ${esc(sc.pov || '—')} · index ${sc.index}</div></div>
+    <div class="card pad">
+      <h2>事件时间线 <span class="tag t-cy" style="margin-left:6px">${evts.length}</span></h2>
+      <div class="dimmer" style="font-size:11.5px">只收「状态变化」，环境描写不算（§8）</div>
+      <div class="tl">${evts.map(e =>
         `<div class="node"><span class="tag t-cy">${esc((e.types || []).join('/')) || '?'}</span>
          <span style="margin-left:8px">${esc(e.description)}</span>
          <span class="mono dim" style="float:right">conf ${e.confidence}</span></div>`).join('') || '<span class="dim">无</span>'}</div></div>
-    <div class="glass pad" style="margin-top:14px">
-      <b style="letter-spacing:.05em">Claims</b> <span class="tag t-pu">${clms.length}</span>
-      <div class="dim" style="font-size:12px;margin-top:2px">按类型筛选 · 每条可沿 run_id 溯源到原始模型调用</div>
+    <div class="card pad" style="margin-top:12px">
+      <h2>Claims <span class="tag t-acc" style="margin-left:6px">${clms.length}</span></h2>
+      <div class="dimmer" style="font-size:11.5px">按类型筛选 · 每条可沿 run_id 溯源到原始模型调用（§35）</div>
       <div class="pillbar" id="clm-pills"></div><div id="clm-list"></div></div>`;
   renderClaims(null);
-
   const knowledge = clms.filter(c => (c.predicate || '').startsWith('knowledge:'));
   $('#sc-right').innerHTML = `
-    <div class="glass pad" style="margin-bottom:14px">
-      <b style="letter-spacing:.05em">情绪 · Appraisal</b> <span class="tag t-pu">${emos.length}</span>
-      <div id="radar" style="height:230px;margin-top:6px"></div><div id="radar-fb"></div></div>
-    <div class="glass pad">
-      <b style="letter-spacing:.05em">知识状态分化</b><div class="dim" style="font-size:12px;margin:2px 0 8px">同一事实 · 不同角色 · 不同状态（§10）</div>
+    <div class="card pad" style="margin-bottom:12px">
+      <h2>情绪 · Appraisal <span class="tag t-acc" style="margin-left:6px">${emos.length}</span></h2>
+      <div id="radar" style="height:215px;margin-top:4px"></div><div id="radar-fb"></div></div>
+    <div class="card pad">
+      <h2>知识状态分化</h2>
+      <div class="dimmer" style="font-size:11.5px;margin-bottom:6px">同一事实 · 不同角色 · 不同状态（§10）</div>
       ${knowledge.length ? knowledge.map(k => {
         const m = (k.predicate || '').match(/^knowledge:(.+)$/); const status = m ? m[1] : '?';
         const st = { KNOWN: 't-ok', BELIEVED: 't-warn', SUSPECTED: 't-warn', FALSE_BELIEF: 't-bad', EXPOSED: 't-cy' }[status] || 't-dim';
-        return `<div class="kcard"><span style="flex:1">${esc(k.subject)}</span><span class="mono dim">${esc(k.object)}</span><span class="tag ${st}">${esc(status)}</span></div>`;
+        return `<div class="kcard"><span style="flex:1;min-width:0">${esc(k.subject)}</span><span class="mono dimmer">${esc(k.object)}</span><span class="tag ${st}">${esc(status)}</span></div>`;
       }).join('') : '<span class="dim">该场景无知识更新</span>'}</div>`;
   drawRadar(emos);
 }
@@ -477,43 +442,40 @@ function renderClaims(filter) {
     preds.map(p => { const n = clms.filter(c => (c.predicate || '').split(':')[0] === p).length;
       return `<span class="pill ${filter === p ? 'on' : ''}" onclick="renderClaims('${p}')">${esc(p)} ${n}</span>`; }).join('');
   const list = clms.filter(c => !filter || (c.predicate || '').split(':')[0] === filter);
-  $('#clm-list').innerHTML = list.slice(0, 24).map(c =>
-    `<div class="tl"><div class="node mono" style="padding:7px 12px">${esc(c.predicate)}<br>
+  $('#clm-list').innerHTML = list.slice(0, 22).map(c =>
+    `<div class="tl"><div class="node mono" style="padding:6px 11px">${esc(c.predicate)}<br>
      <span class="dim">${esc(c.subject)} → ${esc(c.object)}</span> <span class="tag t-dim" style="float:right">${esc(c.status)}</span></div></div>`).join('') || '<span class="dim">无</span>';
+}
+function textBars(emos, elSel, fbSel) {
+  $(elSel).style.display = 'none';
+  $(fbSel).innerHTML = emos.map(e => `<div class="bars"><div class="row" style="display:flex;justify-content:space-between"><span>${esc(e.emotion)}</span><span class="mono dim">${e.intensity}</span></div><div class="b"><i style="width:${e.intensity * 100}%"></i></div></div>`).join('') || '<span class="dim">无</span>';
 }
 async function drawRadar(emos) {
   const el = $('#radar'); if (!el) return;
   const ready = await window._echartsReady;
-  if (!ready || !window.echarts) {
-    el.style.display = 'none';
-    $('#radar-fb').innerHTML = emos.map(e => `<div class="bars"><div class="row" style="display:flex;justify-content:space-between"><span>${esc(e.emotion)}</span><span class="mono">${e.intensity}</span></div><div class="b"><i style="width:${e.intensity * 100}%"></i></div></div>`).join('') || '<span class="dim">无</span>';
-    return;
-  }
+  if (!ready || !window.echarts) return textBars(emos, '#radar', '#radar-fb');
   const dims = [...new Set(emos.flatMap(e => Object.keys(e.appraisal || {})))];
-  if (!dims.length) {
-    el.style.display = 'none';
-    $('#radar-fb').innerHTML = emos.map(e => `<div class="bars"><div class="row" style="display:flex;justify-content:space-between"><span>${esc(e.emotion)}</span><span class="mono">${e.intensity}</span></div><div class="b"><i style="width:${e.intensity * 100}%"></i></div></div>`).join('') || '<span class="dim">无</span>';
-    return;
-  }
+  if (!dims.length) return textBars(emos, '#radar', '#radar-fb');
   el.style.display = 'block';
   echarts.dispose(el);
-  const ch = echarts.init(el, null, { renderer: 'canvas' });
-  ch.setOption({
+  echarts.init(el, null, { renderer: 'canvas' }).setOption({
     backgroundColor: 'transparent',
-    radar: { indicator: dims.map(d => ({ name: d, max: 1 })), splitArea: { areaStyle: { color: ['rgba(255,255,255,.02)', 'rgba(255,255,255,.05)'] } },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,.10)' } }, splitLine: { lineStyle: { color: 'rgba(255,255,255,.10)' } },
-      axisName: { color: '#7C8798', fontSize: 10.5 }, radius: '66%' },
-    legend: { textStyle: { color: '#7C8798', fontSize: 10.5 }, top: 0, itemWidth: 10 },
-    series: [{ type: 'radar', symbolSize: 3,
+    radar: { indicator: dims.map(d => ({ name: d, max: 1 })),
+      splitArea: { areaStyle: { color: ['transparent', 'rgba(255,255,255,.025)'] } },
+      axisLine: { lineStyle: { color: 'rgba(255,255,255,.07)' } },
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,.07)' } },
+      axisName: { color: '#616774', fontSize: 10 }, radius: '64%' },
+    series: [{ type: 'radar', symbolSize: 2.5,
       data: emos.map((e, i) => ({ name: e.emotion, value: dims.map(d => e.appraisal[d] ?? 0),
-        lineStyle: { color: i % 2 ? '#A78BFA' : '#22D3EE', width: 2 }, itemStyle: { color: i % 2 ? '#A78BFA' : '#22D3EE' },
-        areaStyle: { color: i % 2 ? 'rgba(167,139,250,.12)' : 'rgba(34,211,238,.12)' } })) }]
+        lineStyle: { color: i % 2 ? '#5AC8E8' : '#8B8CF9', width: 1.5 },
+        itemStyle: { color: i % 2 ? '#5AC8E8' : '#8B8CF9' },
+        areaStyle: { color: i % 2 ? 'rgba(90,200,232,.08)' : 'rgba(139,140,249,.10)' } })) }]
   });
 }
 async function analyze() {
   const id = $('#sc-scene').value; if (!id) return;
   if (!confirm('将真实调用 LLM 11 次（约 5-9 分钟，消耗 API 额度）。继续？')) return;
-  $('#btn-analyze').disabled = true; $('#sc-msg').textContent = '分析中，请勿关闭页面…';
+  $('#btn-analyze').disabled = true; $('#sc-msg').textContent = '分析中…';
   try { const r = await api(`/api/v1/scenes/${id}/analyze?force=true`);
     const errs = (r.passes || []).filter(p => p.error).length;
     toast(`✅ ${r.passes.length} Pass 完成，失败 ${errs}`); loadGenome(id);
@@ -521,23 +483,21 @@ async function analyze() {
   $('#btn-analyze').disabled = false; $('#sc-msg').textContent = '';
 }
 
-/* ---------- knowledge ---------- */
 const LADDER = ['OBSERVATION', 'CANDIDATE', 'SUPPORTED', 'REPLICATED', 'VALIDATED', 'PRODUCTION_PROVEN'];
 async function loadRules() {
   const rules = await api('/api/v1/rules');
-  const maxIdx = rules.length ? Math.max(...rules.map(r => LADDER.indexOf(r.tier))) : 0;
+  const maxIdx = rules.length ? Math.max(...rules.map(r => LADDER.indexOf(r.tier))) : -1;
   $('#kn-stepper').innerHTML = LADDER.map((t, i) => {
     const reached = i <= maxIdx;
     return `<div class="step ${reached ? 'reached' : ''}"><div class="dot">${i + 1}</div><div class="lab">${t}</div>${i < LADDER.length - 1 ? '<div class="bar"></div>' : ''}</div>`;
   }).join('');
-  $('#tb-rules tbody').innerHTML = rules.map(r => `
-    <tr><td class="mono dim">${r.id}</td><td><b>${esc(r.name)}</b> <span class="dim" style="font-size:12px">conf ${r.confidence}</span></td>
-    <td>${tierTag(r.tier)}</td>
-    <td><div class="row" style="display:flex;gap:7px">
+  $('#tb-rules tbody').innerHTML = rules.slice(0, 25).map(r => `
+    <tr><td><b>${esc(r.name)}</b> <span class="mono dimmer">${r.id}</span></td><td>${tierTag(r.tier)}</td>
+    <td style="text-align:right"><div class="row" style="display:inline-flex;gap:6px">
       <button class="ghost" onclick="promote('${r.id}')">晋升</button>
-      <button class="ghost" onclick="gate('${r.id}')">§51 检查</button>
-      <button class="ghost" onclick="fb('${r.id}')">生产反馈✓</button></div></td></tr>`).join('') ||
-    '<tr><td colspan="4" class="dim">暂无 VALIDATED+ 规则 —— 在下方新建并一路晋升</td></tr>';
+      <button class="ghost" onclick="gate('${r.id}')">§51</button>
+      <button class="ghost" onclick="fb('${r.id}')">反馈✓</button></div></td></tr>`).join('') ||
+    '<tr><td colspan="3" class="dim">暂无 VALIDATED+ 规则</td></tr>';
 }
 async function addRule() {
   await post('/api/v1/rules', { name: $('#kr-name').value || '未命名', statement: $('#kr-stmt').value || '（空）' });
@@ -545,12 +505,12 @@ async function addRule() {
 }
 async function promote(id) {
   try { const r = await api(`/api/v1/rules/${id}/promote`, { method: 'POST' });
-    r.promoted ? toast(`✅ 晋升 → <b>${r.to}</b>`) : toast(`⛔ 门禁拒绝：<br>` + (r.missing || [r.reason]).map(esc).join('<br>'), !r.promoted);
+    r.promoted ? toast(`✅ 晋升 → ${r.to}`) : toast('⛔ 门禁拒绝：<br>' + (r.missing || [r.reason]).map(esc).join('<br>'), !r.promoted);
     loadRules(); } catch (e) { toast(esc(e.message), true); }
 }
 async function gate(id) {
   const g = await api(`/api/v1/rules/${id}/gate`);
-  $('#drawer-body').innerHTML = `<div class="dim mono" style="margin-bottom:10px">${g.rule_id} · tier ${g.tier}</div>` +
+  $('#drawer-body').innerHTML = `<div class="mono dimmer" style="margin-bottom:10px">${g.rule_id} · tier ${g.tier}</div>` +
     Object.entries(g.checklist).map(([k, v]) => `<div class="gate-row ${v ? 'pass' : 'fail'}"><div class="ic">${v ? '✓' : '✗'}</div>${esc(k)}</div>`).join('');
   $('#drawer').classList.add('open');
 }
@@ -560,14 +520,13 @@ async function fb(id) {
   toast('生产反馈已记录 → ' + (r.to || r.outcome)); loadRules();
 }
 
-/* ---------- research ---------- */
 async function loadHypotheses() {
   const hy = await api('/api/v1/hypotheses');
-  $('#re-list').innerHTML = `<div class="glass" style="overflow:hidden"><table>
-    <thead><tr><th>ID</th><th>假设</th><th>状态</th><th></th></tr></thead><tbody>
-    ${hy.map(h => `<tr><td class="mono dim">${h.id}</td><td>${esc(h.statement)}</td><td>${tierTag(h.status)}</td>
-      <td><button class="ghost" onclick="designExp('${h.id}')">设计并运行实验</button></td></tr>`).join('') ||
-      '<tr><td colspan="4" class="dim">暂无假设</td></tr>'}</tbody></table></div><div id="re-exp" style="margin-top:14px"></div>`;
+  $('#re-list').innerHTML = `<div class="card" style="overflow:hidden"><table>
+    <thead><tr><th>假设</th><th>状态</th><th></th></tr></thead><tbody>
+    ${hy.slice(0, 20).map(h => `<tr><td>${esc(h.statement)}<br><span class="mono dimmer">${h.id}</span></td><td>${tierTag(h.status)}</td>
+      <td style="text-align:right"><button class="ghost" onclick="designExp('${h.id}')">设计并运行实验</button></td></tr>`).join('') ||
+      '<tr><td colspan="3" class="dim">暂无假设</td></tr>'}</tbody></table></div><div id="re-exp" style="margin-top:12px"></div>`;
 }
 async function addHypothesis() {
   await post('/api/v1/hypotheses', { statement: $('#hy-stmt').value || '（空假设）', falsification_condition: $('#hy-fals').value || 'treatment not stably better than control' });
@@ -579,15 +538,14 @@ async function designExp(hid) {
     variants: [{ label: 'control', variant_type: 'control', changed: {} },
                { label: 'treatment_A', variant_type: 'treatment', changed: { stakes_change: { level: 'high' } } }] });
   const run = await api(`/api/v1/experiments/${exp.id}/run`, { method: 'POST' });
-  $('#re-exp').innerHTML = `<div class="glass pad"><b>实验 ${exp.id} · 裁决</b>
-    <div class="row" style="display:flex;gap:8px;margin:10px 0">
+  $('#re-exp').innerHTML = `<div class="card pad"><h2>实验 ${exp.id} · 裁决</h2>
+    <div class="row" style="margin:8px 0">
       <span class="tag ${run.decision === 'inconclusive' ? 't-warn' : run.decision === 'supported' ? 't-ok' : 't-bad'}">${esc(run.decision)}</span>
       <span class="tag t-dim">${esc(run.hypothesis_status)}</span>
       <span class="dim">pairs ${run.pairs} · treatment ${run.treatment_wins} 胜</span></div>
-    <div class="dim" style="font-size:12.5px">${esc(run.reason)}</div></div>`;
+    <div class="dim" style="font-size:12px">${esc(run.reason)}</div></div>`;
 }
 
-/* ---------- reader / arena ---------- */
 async function loadReader() {
   const ps = await api('/api/v1/reader-profiles');
   $('#rd-profile').innerHTML = ps.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">（无画像）</option>';
@@ -598,38 +556,35 @@ async function readerSim() {
   if ($('#rd-profile').value) body.reader_profile_id = $('#rd-profile').value;
   try { const r = await post('/api/v1/eval/reader-sim', body);
     $('#rd-out').innerHTML = Object.entries(r.metrics).map(([k, v]) =>
-      `<div class="row" style="display:flex;align-items:center;gap:10px;margin:5px 0"><span class="dim" style="width:200px;font-size:12px">${esc(k)}</span>
+      `<div class="row" style="display:flex;align-items:center;gap:10px;margin:4px 0"><span class="dim" style="width:190px;font-size:11.5px">${esc(k)}</span>
        <div class="bars" style="flex:1"><div class="b" style="margin:0"><i style="width:${v * 100}%"></i></div></div>
-       <span class="mono" style="width:40px;text-align:right">${v}</span></div>`).join('');
+       <span class="mono dim" style="width:36px;text-align:right">${v}</span></div>`).join('');
   } catch (e) { toast(esc(e.message), true); }
 }
 async function arenaRun() {
   try { const r = await post('/api/v1/arena/run', { candidates: [
       { label: 'A', text: $('#ar-a').value || '候选A' }, { label: 'B', text: $('#ar-b').value || '候选B' }] });
-    $('#ar-out').innerHTML = `<div class="row" style="display:flex;gap:8px;margin-top:8px">
-      <span class="tag t-cy">胜者 ${esc(r.wins && r.ranking ? r.ranking[0] : '?')}</span>
-      <span class="tag t-dim">${r.pairs} 对 · ${r.ties} 平</span></div>
-      <pre class="mono dim" style="margin-top:8px">${esc(JSON.stringify(r.wins))}</pre>`;
+    $('#ar-out').innerHTML = `<div class="row" style="margin-top:8px">
+      <span class="tag t-acc">胜者 ${esc(r.ranking ? r.ranking[0] : '?')}</span>
+      <span class="tag t-dim">${r.pairs} 对 · ${r.ties} 平</span></div>`;
   } catch (e) { toast(esc(e.message), true); }
 }
 
-/* ---------- novelforge ---------- */
 async function nfAdvice() {
   try { const r = await post('/api/v1/novelforge/scene-advice', { scene_goal: $('#nf-goal').value || '让A怀疑B但不能确认' });
     const flagged = (r.risk_flags || []).includes('no_validated_knowledge_yet');
-    $('#nf-out').innerHTML = `<div class="glass pad">
-      <div class="row" style="display:flex;gap:8px;margin-bottom:10px">
-        <span class="tag ${flagged ? 't-warn' : 't-ok'}">${flagged ? '⛔ 门禁拦截：无 VALIDATED 知识' : '✅ 基于 VALIDATED 知识'}</span>
-        ${r.knowledge_tier ? `<span class="tag t-pu">tier ${esc(r.knowledge_tier)}</span>` : ''}</div>
-      <pre class="mono" style="white-space:pre-wrap">${esc(JSON.stringify(r, null, 2))}</pre></div>`;
+    $('#nf-out').innerHTML = `<div class="card pad">
+      <div class="row" style="margin-bottom:8px">
+        <span class="tag ${flagged ? 't-warn' : 't-ok'}">${flagged ? '⛔ P-10 门禁拦截：无 VALIDATED 知识' : '✅ 基于 VALIDATED 知识'}</span>
+        ${r.knowledge_tier ? `<span class="tag t-acc">tier ${esc(r.knowledge_tier)}</span>` : ''}</div>
+      <pre class="mono dim" style="white-space:pre-wrap">${esc(JSON.stringify(r, null, 2))}</pre></div>`;
   } catch (e) { toast(esc(e.message), true); }
 }
 
-/* ---------- system ---------- */
 async function loadSys() {
   const h = await api('/health');
-  $('#sy-health').innerHTML = `<pre class="mono">${esc(JSON.stringify(h, null, 2))}</pre>
-    <div class="dim" style="margin-top:8px">API 文档 /docs · 生产网关提示：Windows 本机另有一个 PostgreSQL 占用 5432，WSL PG 请用 172.26.215.189</div>`;
+  $('#sy-health').innerHTML = `<pre class="mono dim">${esc(JSON.stringify(h, null, 2))}</pre>
+    <div class="dimmer" style="margin-top:6px">API 文档 /docs</div>`;
 }
 async function exportObsidian() {
   try { const r = await api('/api/v1/export/obsidian', { method: 'POST' });
