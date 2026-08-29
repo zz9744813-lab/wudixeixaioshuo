@@ -52,6 +52,33 @@ def get_genome(scene_id: str, db: Session = Depends(get_db)):
     return scene.genome or {}
 
 
+@router.get("/{scene_id}/events")
+def list_scene_events(scene_id: str, db: Session = Depends(get_db)):
+    """Events extracted for this scene (read-only view for the dashboard)."""
+    from app.models.decomposition import Event
+
+    rows = db.scalars(select(Event).where(Event.scene_id == scene_id).order_by(Event.order_index)).all()
+    return [
+        {"id": e.id, "types": e.types, "description": e.description,
+         "confidence": e.confidence, "order_index": e.order_index}
+        for e in rows
+    ]
+
+
+@router.get("/{scene_id}/emotions")
+def list_scene_emotions(scene_id: str, db: Session = Depends(get_db)):
+    """Emotion states extracted for this scene (read-only view for the dashboard)."""
+    from app.models.emotion import EmotionState
+
+    rows = db.scalars(select(EmotionState).where(EmotionState.scene_id == scene_id)).all()
+    return [
+        {"id": e.id, "emotion": str(e.emotion), "intensity": e.intensity,
+         "appraisal": e.appraisal, "action_tendency": e.action_tendency,
+         "evidence": e.evidence}
+        for e in rows
+    ]
+
+
 @router.get("/{scene_id}/claims")
 def list_claims(scene_id: str, db: Session = Depends(get_db)):
     claims = db.scalars(select(Claim).where(Claim.scope == scene_id)).all()
