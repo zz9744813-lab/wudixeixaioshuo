@@ -33,7 +33,7 @@ from app.models.enums import EvidenceType
 
 
 def _claim(db: Session, subject: str, predicate: str, obj: str, confidence: float,
-           run_id: str, evidence: list | None = None) -> Claim:
+           run_id: str, evidence: list | None = None, scene_id: str | None = None) -> Claim:
     """Every LLM output first becomes a Claim (spec §17, P-08) — never a direct
     canonical write. Evidence items become real Evidence rows (§17.2), so the
     claim is auditable down to its supporting spans."""
@@ -44,7 +44,7 @@ def _claim(db: Session, subject: str, predicate: str, obj: str, confidence: floa
         object=obj or "(unspecified)",
         confidence=confidence,
         agent_run=run_id,
-        scope="scene",
+        scope=scene_id,  # the scene this claim is about (queryable per scene)
     )
     db.add(claim)
     import json as _json
@@ -85,7 +85,7 @@ def _persist_events(db: Session, scene: Scene, out: EventExtraction, run_id: str
             )
         )
         _claim(db, f"scene:{scene.id}", f"event:{e.type}", e.description, e.confidence, run_id,
-               [{"span": e.source_span}] if e.source_span else [])
+               [{"span": e.source_span}] if e.source_span else [], scene_id=scene.id)
 
 
 def _persist_perceptions(db: Session, scene: Scene, out: PerceptionExtraction, run_id: str) -> None:
@@ -100,7 +100,7 @@ def _persist_perceptions(db: Session, scene: Scene, out: PerceptionExtraction, r
                 confidence=0.5,
             )
         )
-        _claim(db, f"character:{p.character}", "perceived", p.content, 0.5, run_id)
+        _claim(db, f"character:{p.character}", "perceived", p.content, 0.5, run_id, scene_id=scene.id)
 
 
 def _persist_knowledge(db: Session, scene: Scene, out: KnowledgeExtraction, run_id: str) -> None:
@@ -131,7 +131,7 @@ def _persist_beliefs(db: Session, scene: Scene, out: BeliefExtraction, run_id: s
             )
         )
         _claim(db, f"character:{b.character}", "believes", b.proposition, b.confidence, run_id,
-               [{"probability": b.probability}])
+               [{"probability": b.probability}], scene_id=scene.id)
 
 
 def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) -> None:
@@ -140,7 +140,7 @@ def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) 
         if char_id is None:
             # Unattributable goal: keep it as a Claim only (goals.character_id
             # is NOT NULL), never silently drop the model's statement.
-            _claim(db, "(unattributed)", f"goal:{g.lifecycle}", g.statement, 0.5, run_id)
+            _claim(db, "(unattributed)", f"goal:{g.lifecycle}", g.statement, 0.5, run_id, scene_id=scene.id)
             continue
         db.add(
             Goal(
@@ -152,7 +152,7 @@ def _persist_goals(db: Session, scene: Scene, out: GoalExtraction, run_id: str) 
                 strength=g.strength,
             )
         )
-        _claim(db, f"character:{g.character}", f"goal:{g.lifecycle}", g.statement, 0.5, run_id)
+        _claim(db, f"character:{g.character}", f"goal:{g.lifecycle}", g.statement, 0.5, run_id, scene_id=scene.id)
 
 
 _EMOTION_ALIASES = {
@@ -213,7 +213,7 @@ def _persist_emotions(db: Session, scene: Scene, out: EmotionExtraction, run_id:
             )
         )
         _claim(db, f"character:{em.character}", f"emotion:{em.type}", em.trigger or "", 0.5,
-               run_id, [{"text": t} for t in em.evidence])
+               run_id, [{"text": t} for t in em.evidence], scene_id=scene.id)
 
 
 def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtraction, run_id: str) -> None:
@@ -247,7 +247,7 @@ def _persist_relationships(db: Session, scene: Scene, out: RelationshipExtractio
     )
     for r in out.changes:
         _claim(db, f"character:{r.source}", f"{r.dimension}:delta:{r.delta}",
-               f"character:{r.target}", 0.5, run_id, [{"cause": r.cause}] if r.cause else [])
+               f"character:{r.target}", 0.5, run_id, [{"cause": r.cause}] if r.cause else [], scene_id=scene.id)
 
 
 def _persist_causality(db: Session, scene: Scene, out: CausalityExtraction, run_id: str) -> None:
@@ -278,7 +278,7 @@ def _persist_techniques(db: Session, scene: Scene, out: TechniqueExtraction, run
 
 def _persist_counter(db: Session, scene: Scene, out: CounterInterpretation, run_id: str) -> None:
     for alt in out.alternatives:
-        _claim(db, scene.id, "counterinterpretation", alt, 0.3, run_id, [])
+        _claim(db, scene.id, "counterinterpretation", alt, 0.3, run_id, [], scene_id=scene.id)
 
 
 def _character_id(db: Session, book_id: str, name: str | None):
