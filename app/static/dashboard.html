@@ -207,13 +207,13 @@ tbody tr:hover{background:var(--s2)}
 </svg>
 
 <div class="topbar">
-  <div class="brand"><div class="mark"><svg><use href="#i-logo"/></svg></div>Novel Genome <small>· 小说基因组</small></div>
+  <div class="brand"><div class="mark"><svg><use href="#i-logo"/></svg></div>Novel Genome <small data-i18n="brand.sub">· 小说基因组</small></div>
   <div class="search" onclick="openPalette()"><div class="fake"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-linecap:round"><use href="#i-search"/></svg> <span data-i18n="search.ph">快速跳转…</span> <span class="kbd" style="margin-left:auto">Ctrl K</span></div></div>
   <div class="lang" id="lang-sw">
     <button data-l="zh">中</button><button data-l="en">EN</button><button data-l="ja">日</button>
   </div>
   <button class="iconbtn" id="theme-btn" onclick="toggleTheme()" title="theme"><svg id="theme-ic"><use href="#i-sun"/></svg></button>
-  <div class="live"><span class="dot"></span>LIVE</div>
+  <div class="live"><span class="dot"></span><span data-i18n="misc.live">在线</span></div>
 </div>
 <div class="shell">
   <div class="rail" id="rail">
@@ -341,7 +341,7 @@ const post = (p, body) => api(p, { method: 'POST', headers: { 'Content-Type': 'a
 const toast = (m, bad) => { const el = $('#toast'); el.innerHTML = m; el.style.borderColor = bad ? 'var(--bad)' : 'var(--bd2)'; el.style.display = 'block'; clearTimeout(el._h); el._h = setTimeout(() => el.style.display = 'none', 3600); };
 const esc = s => (s ?? '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const tierTag = tt => { const c = { PRODUCTION_PROVEN:'t-ok', VALIDATED:'t-ok', REPLICATED:'t-cy', SUPPORTED:'t-cy', CANDIDATE:'t-warn', OBSERVATION:'t-warn', REJECTED:'t-bad', DEPRECATED:'t-bad' }[tt] || 't-acc';
-  return `<span class="tag ${c}">${esc(tt)}</span>`; };
+  return `<span class="tag ${c}">${esc(d('tier', tt))}</span>`; };
 function countUp(el, target) { const d = 600, t0 = performance.now();
   const tick = now => { const k = Math.min((now - t0) / d, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
   requestAnimationFrame(tick); }
@@ -357,7 +357,7 @@ const I18N = {
     'sub.re':'假设必须可证伪（§18）· 实验必须声明对照（禁止 6）· 裁决由盲评 Judge 度量决定（P-08）',
     'sub.rd':'画像驱动的 9 维读者反应 · 匿名 A/B 盲评（Judge 永远看不到组别，禁止 7）',
     'sub.nf':'生产侧只拿到 VALIDATED+ 的抽象约束——原文永不回流（§45）',
-    'sub.sy':'健康 · 导出',
+    'sub.sy':'健康 · 导出','meta.conf':'置信度','meta.confS':'置信','meta.pov':'视角','meta.index':'序号','misc.live':'在线','brand.sub':'· 小说基因组','kpi.tables':'数据库表',
     'search.ph':'快速跳转…','ph.bookTitle':'书名（可留空用文件名）','ph.ruleName':'规则名','ph.ruleStmt':'规则陈述',
     'ph.hyp':'假设陈述（须可证伪）','ph.falsifier':'可证伪条件','ph.sceneId':'scene_id（可选）','ph.orText':'或直接粘贴文本',
     'ph.candA':'候选 A 文本','ph.candB':'候选 B 文本','ph.nfGoal':'下一场目标，例：让A怀疑B但不能确认',
@@ -366,12 +366,12 @@ const I18N = {
     'th.title':'书名','th.author':'作者','th.chapters':'章节','th.scenes':'场景','th.rule':'规则','th.tier':'等级',
     'ov.quick':'快速验收','ov.openGene':'打开场景基因','ov.ingestNew':'摄入一本新书',
     'ov.heroText':'「真模型验证」已由真实 LLM 完成 11-Pass 拆解。亮点：同一事实「有人来过」——李四 <span class="tag t-ok">KNOWN 0.9</span> 张三 <span class="tag t-warn">BELIEVED 0.8</span>，规范 §10 的知识状态分化真实发生。',
-    'sc.summary':'摘要 · Reconciler','sc.events':'事件时间线','sc.claims':'Claims','sc.emotions':'情绪 · Appraisal','sc.knowledge':'知识状态分化',
+    'sc.summary':'摘要 · Reconciler','sc.events':'事件时间线','sc.claims':'断言','sc.emotions':'情绪 · Appraisal','sc.knowledge':'知识状态分化',
     'sc.hintEvents':'只收「状态变化」，环境描写不算（§8）','sc.hintClaims':'按类型筛选 · 每条可沿 run_id 溯源到原始模型调用（§35）',
     'sc.hintKnow':'同一事实 · 不同角色 · 不同状态（§10）','sc.analyzed':'已分析','sc.unanalyzed':'未分析','sc.all':'全部','sc.scene':'场景',
-    'sc.noKnow':'该场景无知识更新','sc.passed':'11-PASS','sc.pending':'未分析','sc.noSummary':'（尚未运行 Reconciler）',
+    'sc.noKnow':'该场景无知识更新','sc.passed':'11 道分析通过','sc.pending':'未分析','sc.noSummary':'（尚未运行 Reconciler）',
     'kn.gateTitle':'§51 门禁清单','kn.noRules':'暂无 VALIDATED+ 规则',
-    'rd.reader':'读者模拟','rd.arena':'Writer Arena','opt.noProfile':'（无画像）',
+    'rd.reader':'读者模拟','rd.arena':'写作竞技场','opt.noProfile':'（无画像）',
     'msg.analyzing':'分析中…','toast.ingestOk':'摄入完成','toast.ruleOk':'规则已创建（OBSERVATION）','toast.hypOk':'假设已登记',
     'toast.passDone':'Pass 完成，失败','toast.exported':'个文件 →','misc.winner':'胜者','misc.pairs':'对','misc.ties':'平',
     'confirm.analyze':'将真实调用 LLM 11 次（约 5-9 分钟，消耗 API 额度）。继续？','misc.noRes':'无结果','misc.none':'无',
@@ -387,7 +387,7 @@ const I18N = {
     'sub.re':'Hypotheses must be falsifiable (§18) · experiments must declare a control (禁6) · verdicts come from blind-judge metrics (P-08)',
     'sub.rd':'Persona-driven 9-dimension reader response · blind A/B arena (the judge never sees group labels, 禁7)',
     'sub.nf':'Production receives only abstract VALIDATED+ constraints — raw text never leaks back (§45)',
-    'sub.sy':'Health · export',
+    'sub.sy':'Health · export','meta.conf':'confidence','meta.confS':'conf','meta.pov':'pov','meta.index':'index','misc.live':'LIVE','brand.sub':'· Novel Genome','kpi.tables':'database tables',
     'search.ph':'Jump to…','ph.bookTitle':'Title (defaults to filename)','ph.ruleName':'Rule name','ph.ruleStmt':'Rule statement',
     'ph.hyp':'Hypothesis (must be falsifiable)','ph.falsifier':'Falsification condition','ph.sceneId':'scene_id (optional)','ph.orText':'or paste text',
     'ph.candA':'Candidate A text','ph.candB':'Candidate B text','ph.nfGoal':'Next scene goal, e.g. make A suspect B without confirming',
@@ -396,12 +396,12 @@ const I18N = {
     'th.title':'Title','th.author':'Author','th.chapters':'Chapters','th.scenes':'Scenes','th.rule':'Rule','th.tier':'Tier',
     'ov.quick':'Quick verification','ov.openGene':'Open Scene Genome','ov.ingestNew':'Ingest a new book',
     'ov.heroText':'"真模型验证" has been fully decomposed by a real LLM (11 passes). Highlight: the same fact — 李四 <span class="tag t-ok">KNOWN 0.9</span> vs 张三 <span class="tag t-warn">BELIEVED 0.8</span>. Spec §10 knowledge differentiation, live.',
-    'sc.summary':'Summary · Reconciler','sc.events':'Event timeline','sc.claims':'Claims','sc.emotions':'Emotions · Appraisal','sc.knowledge':'Knowledge differentiation',
+    'sc.summary':'Summary · Reconciler','sc.events':'Event timeline','sc.claims':'断言','sc.emotions':'Emotions · Appraisal','sc.knowledge':'Knowledge differentiation',
     'sc.hintEvents':'State changes only — scene-setting does not count (§8)','sc.hintClaims':'Filter by type · each claim traceable via run_id to the raw model call (§35)',
     'sc.hintKnow':'Same fact · different characters · different states (§10)','sc.analyzed':'Analyzed','sc.unanalyzed':'Unanalyzed','sc.all':'All','sc.scene':'Scene',
-    'sc.noKnow':'No knowledge updates in this scene','sc.passed':'11-PASS','sc.pending':'Unanalyzed','sc.noSummary':'(Reconciler not run yet)',
+    'sc.noKnow':'No knowledge updates in this scene','sc.passed':'11 道分析通过','sc.pending':'Unanalyzed','sc.noSummary':'(Reconciler not run yet)',
     'kn.gateTitle':'§51 Gate checklist','kn.noRules':'No VALIDATED+ rules yet',
-    'rd.reader':'Reader simulation','rd.arena':'Writer Arena','opt.noProfile':'(no profile)',
+    'rd.reader':'Reader simulation','rd.arena':'写作竞技场','opt.noProfile':'(no profile)',
     'msg.analyzing':'Analyzing…','toast.ingestOk':'Ingested','toast.ruleOk':'Rule created (OBSERVATION)','toast.hypOk':'Hypothesis registered',
     'toast.passDone':'passes done, failed:','toast.exported':'files →','misc.winner':'Winner','misc.pairs':'pairs','misc.ties':'ties',
     'confirm.analyze':'This really calls the LLM 11 times (~5-9 min, consumes API quota). Continue?','misc.noRes':'No results','misc.none':'None',
@@ -417,7 +417,7 @@ const I18N = {
     'sub.re':'仮説は反証可能であること（§18）· 実験は対照群を宣言すること（禁6）· 判定はブラインド審査の指標による（P-08）',
     'sub.rd':'ペルソナ駆動の9次元読者反応 · 匿名 A/B ブラインド審査（審査者はグループを見ない，禁7）',
     'sub.nf':'本番側は VALIDATED+ の抽象制約のみ取得 — 原文は決して漏出しない（§45）',
-    'sub.sy':'ヘルス · エクスポート',
+    'sub.sy':'ヘルス · エクスポート','meta.conf':'信頼度','meta.confS':'信頼度','meta.pov':'視点','meta.index':'番号','misc.live':'稼働中','brand.sub':'· 小説ゲノム','kpi.tables':'DBテーブル',
     'search.ph':'移動先を検索…','ph.bookTitle':'タイトル（空欄でファイル名）','ph.ruleName':'ルール名','ph.ruleStmt':'ルールの内容',
     'ph.hyp':'仮説（反証可能なこと）','ph.falsifier':'反証条件','ph.sceneId':'scene_id（任意）','ph.orText':'またはテキストを貼付',
     'ph.candA':'候補 A のテキスト','ph.candB':'候補 B のテキスト','ph.nfGoal':'次のシーン目標、例：AにBを疑わせるが確証はさせない',
@@ -426,12 +426,12 @@ const I18N = {
     'th.title':'タイトル','th.author':'作者','th.chapters':'章','th.scenes':'シーン','th.rule':'ルール','th.tier':'ティア',
     'ov.quick':'クイック検証','ov.openGene':'シーンゲノムを開く','ov.ingestNew':'新しい本を取り込む',
     'ov.heroText':'「真模型验证」は実 LLM による 11 パス分解済み。ハイライト：同じ事実でも 李四 <span class="tag t-ok">KNOWN 0.9</span> に対し 张三 は <span class="tag t-warn">BELIEVED 0.8</span> — 仕様 §10 の知識状態差分が実際に動作。',
-    'sc.summary':'要約 · Reconciler','sc.events':'イベントタイムライン','sc.claims':'Claims','sc.emotions':'感情 · Appraisal','sc.knowledge':'知識状態の差分化',
+    'sc.summary':'要約 · Reconciler','sc.events':'イベントタイムライン','sc.claims':'断言','sc.emotions':'感情 · Appraisal','sc.knowledge':'知識状態の差分化',
     'sc.hintEvents':'状態変化のみ。情景描写は対象外（§8）','sc.hintClaims':'タイプで絞り込み · 各 Claim は run_id で元のモデル呼び出しまで追跡可能（§35）',
     'sc.hintKnow':'同一の事実 · 異なる人物 · 異なる状態（§10）','sc.analyzed':'分析済み','sc.unanalyzed':'未分析','sc.all':'すべて','sc.scene':'シーン',
-    'sc.noKnow':'このシーンに知識更新はありません','sc.passed':'11-PASS','sc.pending':'未分析','sc.noSummary':'（Reconciler 未実行）',
+    'sc.noKnow':'このシーンに知識更新はありません','sc.passed':'11 道分析通过','sc.pending':'未分析','sc.noSummary':'（Reconciler 未実行）',
     'kn.gateTitle':'§51 ゲートチェックリスト','kn.noRules':'VALIDATED+ ルールはまだありません',
-    'rd.reader':'読者シミュレーション','rd.arena':'Writer Arena','opt.noProfile':'（ペルソナなし）',
+    'rd.reader':'読者シミュレーション','rd.arena':'写作竞技场','opt.noProfile':'（ペルソナなし）',
     'msg.analyzing':'解析中…','toast.ingestOk':'取り込み完了','toast.ruleOk':'ルールを作成しました（OBSERVATION）','toast.hypOk':'仮説を登録しました',
     'toast.passDone':'パス完了、失敗：','toast.exported':'ファイル →','misc.winner':'勝者','misc.pairs':'ペア','misc.ties':'引分',
     'confirm.analyze':'LLM を 11 回呼び出します（約 5〜9 分、API クォータを消費）。続行しますか？','misc.noRes':'結果なし','misc.none':'なし',
@@ -440,6 +440,45 @@ const I18N = {
   }
 };
 let LANG = document.documentElement.lang.startsWith('ja') ? 'ja' : document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+
+/* ===== display-layer translation for protocol enums (DB values stay English) ===== */
+const DISP = {
+  eventType: { zh: { physical:'物理动作', perception:'感知', speech:'对话', information:'信息', decision:'决定', relationship:'关系', emotional:'情绪波动', goal_change:'目标变化', reveal:'揭示', concealment:'隐瞒', promise:'承诺', betrayal:'背叛', failure:'挫败', success:'得逞', arrival:'到来', departure:'离去', conflict:'冲突', resolution:'化解' },
+               ja: { physical:'物理動作', perception:'知覚', speech:'会話', information:'情報', decision:'決定', relationship:'関係', emotional:'感情変動', goal_change:'目標変化', reveal:'明かし', concealment:'隠蔽', promise:'約束', betrayal:'裏切り', failure:'挫折', success:'成功', arrival:'到来', departure:'出発', conflict:'対立', resolution:'解決' } },
+  causal: { zh: { physical_cause:'物理因果', informational_cause:'信息因果', psychological_cause:'心理因果', social_cause:'社会因果', resource_cause:'资源因果', goal_cause:'目标因果', constraint_cause:'约束因果', authorial_structure:'作者结构', temporal_only:'仅时间先后', correlation_only:'仅相关' },
+            ja: { physical_cause:'物理因果', informational_cause:'情報因果', psychological_cause:'心理因果', social_cause:'社会因果', resource_cause:'資源因果', goal_cause:'目標因果', constraint_cause:'制約因果', authorial_structure:'作者構造', temporal_only:'時間的前後のみ', correlation_only:'相関のみ' } },
+  relDim: { zh: { trust:'信任', attachment:'依恋', respect:'尊重', admiration:'钦佩', fear:'畏惧', resentment:'怨怼', dependency:'依赖', obligation:'亏欠', competition:'竞争', jealousy:'嫉妒', intimacy:'亲密', sexual_tension:'情欲张力', power:'权力', predictability:'可预测' },
+            ja: { trust:'信頼', attachment:'愛着', respect:'尊敬', admiration:'敬愛', fear:'畏れ', resentment:'怨恨', dependency:'依存', obligation:'義務', competition:'競争', jealousy:'嫉妬', intimacy:'親密', sexual_tension:'性的緊張', power:'権力', predictability:'予測可能性' } },
+  pred: { zh: { event:'事件', perceived:'感知', believes:'信念', goal:'目标', knowledge:'知识', causes:'因果', technique:'技法', emotion:'情绪', counterinterpretation:'反直觉解读' },
+          ja: { event:'イベント', perceived:'知覚', believes:'信念', goal:'目標', knowledge:'知識', causes:'因果', technique:'技法', emotion:'感情', counterinterpretation:'代替解釈' } },
+  kstatus: { zh: { KNOWN:'已知', BELIEVED:'相信', SUSPECTED:'怀疑', FALSE_BELIEF:'错误信念', UNKNOWN:'未知', EXPOSED:'暴露', DISBELIEVED:'不信', FORGOTTEN:'遗忘', AMBIGUOUS:'模糊' },
+             ja: { KNOWN:'既知', BELIEVED:'信じている', SUSPECTED:'疑っている', FALSE_BELIEF:'誤信', UNKNOWN:'未知', EXPOSED:'露呈', DISBELIEVED:'不信', FORGOTTEN:'忘却', AMBIGUOUS:'曖昧' } },
+  tier: { zh: { OBSERVATION:'观察', CANDIDATE:'候选', SUPPORTED:'已支持', REPLICATED:'已复现', VALIDATED:'已验证', PRODUCTION_PROVEN:'生产实证', REJECTED:'已否决', DEPRECATED:'已废弃' },
+          ja: { OBSERVATION:'観察', CANDIDATE:'候補', SUPPORTED:'支持済み', REPLICATED:'再現済み', VALIDATED:'検証済み', PRODUCTION_PROVEN:'実証済み', REJECTED:'却下', DEPRECATED:'非推奨' } },
+  hyp: { zh: { PROPOSED:'待验证', TESTING:'验证中', SUPPORTED:'已支持', REJECTED:'已否证', REPLICATED:'已复现' },
+         ja: { PROPOSED:'提案中', TESTING:'検証中', SUPPORTED:'支持済み', REJECTED:'反証済み', REPLICATED:'再現済み' } },
+  decision: { zh: { inconclusive:'证据不足', supported:'假设获支持', falsified:'被证伪', partial:'部分支持' },
+              ja: { inconclusive:'決定的証拠なし', supported:'仮説支持', falsified:'反証された', partial:'部分的に支持' } },
+  claimStatus: { zh: { open:'待校勘', reconciled:'已校勘', rejected:'已否决' },
+                 ja: { open:'未整理', reconciled:'整理済み', rejected:'却下' } },
+  metric: { zh: { continue_reading_probability:'继续阅读概率', confusion:'困惑', boredom:'乏味', curiosity:'好奇', tension:'紧张', satisfaction:'满足', surprise:'惊讶', character_attachment:'角色依恋', trust_in_author:'对作者的信任' },
+            ja: { continue_reading_probability:'読み続ける確率', confusion:'混乱', boredom:'退屈', curiosity:'好奇心', tension:'緊張', satisfaction:'満足', surprise:'驚き', character_attachment:'キャラ愛着', trust_in_author:'作者への信頼' } },
+  gate: { zh: { 'mechanism_明确':'机制明确', 'preconditions_明确':'前置条件明确', 'failure_modes_明确':'失败模式明确', '多个_source_evidence':'多来源证据', '有_counterexample':'有反例', '有_反事实实验':'有反事实实验', '有_独立_judge':'有独立评审', '跨样本复现':'跨样本复现', '达到_VALIDATED':'达到 VALIDATED' },
+          ja: { 'mechanism_明确':'メカニズム明確', 'preconditions_明确':'前提条件明確', 'failure_modes_明确':'失敗モード明確', '多个_source_evidence':'多源の証拠', '有_counterexample':'反例あり', '有_反事実実験':'反事実実験あり', '有_独立_judge':'独立審査あり', '跨样本复现':'サンプル横断で再現', '达到_VALIDATED':'VALIDATED 到達' } },
+};
+function d(cat, val) {
+  if (LANG === 'en') return val;
+  const m = DISP[cat] && DISP[cat][LANG];
+  return (m && m[val] !== undefined) ? m[val] : val;
+}
+function fmtPredicate(p) {
+  const parts = (p || '').split(':');
+  const head = d('pred', parts[0]) || parts[0];
+  if (parts[0] === 'knowledge') return head + ':' + d('kstatus', parts[1]);
+  if (parts[0] === 'causes') return head + ':' + d('causal', parts[1]);
+  if (DISP.relDim[LANG] && DISP.relDim[LANG][parts[0]]) return d('relDim', parts[0]) + '·Δ';
+  return head;
+}
 const t = k => (I18N[LANG] && I18N[LANG][k]) || I18N.zh[k] || k;
 function applyI18n() {
   $$('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
@@ -512,7 +551,7 @@ async function loadOverview() {
   const [h, books, hy, rules] = await Promise.all([api('/health'), api('/api/v1/books'), api('/api/v1/hypotheses'), api('/api/v1/rules')]);
   const totalScenes = books.reduce((s, b) => s + b.scene_count, 0);
   _verifyId = (books.find(b => b.title === '真模型验证') || {}).id;
-  const cards = [[books.length, t('nav.lib')], [totalScenes, t('th.scenes')], [hy.length, t('nav.re')], [rules.length, t('nav.kn')], [h.tables, 'DB']];
+  const cards = [[books.length, t('nav.lib')], [totalScenes, t('th.scenes')], [hy.length, t('nav.re')], [rules.length, t('nav.kn')], [h.tables, t('kpi.tables')]];
   $('#ov-kpis').innerHTML = cards.map((c, i) => `<div class="card kpi"><b id="cu-${i}">0</b><span>${esc(c[1])}</span></div>`).join('');
   cards.forEach((c, i) => countUp($('#cu-' + i), c[0]));
 }
@@ -572,14 +611,14 @@ async function loadGenome(id) {
       <div class="row" style="display:flex;justify-content:space-between">
         <h2>${t('sc.summary')}</h2>${sc.analyzed ? `<span class="tag t-ok">${t('sc.passed')}</span>` : `<span class="tag t-dim">${t('sc.pending')}</span>`}</div>
       <div style="margin-top:6px;font-size:13px">${esc(sc.summary) || `<span class="dim">${t('sc.noSummary')}</span>`}</div>
-      <div class="dimmer mono" style="margin-top:8px">confidence ${sc.confidence} · pov ${esc(sc.pov || '—')} · index ${sc.index}</div></div>
+      <div class="dimmer mono" style="margin-top:8px">${t('meta.conf')} ${sc.confidence} · ${t('meta.pov')} ${esc(sc.pov || '—')} · ${t('meta.index')} ${sc.index}</div></div>
     <div class="card pad">
       <h2>${t('sc.events')} <span class="tag t-cy" style="margin-left:6px">${evts.length}</span></h2>
       <div class="dimmer" style="font-size:11.5px">${t('sc.hintEvents')}</div>
       <div class="tl">${evts.map(e =>
-        `<div class="node"><span class="tag t-cy">${esc((e.types || []).join('/')) || '?'}</span>
+        `<div class="node"><span class="tag t-cy">${esc((e.types || []).map(x => d('eventType', x)).join('/')) || '?'}</span>
          <span style="margin-left:8px">${esc(e.description)}</span>
-         <span class="mono dim" style="float:right">conf ${e.confidence}</span></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`}</div></div>
+         <span class="mono dim" style="float:right">${t('meta.confS')} ${e.confidence}</span></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`}</div></div>
     <div class="card pad" style="margin-top:12px">
       <h2>${t('sc.claims')} <span class="tag t-acc" style="margin-left:6px">${clms.length}</span></h2>
       <div class="dimmer" style="font-size:11.5px">${t('sc.hintClaims')}</div>
@@ -596,20 +635,21 @@ async function loadGenome(id) {
       ${knowledge.length ? knowledge.map(k => {
         const m = (k.predicate || '').match(/^knowledge:(.+)$/); const status = m ? m[1] : '?';
         const st = { KNOWN: 't-ok', BELIEVED: 't-warn', SUSPECTED: 't-warn', FALSE_BELIEF: 't-bad', EXPOSED: 't-cy' }[status] || 't-dim';
-        return `<div class="kcard"><span style="flex:1;min-width:0">${esc(k.subject)}</span><span class="mono dimmer">${esc(k.object)}</span><span class="tag ${st}">${esc(status)}</span></div>`;
+        return `<div class="kcard"><span style="flex:1;min-width:0">${esc(k.subject)}</span><span class="mono dimmer">${esc(k.object)}</span><span class="tag ${st}">${esc(d('kstatus', status))}</span></div>`;
       }).join('') : `<span class="dim">${t('sc.noKnow')}</span>`}</div>`;
   drawRadar(emos);
 }
 function renderClaims(filter) {
   const { clms } = window._cur || {}; if (!clms) return;
-  const preds = [...new Set(clms.map(c => (c.predicate || '').split(':')[0]))];
+  const pred0 = c => (c.predicate || '').split(':')[0];
+  const preds = [...new Set(clms.map(pred0))];
   $('#clm-pills').innerHTML = `<span class="pill ${filter === null ? 'on' : ''}" onclick="renderClaims(null)">${t('sc.all')} ${clms.length}</span>` +
-    preds.map(p => { const n = clms.filter(c => (c.predicate || '').split(':')[0] === p).length;
-      return `<span class="pill ${filter === p ? 'on' : ''}" onclick="renderClaims('${p}')">${esc(p)} ${n}</span>`; }).join('');
-  const list = clms.filter(c => !filter || (c.predicate || '').split(':')[0] === filter);
+    preds.map(p => { const n = clms.filter(c => pred0(c) === p).length;
+      return `<span class="pill ${filter === p ? 'on' : ''}" onclick="renderClaims('${p}')">${esc(d('pred', p) || p)} ${n}</span>`; }).join('');
+  const list = clms.filter(c => !filter || pred0(c) === filter);
   $('#clm-list').innerHTML = list.slice(0, 22).map(c =>
-    `<div class="tl"><div class="node mono" style="padding:6px 11px">${esc(c.predicate)}<br>
-     <span class="dim">${esc(c.subject)} → ${esc(c.object)}</span> <span class="tag t-dim" style="float:right">${esc(c.status)}</span></div></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`;
+    `<div class="tl"><div class="node mono" style="padding:6px 11px">${esc(fmtPredicate(c.predicate))}<br>
+     <span class="dim">${esc(c.subject)} → ${esc(c.object)}</span> <span class="tag t-dim" style="float:right">${esc(d('claimStatus', c.status))}</span></div></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`;
 }
 function textBars(emos) {
   $('#radar').style.display = 'none';
@@ -658,7 +698,7 @@ async function loadRules() {
   const maxIdx = rules.length ? Math.max(...rules.map(r => LADDER.indexOf(r.tier))) : -1;
   $('#kn-stepper').innerHTML = LADDER.map((tt, i) => {
     const reached = i <= maxIdx;
-    return `<div class="step ${reached ? 'reached' : ''}"><div class="dot">${i + 1}</div><div class="lab">${tt}</div>${i < LADDER.length - 1 ? '<div class="bar"></div>' : ''}</div>`;
+    return `<div class="step ${reached ? 'reached' : ''}"><div class="dot">${i + 1}</div><div class="lab">${esc(d('tier', tt))}</div>${i < LADDER.length - 1 ? '<div class="bar"></div>' : ''}</div>`;
   }).join('');
   $('#tb-rules tbody').innerHTML = rules.slice(0, 25).map(r => `
     <tr><td><b>${esc(r.name)}</b> <span class="mono dimmer">${r.id}</span></td><td>${tierTag(r.tier)}</td>
@@ -680,7 +720,7 @@ async function promote(id) {
 async function gate(id) {
   const g = await api(`/api/v1/rules/${id}/gate`);
   $('#drawer-body').innerHTML = `<div class="mono dimmer" style="margin-bottom:10px">${g.rule_id} · tier ${g.tier}</div>` +
-    Object.entries(g.checklist).map(([k, v]) => `<div class="gate-row ${v ? 'pass' : 'fail'}"><div class="ic">${v ? '✓' : '✗'}</div>${esc(k)}</div>`).join('');
+    Object.entries(g.checklist).map(([k, v]) => `<div class="gate-row ${v ? 'pass' : 'fail'}"><div class="ic">${v ? '✓' : '✗'}</div>${esc(d('gate', k))}</div>`).join('');
   $('#drawer').classList.add('open');
 }
 function closeDrawer() { $('#drawer').classList.remove('open'); }
@@ -710,8 +750,8 @@ async function designExp(hid) {
   const run = await api(`/api/v1/experiments/${exp.id}/run`, { method: 'POST' });
   $('#re-exp').innerHTML = `<div class="card pad"><h2>${exp.id}</h2>
     <div class="row" style="margin:8px 0">
-      <span class="tag ${run.decision === 'inconclusive' ? 't-warn' : run.decision === 'supported' ? 't-ok' : 't-bad'}">${esc(run.decision)}</span>
-      <span class="tag t-dim">${esc(run.hypothesis_status)}</span>
+      <span class="tag ${run.decision === 'inconclusive' ? 't-warn' : run.decision === 'supported' ? 't-ok' : 't-bad'}">${esc(d('decision', run.decision))}</span>
+      <span class="tag t-dim">${esc(d('hyp', run.hypothesis_status))}</span>
       <span class="dim">${run.pairs} ${t('misc.pairs')}</span></div>
     <div class="dim" style="font-size:12px">${esc(run.reason)}</div></div>`;
 }
@@ -727,7 +767,7 @@ async function readerSim() {
   if ($('#rd-profile').value) body.reader_profile_id = $('#rd-profile').value;
   try { const r = await post('/api/v1/eval/reader-sim', body);
     $('#rd-out').innerHTML = Object.entries(r.metrics).map(([k, v]) =>
-      `<div class="row" style="display:flex;align-items:center;gap:10px;margin:4px 0"><span class="dim" style="width:190px;font-size:11.5px">${esc(k)}</span>
+      `<div class="row" style="display:flex;align-items:center;gap:10px;margin:4px 0"><span class="dim" style="width:190px;font-size:11.5px">${esc(d('metric', k))}</span>
        <div class="bars" style="flex:1"><div class="b" style="margin:0"><i data-w="${v * 100}"></i></div></div>
        <span class="mono dim" style="width:36px;text-align:right">${v}</span></div>`).join('');
     requestAnimationFrame(() => $$('#rd-out .b i').forEach(b => b.style.width = b.dataset.w + '%'));

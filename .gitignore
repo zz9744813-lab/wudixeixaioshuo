@@ -114,3 +114,8 @@ backend/data/exports/
 data/object_store/
 data/obsidian_vault/
 alembic/versions/*.pyc
+
+# local diagnostics scaffolding
+_diag/
+_chk_*.js
+_patch_*.py
