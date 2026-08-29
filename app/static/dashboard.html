@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -15,93 +15,121 @@ window._echartsReady = new Promise(res => {
     document.head.appendChild(s2); };
   document.head.appendChild(s1);
 });
+/* restore prefs before paint */
+(function(){
+  const th = localStorage.getItem('ng_theme') || 'dark';
+  const lg = localStorage.getItem('ng_lang') || ((navigator.language||'').startsWith('ja') ? 'ja' : (navigator.language||'').startsWith('zh') ? 'zh' : 'en');
+  document.documentElement.dataset.theme = th;
+  document.documentElement.lang = lg === 'zh' ? 'zh-CN' : lg;
+})();
 </script>
 <style>
-/* ===== tokens (Linear-style: quiet surfaces, hairline borders, ONE accent) ===== */
+/* ===== tokens ===== */
 :root{
   --bg:#0E1014; --s1:#14161B; --s2:#191C23; --s3:#1F232C;
   --bd:rgba(255,255,255,.06); --bd2:rgba(255,255,255,.12);
   --t1:#EDEEF0; --t2:#9BA1AC; --t3:#616774;
-  --acc:#8B8CF9; --acc-dim:rgba(139,140,249,.14);
+  --acc:#8B8CF9; --acc-dim:rgba(139,140,249,.14); --acc-txt:#0E1014;
   --ok:#4CC38A; --warn:#E2B93B; --bad:#E5697A; --cy:#5AC8E8;
+  --shadow:0 24px 70px rgba(0,0,0,.5);
   --r-s:8px; --r-m:10px; --r-l:12px;
   --mono:'Cascadia Code','JetBrains Mono',ui-monospace,Consolas,monospace;
-  --sans:'Inter','MiSans','HarmonyOS Sans SC','PingFang SC','Segoe UI',system-ui,sans-serif;
+  --sans:'Inter','MiSans','HarmonyOS Sans SC','PingFang SC','Hiragino Sans','Yu Gothic UI','Segoe UI',system-ui,sans-serif;
+}
+:root[data-theme="light"]{
+  --bg:#F6F6F7; --s1:#FFFFFF; --s2:#F0F0F2; --s3:#E9E9EC;
+  --bd:rgba(15,18,25,.08); --bd2:rgba(15,18,25,.16);
+  --t1:#17181C; --t2:#5B606B; --t3:#979DA8;
+  --acc:#5D5EF0; --acc-dim:rgba(93,94,240,.09); --acc-txt:#FFFFFF;
+  --ok:#1E9E62; --warn:#A87E14; --bad:#CE4257; --cy:#1E8FB8;
+  --shadow:0 24px 60px rgba(30,35,60,.14);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--t1);font:400 13.5px/1.6 var(--sans);
-  display:flex;flex-direction:column;min-height:100vh;font-feature-settings:'tnum' on}
+  display:flex;flex-direction:column;min-height:100vh;overflow-x:hidden;
+  font-feature-settings:'tnum' on}
+body.theming *, body.theming{transition:background-color .28s ease, border-color .28s ease, color .28s ease !important}
 ::selection{background:rgba(139,140,249,.30)}
-::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.09);border-radius:4px}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:4px}
 ::-webkit-scrollbar-track{background:transparent}
 button,input,select{font-family:inherit}
+button,input,select,.card,.scene-item,.pill,.gate-row,.kcard,.tl .node{transition:background-color .16s,border-color .16s,color .16s,transform .16s,box-shadow .16s}
+button:active{transform:scale(.98)}
 button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--acc);outline-offset:2px;border-radius:6px}
 
-/* ===== topbar: 48px, quiet ===== */
-.topbar{height:48px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:40;background:var(--bg)}
+/* ===== topbar ===== */
+.topbar{height:48px;display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:40;background:var(--bg)}
 .brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13.5px;letter-spacing:-0.01em}
 .brand .mark{width:20px;height:20px;border-radius:6px;background:var(--acc);display:grid;place-items:center}
-.brand .mark svg{width:12px;height:12px;stroke:#0E1014}
+.brand .mark svg{width:12px;height:12px;stroke:var(--acc-txt)}
 .brand small{color:var(--t3);font-weight:400;font-size:12px}
-.search{margin-left:auto;width:300px}
+.search{margin-left:auto;width:260px}
 .search .fake{display:flex;align-items:center;gap:8px;height:30px;border:1px solid var(--bd);border-radius:var(--r-m);
   padding:0 10px;color:var(--t3);background:var(--s1);cursor:pointer;transition:border-color .15s;font-size:12.5px}
 .search .fake:hover{border-color:var(--bd2);color:var(--t2)}
 .kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--bd2);border-radius:5px;padding:1px 6px;color:var(--t3)}
+.lang{display:flex;border:1px solid var(--bd);border-radius:999px;padding:2px;background:var(--s1)}
+.lang button{background:transparent;color:var(--t3);border:0;border-radius:999px;padding:2.5px 10px;font-size:11px;font-weight:600;cursor:pointer;box-shadow:none;filter:none}
+.lang button:hover{transform:none;filter:none;color:var(--t1)}
+.lang button.on{background:var(--acc);color:var(--acc-txt)}
+.iconbtn{width:30px;height:30px;border-radius:var(--r-m);border:1px solid var(--bd);background:var(--s1);color:var(--t2);
+  display:grid;place-items:center;cursor:pointer;padding:0}
+.iconbtn:hover{color:var(--t1);border-color:var(--bd2);background:var(--s2)}
+.iconbtn svg{width:15px;height:15px;stroke-width:1.75;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
 .live{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--ok)}
 .live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
 
-/* ===== shell: slim icon rail ===== */
+/* ===== shell ===== */
 .shell{flex:1;display:flex;min-height:0}
 .rail{width:52px;padding:10px 8px;display:flex;flex-direction:column;gap:2px;align-items:center;
   border-right:1px solid var(--bd);position:sticky;top:48px;height:calc(100vh - 48px)}
 .rail a{position:relative;width:36px;height:34px;border-radius:var(--r-m);display:grid;place-items:center;
-  color:var(--t3);cursor:pointer;transition:background .12s,color .12s}
-.rail a svg{width:17px;height:17px;stroke-width:1.75}
+  color:var(--t3);cursor:pointer}
+.rail a svg{width:17px;height:17px;stroke-width:1.75;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
 .rail a:hover{background:var(--s2);color:var(--t1)}
 .rail a.on{background:var(--acc-dim);color:var(--acc)}
 .rail a.on::before{content:'';position:absolute;left:-8px;top:7px;bottom:7px;width:2px;border-radius:2px;background:var(--acc)}
-.rail a .tip{position:absolute;left:50px;top:50%;transform:translateY(-50%);opacity:0;pointer-events:none;
-  background:var(--s3);border:1px solid var(--bd2);border-radius:7px;padding:4px 10px;font-size:12px;white-space:nowrap;transition:opacity .1s;z-index:60;color:var(--t1)}
-.rail a:hover .tip{opacity:1}
+.rail a .tip{position:absolute;left:50px;top:50%;transform:translateY(-50%) translateX(-4px);opacity:0;pointer-events:none;
+  background:var(--s3);border:1px solid var(--bd2);border-radius:7px;padding:4px 10px;font-size:12px;white-space:nowrap;transition:opacity .12s,transform .12s;z-index:60;color:var(--t1)}
+.rail a:hover .tip{opacity:1;transform:translateY(-50%) translateX(0)}
 main{flex:1;padding:22px 28px 56px;max-width:1160px;min-width:0}
 
-/* ===== type & components ===== */
+/* ===== primitives ===== */
 h1{font-size:19px;font-weight:600;letter-spacing:-0.01em}
 h1 .crumb{color:var(--t3);font-weight:400;font-size:13px;margin-left:2px}
 .sub{color:var(--t2);font-size:12.5px;margin:5px 0 20px}
-.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-l);transition:border-color .15s}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-l)}
 .card.hover:hover{border-color:var(--bd2)}
 .pad{padding:16px 18px}
 .mono{font-family:var(--mono);font-size:11.5px}
 .dim{color:var(--t2)} .dimmer{color:var(--t3)}
-.grad-txt{color:var(--acc)}
-h2{font-size:13px;font-weight:600;color:var(--t1);letter-spacing:0;margin-bottom:10px}
-button{background:var(--acc);border:0;color:#0E1014;border-radius:var(--r-m);padding:6px 13px;font-weight:600;cursor:pointer;font-size:12.5px;transition:filter .12s}
-button:hover{filter:brightness(1.10)}
+h2{font-size:13px;font-weight:600;margin-bottom:10px}
+button{background:var(--acc);border:0;color:var(--acc-txt);border-radius:var(--r-m);padding:6px 13px;font-weight:600;cursor:pointer;font-size:12.5px}
+button:hover{filter:brightness(1.08)}
 button:disabled{opacity:.4;cursor:not-allowed}
 button.ghost{background:transparent;color:var(--t2);border:1px solid var(--bd2);font-weight:500}
-button.ghost:hover{color:var(--t1);border-color:rgba(255,255,255,.22);background:var(--s2)}
-input,select{background:var(--s2);border:1px solid var(--bd);color:var(--t1);border-radius:var(--r-m);padding:6px 11px;font-size:12.5px;outline:none;transition:border-color .15s}
-input:focus,select:focus{border-color:var(--acc)}
+button.ghost:hover{color:var(--t1);border-color:rgba(140,140,160,.4);background:var(--s2)}
+input,select{background:var(--s2);border:1px solid var(--bd);color:var(--t1);border-radius:var(--r-m);padding:6px 11px;font-size:12.5px;outline:none}
+input:focus,select:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-dim)}
 input::placeholder{color:var(--t3)}
 .tag{display:inline-flex;align-items:center;border-radius:6px;padding:1.5px 8px;font-size:11px;font-weight:500;font-family:var(--mono)}
-.t-acc{background:var(--acc-dim);color:var(--acc)} .t-ok{background:rgba(76,195,138,.12);color:var(--ok)}
-.t-warn{background:rgba(226,185,59,.12);color:var(--warn)} .t-bad{background:rgba(229,105,122,.12);color:var(--bad)}
-.t-cy{background:rgba(90,200,232,.12);color:var(--cy)} .t-dim{background:var(--s3);color:var(--t2)}
+.t-acc{background:var(--acc-dim);color:var(--acc)} .t-ok{background:rgba(76,195,138,.13);color:var(--ok)}
+.t-warn{background:rgba(226,185,59,.13);color:var(--warn)} .t-bad{background:rgba(229,105,122,.13);color:var(--bad)}
+.t-cy{background:rgba(90,200,232,.13);color:var(--cy)} .t-dim{background:var(--s3);color:var(--t2)}
 table{width:100%;border-collapse:collapse}
-th{color:var(--t3);font-weight:500;font-size:11px;text-align:left;padding:8px 14px;border-bottom:1px solid var(--bd);letter-spacing:.04em;text-transform:uppercase}
-td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px}
+th{color:var(--t3);font-weight:500;font-size:11px;text-align:left;padding:8px 14px;border-bottom:1px solid var(--bd);letter-spacing:.05em;text-transform:uppercase}
+td{padding:9px 14px;border-bottom:1px solid var(--bd);font-size:13px}
 tr:last-child td{border-bottom:0}
-tr:hover td{background:rgba(255,255,255,.02)}
-.sect{display:none;animation:fadein .18s ease}
-.sect.on{display:block}
-@keyframes fadein{from{opacity:0}to{opacity:1}}
+tbody tr{cursor:default}
+tbody tr:hover{background:var(--s2)}
+.sect{display:none}
+.sect.on{display:block;animation:pagein .26s cubic-bezier(.2,.8,.2,1)}
+@keyframes pagein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 #toast{position:fixed;bottom:20px;right:20px;background:var(--s3);border:1px solid var(--bd2);
-  padding:11px 16px;border-radius:var(--r-m);display:none;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.4);max-width:440px;font-size:12.5px}
+  padding:11px 16px;border-radius:var(--r-m);display:none;z-index:99;box-shadow:var(--shadow);max-width:440px;font-size:12.5px;animation:pagein .22s cubic-bezier(.2,.8,.2,1)}
 .row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
 .bars .b{height:6px;border-radius:3px;background:var(--s3);overflow:hidden;margin:4px 0 9px}
-.bars .b i{display:block;height:100%;border-radius:3px;background:var(--acc)}
+.bars .b i{display:block;height:100%;border-radius:3px;background:var(--acc);width:0;transition:width .7s cubic-bezier(.2,.8,.2,1)}
 
 /* ===== overview ===== */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:12px}
@@ -111,16 +139,17 @@ tr:hover td{background:rgba(255,255,255,.02)}
 
 /* ===== scene gene ===== */
 .cols{display:grid;grid-template-columns:225px 1fr 330px;gap:12px;align-items:start}
-.scene-item{padding:8px 12px;border-radius:var(--r-m);cursor:pointer;border:1px solid transparent;display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--t2);transition:background .12s}
+.scene-item{padding:8px 12px;border-radius:var(--r-m);cursor:pointer;border:1px solid transparent;display:flex;justify-content:space-between;align-items:center;font-size:12.5px;color:var(--t2)}
 .scene-item:hover{background:var(--s2);color:var(--t1)}
 .scene-item.on{background:var(--acc-dim);color:var(--t1);border-color:rgba(139,140,249,.35)}
 .tl{position:relative;padding-left:22px;margin-top:10px}
 .tl::before{content:'';position:absolute;left:6px;top:10px;bottom:10px;width:1px;background:var(--bd2)}
 .tl .node{position:relative;margin:7px 0;padding:9px 13px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r-m);font-size:12.5px}
+.tl .node:hover{border-color:var(--bd2)}
 .tl .node::before{content:'';position:absolute;left:-19.5px;top:15px;width:7px;height:7px;border-radius:50%;background:var(--acc)}
 .kcard{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--r-m);background:var(--s1);border:1px solid var(--bd);margin:6px 0;font-size:12.5px}
 .pillbar{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-.pill{cursor:pointer;border:1px solid var(--bd);border-radius:999px;padding:2.5px 11px;font-size:11.5px;color:var(--t2);transition:.12s;background:transparent}
+.pill{cursor:pointer;border:1px solid var(--bd);border-radius:999px;padding:2.5px 11px;font-size:11.5px;color:var(--t2)}
 .pill:hover{color:var(--t1);border-color:var(--bd2)}
 .pill.on{color:var(--acc);border-color:var(--acc);background:var(--acc-dim)}
 
@@ -130,7 +159,7 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .step .dot{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;
   background:var(--s2);border:1px solid var(--bd2);color:var(--t3)}
 .step .lab{margin:0 9px 0 7px;font-size:11px;color:var(--t3);font-family:var(--mono)}
-.step.reached .dot{background:var(--acc);color:#0E1014;border:0}
+.step.reached .dot{background:var(--acc);color:var(--acc-txt);border:0}
 .step.reached .lab{color:var(--t1)}
 .step .bar{width:26px;height:1px;background:var(--bd2);margin:0 2px}
 .step.reached .bar{background:var(--acc)}
@@ -138,16 +167,18 @@ tr:hover td{background:rgba(255,255,255,.02)}
 /* ===== drawer & palette ===== */
 .drawer{position:fixed;top:0;right:-460px;width:430px;height:100vh;background:var(--s1);border-left:1px solid var(--bd2);
   z-index:80;transition:right .28s cubic-bezier(.2,.8,.2,1);padding:22px;overflow-y:auto}
-.drawer.open{right:0}
-.drawer h3{font-size:14px;font-weight:600;margin-bottom:12px;letter-spacing:-0.01em}
+.drawer.open{right:0;box-shadow:var(--shadow)}
+.drawer h3{font-size:14px;font-weight:600;margin-bottom:12px}
 .gate-row{display:flex;align-items:center;gap:10px;padding:7px 11px;border-radius:var(--r-m);margin:4px 0;background:var(--s2);font-size:12.5px}
 .gate-row .ic{width:19px;height:19px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:700}
 .gate-row.pass .ic{background:rgba(76,195,138,.14);color:var(--ok)}
 .gate-row.fail .ic{background:rgba(229,105,122,.14);color:var(--bad)}
-.palette{position:fixed;inset:0;background:rgba(8,9,12,.55);z-index:90;display:none;justify-content:center;padding-top:11vh}
+.palette{position:fixed;inset:0;background:rgba(8,9,12,.45);backdrop-filter:blur(3px);z-index:90;display:none;justify-content:center;padding-top:11vh}
+:root[data-theme="dark"] .palette{background:rgba(8,9,12,.55)}
 .palette.open{display:flex}
-.palette .box{width:560px;height:fit-content;background:var(--s1);border:1px solid var(--bd2);border-radius:var(--r-l);
-  box-shadow:0 24px 70px rgba(0,0,0,.5);overflow:hidden}
+.palette .box{width:560px;height:fit-content;background:var(--s1);border:1px solid var(--bd2);border-radius:14px;
+  box-shadow:var(--shadow);overflow:hidden;animation:palin .16s cubic-bezier(.2,.8,.2,1)}
+@keyframes palin{from{opacity:0;transform:scale(.985) translateY(4px)}to{opacity:1;transform:none}}
 .palette input{width:100%;border:0;border-bottom:1px solid var(--bd);border-radius:0;background:transparent;padding:15px 18px;font-size:14px}
 .palette .res{max-height:44vh;overflow-y:auto;padding:6px}
 .palette .it{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-m);cursor:pointer;font-size:13px;color:var(--t2)}
@@ -155,71 +186,80 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .skel{border-radius:var(--r-m);background:linear-gradient(90deg,var(--s1) 25%,var(--s2) 50%,var(--s1) 75%);
   background-size:200% 100%;animation:sk 1.2s infinite}
 @keyframes sk{to{background-position:-200% 0}}
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
 @media(max-width:1080px){.cols{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
-<!-- lucide-style icon sprite (consistent 24px grid, stroke=currentColor) -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
-  <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
-  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
-  <symbol id="i-dna" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2c0 6 16 6 16 16"/><path d="M20 2c0 6-16 6-16 16"/><path d="M7 6h10M6 10h12M6 14h12M7 18h10"/></symbol>
-  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.7 9a.6.6 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
-  <symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.5L4.2 19a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7M7 16h10"/></symbol>
-  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
-  <symbol id="i-tool" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
-  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></symbol>
+  <symbol id="i-dna" viewBox="0 0 24 24"><path d="M4 2c0 6 16 6 16 16"/><path d="M20 2c0 6-16 6-16 16"/><path d="M7 6h10M6 10h12M6 14h12M7 18h10"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.7 9a.6.6 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M10 2v7.5L4.2 19a2 2 0 0 0 1.7 3h12.2a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7M7 16h10"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+  <symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
   <symbol id="i-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 4c0 5.3 14 5.3 14 16"/><path d="M19 4c0 5.3-14 5.3-14 16"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
 </svg>
 
 <div class="topbar">
   <div class="brand"><div class="mark"><svg><use href="#i-logo"/></svg></div>Novel Genome <small>· 小说基因组</small></div>
-  <div class="search" onclick="openPalette()"><div class="fake"><svg style="width:13px;height:13px;stroke-width:1.75;fill:none;stroke:currentColor;stroke-linecap:round"><use href="#i-search"/></svg> 快速跳转… <span class="kbd" style="margin-left:auto">Ctrl K</span></div></div>
+  <div class="search" onclick="openPalette()"><div class="fake"><svg style="width:13px;height:13px;fill:none;stroke:currentColor;stroke-linecap:round"><use href="#i-search"/></svg> <span data-i18n="search.ph">快速跳转…</span> <span class="kbd" style="margin-left:auto">Ctrl K</span></div></div>
+  <div class="lang" id="lang-sw">
+    <button data-l="zh">中</button><button data-l="en">EN</button><button data-l="ja">日</button>
+  </div>
+  <button class="iconbtn" id="theme-btn" onclick="toggleTheme()" title="theme"><svg id="theme-ic"><use href="#i-sun"/></svg></button>
   <div class="live"><span class="dot"></span>LIVE</div>
 </div>
 <div class="shell">
   <div class="rail" id="rail">
-    <a data-s="ov" class="on"><svg><use href="#i-dash"/></svg><span class="tip">总览</span></a>
-    <a data-s="lib"><svg><use href="#i-book"/></svg><span class="tip">书库与摄入</span></a>
-    <a data-s="sc"><svg><use href="#i-dna"/></svg><span class="tip">场景基因</span></a>
-    <a data-s="kn"><svg><use href="#i-shield"/></svg><span class="tip">知识门禁</span></a>
-    <a data-s="re"><svg><use href="#i-flask"/></svg><span class="tip">研究实验室</span></a>
-    <a data-s="rd"><svg><use href="#i-user"/></svg><span class="tip">读者 · 竞技场</span></a>
-    <a data-s="nf"><svg><use href="#i-tool"/></svg><span class="tip">NovelForge</span></a>
-    <a data-s="sy"><svg><use href="#i-gear"/></svg><span class="tip">系统</span></a>
+    <a data-s="ov" class="on"><svg><use href="#i-dash"/></svg><span class="tip" data-i18n="nav.ov"></span></a>
+    <a data-s="lib"><svg><use href="#i-book"/></svg><span class="tip" data-i18n="nav.lib"></span></a>
+    <a data-s="sc"><svg><use href="#i-dna"/></svg><span class="tip" data-i18n="nav.sc"></span></a>
+    <a data-s="kn"><svg><use href="#i-shield"/></svg><span class="tip" data-i18n="nav.kn"></span></a>
+    <a data-s="re"><svg><use href="#i-flask"/></svg><span class="tip" data-i18n="nav.re"></span></a>
+    <a data-s="rd"><svg><use href="#i-user"/></svg><span class="tip" data-i18n="nav.rd"></span></a>
+    <a data-s="nf"><svg><use href="#i-tool"/></svg><span class="tip" data-i18n="nav.nf"></span></a>
+    <a data-s="sy"><svg><use href="#i-gear"/></svg><span class="tip" data-i18n="nav.sy"></span></a>
   </div>
   <main>
     <section class="sect on" id="s-ov">
-      <h1>总览 <span class="crumb">/ Overview</span></h1>
-      <div class="sub">数据实况查询 · 所有结论可沿 Claim → Run → ModelCall 溯源（§35）</div>
+      <h1><span data-i18n="nav.ov"></span> <span class="crumb">/ Overview</span></h1>
+      <div class="sub" data-i18n="sub.ov"></div>
       <div class="kpis" id="ov-kpis"></div>
       <div class="card pad" style="margin-top:2px">
-        <h2>快速验收</h2>
-        <div style="margin:4px 0 12px">「真模型验证」已由真实 LLM 完成 11-Pass 拆解。亮点：同一事实「有人来过」——李四 <span class="tag t-ok">KNOWN 0.9</span> 张三 <span class="tag t-warn">BELIEVED 0.8</span>，规范 §10 的知识状态分化真实发生。</div>
-        <div class="row"><button onclick="gotoBook()">打开场景基因</button><button class="ghost" onclick="nav('lib')">摄入一本新书</button></div>
+        <h2 data-i18n="ov.quick"></h2>
+        <div style="margin:4px 0 12px" data-i18n-html="ov.heroText"></div>
+        <div class="row">
+          <button onclick="gotoBook()" data-i18n="ov.openGene"></button>
+          <button class="ghost" onclick="nav('lib')" data-i18n="ov.ingestNew"></button>
+        </div>
       </div>
     </section>
     <section class="sect" id="s-lib">
-      <h1>书库与摄入 <span class="crumb">/ Corpus</span></h1>
-      <div class="sub">TXT / MD / EPUB / DOCX → 章节检测 → 场景切分 → 查重（规则驱动，确定性）</div>
+      <h1><span data-i18n="nav.lib"></span> <span class="crumb">/ Corpus</span></h1>
+      <div class="sub" data-i18n="sub.lib"></div>
       <div class="card pad" style="margin-bottom:12px">
         <div class="row">
           <input type="file" id="ing-file" style="padding:6px">
-          <input id="ing-title" placeholder="书名（可留空用文件名）" style="width:200px">
-          <button onclick="ingest()">摄入</button><span id="ing-msg" class="dim"></span>
+          <input id="ing-title" data-i18n-ph="ph.bookTitle" style="width:200px">
+          <button onclick="ingest()" data-i18n="btn.ingest"></button><span id="ing-msg" class="dim"></span>
         </div>
       </div>
       <div class="card" style="overflow:hidden"><table id="tb-books">
-        <thead><tr><th>书名</th><th>作者</th><th style="text-align:right">章节</th><th style="text-align:right">场景</th><th></th></tr></thead><tbody></tbody></table></div>
+        <thead><tr><th data-i18n="th.title"></th><th data-i18n="th.author"></th><th style="text-align:right" data-i18n="th.chapters"></th><th style="text-align:right" data-i18n="th.scenes"></th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
     <section class="sect" id="s-sc">
-      <h1>场景基因 <span class="crumb">/ Scene Genome</span></h1>
-      <div class="sub">11-Pass 多轮拆解：事件 · 情绪 · 知识状态 · 因果 · 技法 · 反直觉解读 · Reconcile</div>
+      <h1><span data-i18n="nav.sc"></span> <span class="crumb">/ Scene Genome</span></h1>
+      <div class="sub" data-i18n="sub.sc"></div>
       <div class="card pad" style="margin-bottom:12px"><div class="row">
         <select id="sc-book" onchange="loadScenes()" style="min-width:210px"></select>
         <select id="sc-scene" onchange="loadGenome()" style="min-width:180px"></select>
-        <button id="btn-analyze" onclick="analyze()">运行 11-Pass 分析</button>
+        <button id="btn-analyze" onclick="analyze()" data-i18n="btn.analyze"></button>
         <span id="sc-msg" class="dim"></span></div></div>
       <div class="cols">
         <div class="card pad" id="sc-list"><div class="skel" style="height:110px"></div></div>
@@ -228,81 +268,206 @@ tr:hover td{background:rgba(255,255,255,.02)}
       </div>
     </section>
     <section class="sect" id="s-kn">
-      <h1>知识门禁 <span class="crumb">/ §63 Ladder</span></h1>
-      <div class="sub">只有 VALIDATED+ 可被 NovelForge 消费（P-10）· 门禁不满足时逐项告知缺什么</div>
+      <h1><span data-i18n="nav.kn"></span> <span class="crumb">/ §63 Ladder</span></h1>
+      <div class="sub" data-i18n="sub.kn"></div>
       <div class="card pad" style="margin-bottom:12px"><div class="stepper" id="kn-stepper"></div>
         <div class="row">
-          <input id="kr-name" placeholder="规则名" style="width:160px">
-          <input id="kr-stmt" placeholder="规则陈述" style="flex:1;min-width:220px">
-          <button onclick="addRule()">新建规则</button></div></div>
+          <input id="kr-name" data-i18n-ph="ph.ruleName" style="width:160px">
+          <input id="kr-stmt" data-i18n-ph="ph.ruleStmt" style="flex:1;min-width:220px">
+          <button onclick="addRule()" data-i18n="btn.newRule"></button></div></div>
       <div class="card" style="overflow:hidden"><table id="tb-rules">
-        <thead><tr><th>规则</th><th>等级</th><th></th></tr></thead><tbody></tbody></table></div>
+        <thead><tr><th data-i18n="th.rule"></th><th data-i18n="th.tier"></th><th></th></tr></thead><tbody></tbody></table></div>
     </section>
     <section class="sect" id="s-re">
-      <h1>研究实验室 <span class="crumb">/ Hypothesis → Experiment</span></h1>
-      <div class="sub">假设必须可证伪（§18）· 实验必须声明对照（禁止 6）· 裁决由盲评 Judge 度量决定（P-08）</div>
+      <h1><span data-i18n="nav.re"></span> <span class="crumb">/ Hypothesis → Experiment</span></h1>
+      <div class="sub" data-i18n="sub.re"></div>
       <div class="card pad" style="margin-bottom:12px"><div class="row">
-        <input id="hy-stmt" placeholder="假设陈述（须可证伪）" style="flex:1;min-width:260px">
-        <input id="hy-fals" placeholder="可证伪条件" style="width:230px">
-        <button onclick="addHypothesis()">提出假设</button></div></div>
+        <input id="hy-stmt" data-i18n-ph="ph.hyp" style="flex:1;min-width:260px">
+        <input id="hy-fals" data-i18n-ph="ph.falsifier" style="width:230px">
+        <button onclick="addHypothesis()" data-i18n="btn.addHyp"></button></div></div>
       <div id="re-list"></div>
     </section>
     <section class="sect" id="s-rd">
-      <h1>读者模拟 · 竞技场 <span class="crumb">/ §21 · §22</span></h1>
-      <div class="sub">画像驱动的 9 维读者反应 · 匿名 A/B 盲评（Judge 永远看不到组别，禁止 7）</div>
+      <h1><span data-i18n="nav.rd"></span> <span class="crumb">/ §21 · §22</span></h1>
+      <div class="sub" data-i18n="sub.rd"></div>
       <div class="card pad" style="margin-bottom:12px">
-        <h2>读者模拟</h2>
+        <h2 data-i18n="rd.reader"></h2>
         <div class="row" style="margin-bottom:10px">
           <select id="rd-profile" style="min-width:160px"></select>
-          <input id="rd-scene" placeholder="scene_id（可选）" style="width:220px" class="mono">
-          <input id="rd-text" placeholder="或直接粘贴文本" style="flex:1;min-width:200px">
-          <button onclick="readerSim()">模拟阅读</button></div>
+          <input id="rd-scene" data-i18n-ph="ph.sceneId" style="width:220px" class="mono">
+          <input id="rd-text" data-i18n-ph="ph.orText" style="flex:1;min-width:200px">
+          <button onclick="readerSim()" data-i18n="btn.simulate"></button></div>
         <div id="rd-out"></div></div>
       <div class="card pad">
-        <h2>Writer Arena</h2>
+        <h2 data-i18n="rd.arena"></h2>
         <div class="row">
-          <input id="ar-a" placeholder="候选 A 文本" style="flex:1;min-width:200px">
-          <input id="ar-b" placeholder="候选 B 文本" style="flex:1;min-width:200px">
-          <button onclick="arenaRun()">开赛</button></div>
+          <input id="ar-a" data-i18n-ph="ph.candA" style="flex:1;min-width:200px">
+          <input id="ar-b" data-i18n-ph="ph.candB" style="flex:1;min-width:200px">
+          <button onclick="arenaRun()" data-i18n="btn.arena"></button></div>
         <div id="ar-out"></div></div>
     </section>
     <section class="sect" id="s-nf">
-      <h1>NovelForge 适配器 <span class="crumb">/ §43</span></h1>
-      <div class="sub">生产侧只拿到 VALIDATED+ 的抽象约束——原文永不回流（§45）</div>
+      <h1><span data-i18n="nav.nf"></span> <span class="crumb">/ §43</span></h1>
+      <div class="sub" data-i18n="sub.nf"></div>
       <div class="card pad" style="margin-bottom:12px"><div class="row">
-        <input id="nf-goal" placeholder="下一场目标，例：让A怀疑B但不能确认" style="flex:1">
-        <button onclick="nfAdvice()">获取写作建议</button></div></div>
+        <input id="nf-goal" data-i18n-ph="ph.nfGoal" style="flex:1">
+        <button onclick="nfAdvice()" data-i18n="btn.advice"></button></div></div>
       <div id="nf-out"></div>
     </section>
     <section class="sect" id="s-sy">
-      <h1>系统 <span class="crumb">/ System</span></h1>
-      <div class="sub">健康 · 导出</div>
+      <h1><span data-i18n="nav.sy"></span> <span class="crumb">/ System</span></h1>
+      <div class="sub" data-i18n="sub.sy"></div>
       <div class="card pad" id="sy-health" style="margin-bottom:12px"></div>
-      <div class="card pad"><button onclick="exportObsidian()">导出 Obsidian 知识库（§42）</button>
+      <div class="card pad"><button onclick="exportObsidian()" data-i18n="btn.export"></button>
         <span id="sy-obs" class="dim" style="margin-left:10px"></span></div>
     </section>
   </main>
 </div>
 
 <div class="drawer" id="drawer"><div class="row" style="display:flex;justify-content:space-between;align-items:center">
-  <h3>§51 门禁清单</h3><button class="ghost" onclick="closeDrawer()">✕</button></div>
+  <h3 data-i18n="kn.gateTitle"></h3><button class="ghost" onclick="closeDrawer()">✕</button></div>
   <div id="drawer-body" style="margin-top:12px"></div></div>
 <div class="palette" id="palette"><div class="box">
-  <input id="pal-q" placeholder="跳转到…（书籍 / 场景 / 页面）" oninput="palSearch()">
+  <input id="pal-q" data-i18n-ph="search.ph" oninput="palSearch()">
   <div class="res" id="pal-res"></div></div></div>
 <div id="toast"></div>
 
 <script>
+/* ================= i18n ================= */
+const I18N = {
+  zh: {
+    'nav.ov':'总览','nav.lib':'书库与摄入','nav.sc':'场景基因','nav.kn':'知识门禁','nav.re':'研究实验室','nav.rd':'读者 · 竞技场','nav.nf':'NovelForge','nav.sy':'系统',
+    'sub.ov':'数据实况查询 · 所有结论可沿 Claim → Run → ModelCall 溯源（§35）',
+    'sub.lib':'TXT / MD / EPUB / DOCX → 章节检测 → 场景切分 → 查重（规则驱动，确定性）',
+    'sub.sc':'11-Pass 多轮拆解：事件 · 情绪 · 知识状态 · 因果 · 技法 · 反直觉解读 · Reconcile',
+    'sub.kn':'只有 VALIDATED+ 可被 NovelForge 消费（P-10）· 门禁不满足时逐项告知缺什么',
+    'sub.re':'假设必须可证伪（§18）· 实验必须声明对照（禁止 6）· 裁决由盲评 Judge 度量决定（P-08）',
+    'sub.rd':'画像驱动的 9 维读者反应 · 匿名 A/B 盲评（Judge 永远看不到组别，禁止 7）',
+    'sub.nf':'生产侧只拿到 VALIDATED+ 的抽象约束——原文永不回流（§45）',
+    'sub.sy':'健康 · 导出',
+    'search.ph':'快速跳转…','ph.bookTitle':'书名（可留空用文件名）','ph.ruleName':'规则名','ph.ruleStmt':'规则陈述',
+    'ph.hyp':'假设陈述（须可证伪）','ph.falsifier':'可证伪条件','ph.sceneId':'scene_id（可选）','ph.orText':'或直接粘贴文本',
+    'ph.candA':'候选 A 文本','ph.candB':'候选 B 文本','ph.nfGoal':'下一场目标，例：让A怀疑B但不能确认',
+    'btn.ingest':'摄入','btn.analyze':'运行 11-Pass 分析','btn.newRule':'新建规则','btn.addHyp':'提出假设','btn.simulate':'模拟阅读',
+    'btn.arena':'开赛','btn.advice':'获取写作建议','btn.export':'导出 Obsidian 知识库（§42）',
+    'th.title':'书名','th.author':'作者','th.chapters':'章节','th.scenes':'场景','th.rule':'规则','th.tier':'等级',
+    'ov.quick':'快速验收','ov.openGene':'打开场景基因','ov.ingestNew':'摄入一本新书',
+    'ov.heroText':'「真模型验证」已由真实 LLM 完成 11-Pass 拆解。亮点：同一事实「有人来过」——李四 <span class="tag t-ok">KNOWN 0.9</span> 张三 <span class="tag t-warn">BELIEVED 0.8</span>，规范 §10 的知识状态分化真实发生。',
+    'sc.summary':'摘要 · Reconciler','sc.events':'事件时间线','sc.claims':'Claims','sc.emotions':'情绪 · Appraisal','sc.knowledge':'知识状态分化',
+    'sc.hintEvents':'只收「状态变化」，环境描写不算（§8）','sc.hintClaims':'按类型筛选 · 每条可沿 run_id 溯源到原始模型调用（§35）',
+    'sc.hintKnow':'同一事实 · 不同角色 · 不同状态（§10）','sc.analyzed':'已分析','sc.unanalyzed':'未分析','sc.all':'全部','sc.scene':'场景',
+    'sc.noKnow':'该场景无知识更新','sc.passed':'11-PASS','sc.pending':'未分析','sc.noSummary':'（尚未运行 Reconciler）',
+    'kn.gateTitle':'§51 门禁清单','kn.noRules':'暂无 VALIDATED+ 规则',
+    'rd.reader':'读者模拟','rd.arena':'Writer Arena','opt.noProfile':'（无画像）',
+    'msg.analyzing':'分析中…','toast.ingestOk':'摄入完成','toast.ruleOk':'规则已创建（OBSERVATION）','toast.hypOk':'假设已登记',
+    'toast.passDone':'Pass 完成，失败','toast.exported':'个文件 →','misc.winner':'胜者','misc.pairs':'对','misc.ties':'平',
+    'confirm.analyze':'将真实调用 LLM 11 次（约 5-9 分钟，消耗 API 额度）。继续？','misc.noRes':'无结果','misc.none':'无',
+    'gate.blocked':'⛔ P-10 门禁拦截：无 VALIDATED 知识','gate.ok':'✅ 基于 VALIDATED 知识','misc.fail':'失败：',
+    'nf.blockedHint':'这是 P-10 门禁在起作用：先去「知识门禁」把规则晋升到 VALIDATED',
+  },
+  en: {
+    'nav.ov':'Overview','nav.lib':'Corpus & Ingest','nav.sc':'Scene Genome','nav.kn':'Knowledge Gate','nav.re':'Research Lab','nav.rd':'Reader · Arena','nav.nf':'NovelForge','nav.sy':'System',
+    'sub.ov':'Live data · every conclusion traceable via Claim → Run → ModelCall (§35)',
+    'sub.lib':'TXT / MD / EPUB / DOCX → chapter detection → scene splitting → dedup (rule-based, deterministic)',
+    'sub.sc':'11-pass decomposition: events · emotions · knowledge states · causality · techniques · counter-interpretation · reconcile',
+    'sub.kn':'Only VALIDATED+ may feed NovelForge (P-10) · a refused promotion tells you exactly what is missing',
+    'sub.re':'Hypotheses must be falsifiable (§18) · experiments must declare a control (禁6) · verdicts come from blind-judge metrics (P-08)',
+    'sub.rd':'Persona-driven 9-dimension reader response · blind A/B arena (the judge never sees group labels, 禁7)',
+    'sub.nf':'Production receives only abstract VALIDATED+ constraints — raw text never leaks back (§45)',
+    'sub.sy':'Health · export',
+    'search.ph':'Jump to…','ph.bookTitle':'Title (defaults to filename)','ph.ruleName':'Rule name','ph.ruleStmt':'Rule statement',
+    'ph.hyp':'Hypothesis (must be falsifiable)','ph.falsifier':'Falsification condition','ph.sceneId':'scene_id (optional)','ph.orText':'or paste text',
+    'ph.candA':'Candidate A text','ph.candB':'Candidate B text','ph.nfGoal':'Next scene goal, e.g. make A suspect B without confirming',
+    'btn.ingest':'Ingest','btn.analyze':'Run 11-pass analysis','btn.newRule':'New rule','btn.addHyp':'Add hypothesis','btn.simulate':'Simulate',
+    'btn.arena':'Run arena','btn.advice':'Get scene advice','btn.export':'Export Obsidian vault (§42)',
+    'th.title':'Title','th.author':'Author','th.chapters':'Chapters','th.scenes':'Scenes','th.rule':'Rule','th.tier':'Tier',
+    'ov.quick':'Quick verification','ov.openGene':'Open Scene Genome','ov.ingestNew':'Ingest a new book',
+    'ov.heroText':'"真模型验证" has been fully decomposed by a real LLM (11 passes). Highlight: the same fact — 李四 <span class="tag t-ok">KNOWN 0.9</span> vs 张三 <span class="tag t-warn">BELIEVED 0.8</span>. Spec §10 knowledge differentiation, live.',
+    'sc.summary':'Summary · Reconciler','sc.events':'Event timeline','sc.claims':'Claims','sc.emotions':'Emotions · Appraisal','sc.knowledge':'Knowledge differentiation',
+    'sc.hintEvents':'State changes only — scene-setting does not count (§8)','sc.hintClaims':'Filter by type · each claim traceable via run_id to the raw model call (§35)',
+    'sc.hintKnow':'Same fact · different characters · different states (§10)','sc.analyzed':'Analyzed','sc.unanalyzed':'Unanalyzed','sc.all':'All','sc.scene':'Scene',
+    'sc.noKnow':'No knowledge updates in this scene','sc.passed':'11-PASS','sc.pending':'Unanalyzed','sc.noSummary':'(Reconciler not run yet)',
+    'kn.gateTitle':'§51 Gate checklist','kn.noRules':'No VALIDATED+ rules yet',
+    'rd.reader':'Reader simulation','rd.arena':'Writer Arena','opt.noProfile':'(no profile)',
+    'msg.analyzing':'Analyzing…','toast.ingestOk':'Ingested','toast.ruleOk':'Rule created (OBSERVATION)','toast.hypOk':'Hypothesis registered',
+    'toast.passDone':'passes done, failed:','toast.exported':'files →','misc.winner':'Winner','misc.pairs':'pairs','misc.ties':'ties',
+    'confirm.analyze':'This really calls the LLM 11 times (~5-9 min, consumes API quota). Continue?','misc.noRes':'No results','misc.none':'None',
+    'gate.blocked':'⛔ P-10 gate: no VALIDATED knowledge','gate.ok':'✅ Based on VALIDATED knowledge','misc.fail':'Failed: ',
+    'nf.blockedHint':'That is the P-10 gate working — promote a rule to VALIDATED in the Knowledge Gate tab first',
+  },
+  ja: {
+    'nav.ov':'ダッシュボード','nav.lib':'コーパス取り込み','nav.sc':'シーンゲノム','nav.kn':'ナレッジゲート','nav.re':'研究ラボ','nav.rd':'読者 · アリーナ','nav.nf':'NovelForge','nav.sy':'システム',
+    'sub.ov':'ライブデータ · 全ての結論は Claim → Run → ModelCall で追跡可能（§35）',
+    'sub.lib':'TXT / MD / EPUB / DOCX → 章検出 → シーン分割 → 重複検出（ルールベース・決定論的）',
+    'sub.sc':'11パス分解：イベント · 感情 · 知識状態 · 因果 · 技法 · 代替解釈 · Reconcile',
+    'sub.kn':'VALIDATED+ のみが NovelForge に供給されます（P-10）· 门 gate が拒否する場合は欠けている要件を明示',
+    'sub.re':'仮説は反証可能であること（§18）· 実験は対照群を宣言すること（禁6）· 判定はブラインド審査の指標による（P-08）',
+    'sub.rd':'ペルソナ駆動の9次元読者反応 · 匿名 A/B ブラインド審査（審査者はグループを見ない，禁7）',
+    'sub.nf':'本番側は VALIDATED+ の抽象制約のみ取得 — 原文は決して漏出しない（§45）',
+    'sub.sy':'ヘルス · エクスポート',
+    'search.ph':'移動先を検索…','ph.bookTitle':'タイトル（空欄でファイル名）','ph.ruleName':'ルール名','ph.ruleStmt':'ルールの内容',
+    'ph.hyp':'仮説（反証可能なこと）','ph.falsifier':'反証条件','ph.sceneId':'scene_id（任意）','ph.orText':'またはテキストを貼付',
+    'ph.candA':'候補 A のテキスト','ph.candB':'候補 B のテキスト','ph.nfGoal':'次のシーン目標、例：AにBを疑わせるが確証はさせない',
+    'btn.ingest':'取り込む','btn.analyze':'11パス解析を実行','btn.newRule':'ルール作成','btn.addHyp':'仮説を提出','btn.simulate':'シミュレート',
+    'btn.arena':'対戦開始','btn.advice':'シーン助言を取得','btn.export':'Obsidian ボルト書き出し（§42）',
+    'th.title':'タイトル','th.author':'作者','th.chapters':'章','th.scenes':'シーン','th.rule':'ルール','th.tier':'ティア',
+    'ov.quick':'クイック検証','ov.openGene':'シーンゲノムを開く','ov.ingestNew':'新しい本を取り込む',
+    'ov.heroText':'「真模型验证」は実 LLM による 11 パス分解済み。ハイライト：同じ事実でも 李四 <span class="tag t-ok">KNOWN 0.9</span> に対し 张三 は <span class="tag t-warn">BELIEVED 0.8</span> — 仕様 §10 の知識状態差分が実際に動作。',
+    'sc.summary':'要約 · Reconciler','sc.events':'イベントタイムライン','sc.claims':'Claims','sc.emotions':'感情 · Appraisal','sc.knowledge':'知識状態の差分化',
+    'sc.hintEvents':'状態変化のみ。情景描写は対象外（§8）','sc.hintClaims':'タイプで絞り込み · 各 Claim は run_id で元のモデル呼び出しまで追跡可能（§35）',
+    'sc.hintKnow':'同一の事実 · 異なる人物 · 異なる状態（§10）','sc.analyzed':'分析済み','sc.unanalyzed':'未分析','sc.all':'すべて','sc.scene':'シーン',
+    'sc.noKnow':'このシーンに知識更新はありません','sc.passed':'11-PASS','sc.pending':'未分析','sc.noSummary':'（Reconciler 未実行）',
+    'kn.gateTitle':'§51 ゲートチェックリスト','kn.noRules':'VALIDATED+ ルールはまだありません',
+    'rd.reader':'読者シミュレーション','rd.arena':'Writer Arena','opt.noProfile':'（ペルソナなし）',
+    'msg.analyzing':'解析中…','toast.ingestOk':'取り込み完了','toast.ruleOk':'ルールを作成しました（OBSERVATION）','toast.hypOk':'仮説を登録しました',
+    'toast.passDone':'パス完了、失敗：','toast.exported':'ファイル →','misc.winner':'勝者','misc.pairs':'ペア','misc.ties':'引分',
+    'confirm.analyze':'LLM を 11 回呼び出します（約 5〜9 分、API クォータを消費）。続行しますか？','misc.noRes':'結果なし','misc.none':'なし',
+    'gate.blocked':'⛔ P-10 ゲート：VALIDATED 知識がありません','gate.ok':'✅ VALIDATED 知識に基づく','misc.fail':'失敗：',
+    'nf.blockedHint':'P-10 ゲートが機能しています — 先にナレッジゲートでルールを VALIDATED まで昇格させてください',
+  }
+};
+let LANG = document.documentElement.lang.startsWith('ja') ? 'ja' : document.documentElement.lang.startsWith('zh') ? 'zh' : 'en';
+const t = k => (I18N[LANG] && I18N[LANG][k]) || I18N.zh[k] || k;
+function applyI18n() {
+  $$('[data-i18n]').forEach(el => el.textContent = t(el.dataset.i18n));
+  $$('[data-i18n-html]').forEach(el => el.innerHTML = t(el.dataset.i18nHtml));
+  $$('[data-i18n-ph]').forEach(el => el.placeholder = t(el.dataset.i18nPh));
+  document.documentElement.lang = LANG === 'zh' ? 'zh-CN' : LANG;
+  $$('#lang-sw button').forEach(b => b.classList.toggle('on', b.dataset.l === LANG));
+}
+$$('#lang-sw button').forEach(b => b.onclick = () => {
+  LANG = b.dataset.l; localStorage.setItem('ng_lang', LANG);
+  applyI18n();
+  const cur = $$('.sect').find(x => x.classList.contains('on'));
+  if (cur) (PAGES[cur.id.slice(2)] || (() => {}))();
+});
+
+/* ================= theme ================= */
+function applyThemeIcon() {
+  const dark = document.documentElement.dataset.theme === 'dark';
+  $('#theme-ic').innerHTML = `<use href="#i-${dark ? 'sun' : 'moon'}"/>`;
+}
+function toggleTheme() {
+  document.body.classList.add('theming');
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('ng_theme', next);
+  applyThemeIcon();
+  setTimeout(() => document.body.classList.remove('theming'), 320);
+  if (window._cur && $('#s-scene').classList.contains('on')) loadGenome(window._cur.sc.id);
+}
+
+/* ================= core helpers ================= */
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-const api = async (p, opts) => { const r = await fetch(p, opts); const t = await r.text();
-  let j; try { j = JSON.parse(t) } catch { j = t } if (!r.ok) throw new Error((j && j.detail) || r.status + ' ' + r.statusText); return j; };
+const api = async (p, opts) => { const r = await fetch(p, opts); const t2 = await r.text();
+  let j; try { j = JSON.parse(t2) } catch { j = t2 } if (!r.ok) throw new Error((j && j.detail) || r.status + ' ' + r.statusText); return j; };
 const post = (p, body) => api(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const toast = (m, bad) => { const t = $('#toast'); t.innerHTML = m; t.style.borderColor = bad ? 'var(--bad)' : 'var(--bd2)'; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 3600); };
+const toast = (m, bad) => { const el = $('#toast'); el.innerHTML = m; el.style.borderColor = bad ? 'var(--bad)' : 'var(--bd2)'; el.style.display = 'block'; clearTimeout(el._h); el._h = setTimeout(() => el.style.display = 'none', 3600); };
 const esc = s => (s ?? '').toString().replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-const tierTag = t => { const c = { PRODUCTION_PROVEN:'t-ok', VALIDATED:'t-ok', REPLICATED:'t-cy', SUPPORTED:'t-cy', CANDIDATE:'t-warn', OBSERVATION:'t-warn', REJECTED:'t-bad', DEPRECATED:'t-bad' }[t] || 't-acc';
-  return `<span class="tag ${c}">${esc(t)}</span>`; };
+const tierTag = tt => { const c = { PRODUCTION_PROVEN:'t-ok', VALIDATED:'t-ok', REPLICATED:'t-cy', SUPPORTED:'t-cy', CANDIDATE:'t-warn', OBSERVATION:'t-warn', REJECTED:'t-bad', DEPRECATED:'t-bad' }[tt] || 't-acc';
+  return `<span class="tag ${c}">${esc(tt)}</span>`; };
 function countUp(el, target) { const d = 600, t0 = performance.now();
-  const tick = t => { const k = Math.min((t - t0) / d, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
+  const tick = now => { const k = Math.min((now - t0) / d, 1); el.textContent = Math.round(target * (1 - Math.pow(1 - k, 3))); if (k < 1) requestAnimationFrame(tick); };
   requestAnimationFrame(tick); }
 
 const PAGES = { ov: loadOverview, lib: loadBooks, sc: initSceneTab, kn: loadRules, re: loadHypotheses, rd: loadReader, sy: loadSys };
@@ -313,6 +478,7 @@ function nav(s) {
 }
 $$('#rail a').forEach(a => a.onclick = () => nav(a.dataset.s));
 
+/* ================= palette ================= */
 let palSel = 0, palItems = [];
 function openPalette() { $('#palette').classList.add('open'); $('#pal-q').value = ''; $('#pal-q').focus(); palSearch(); }
 function closePalette() { $('#palette').classList.remove('open'); }
@@ -328,54 +494,53 @@ document.addEventListener('keydown', e => {
 });
 async function palSearch() {
   const q = $('#pal-q').value.trim().toLowerCase(); palSel = 0; palItems = [];
-  [['总览','ov'],['书库与摄入','lib'],['场景基因','sc'],['知识门禁','kn'],['研究实验室','re'],['读者 · 竞技场','rd'],['NovelForge','nf'],['系统','sy']]
-    .forEach(([lab, s]) => { if (!q || lab.toLowerCase().includes(q)) palItems.push({ icon: '→', lab, go: () => nav(s) }); });
+  Object.keys(I18N[LANG]).filter(k => k.startsWith('nav.')).forEach(k => {
+    const label = t(k); if (!q || label.toLowerCase().includes(q)) palItems.push({ icon: '→', lab: esc(label), go: () => nav(k.slice(4)) }); });
   try { const books = await api('/api/v1/books');
     books.filter(b => !q || b.title.toLowerCase().includes(q)).slice(0, 8).forEach(b =>
-      palItems.push({ icon: '📚', lab: `${esc(b.title)} · ${b.scene_count} 场景`, go: () => { nav('sc'); $('#sc-book').value = b.id; loadScenes(); } })); } catch {}
+      palItems.push({ icon: '📚', lab: `${esc(b.title)} · ${b.scene_count} ${t('th.scenes').toLowerCase()}`, go: () => { nav('sc'); $('#sc-book').value = b.id; loadScenes(); } })); } catch {}
   palRender();
 }
 function palRender() {
   $('#pal-res').innerHTML = palItems.map((it, i) =>
-    `<div class="it ${i === palSel ? 'sel' : ''}" onclick="palItems[${i}].go();closePalette()"><span>${it.icon}</span>${it.lab}</div>`).join('') || '<div class="it dim">无结果</div>';
+    `<div class="it ${i === palSel ? 'sel' : ''}" onclick="palItems[${i}].go();closePalette()"><span>${it.icon}</span>${it.lab}</div>`).join('') || `<div class="it dim">${t('misc.noRes')}</div>`;
 }
 
+/* ================= overview ================= */
 let _verifyId = null;
 async function loadOverview() {
   const [h, books, hy, rules] = await Promise.all([api('/health'), api('/api/v1/books'), api('/api/v1/hypotheses'), api('/api/v1/rules')]);
   const totalScenes = books.reduce((s, b) => s + b.scene_count, 0);
   _verifyId = (books.find(b => b.title === '真模型验证') || {}).id;
-  const cards = [[books.length, '书籍'], [totalScenes, '场景'], [hy.length, '假设'], [rules.length, '生产规则'], [h.tables, '数据库表']];
-  $('#ov-kpis').innerHTML = cards.map((c, i) => `<div class="card kpi"><b id="cu-${i}">0</b><span>${c[1]}</span></div>`).join('');
+  const cards = [[books.length, t('nav.lib')], [totalScenes, t('th.scenes')], [hy.length, t('nav.re')], [rules.length, t('nav.kn')], [h.tables, 'DB']];
+  $('#ov-kpis').innerHTML = cards.map((c, i) => `<div class="card kpi"><b id="cu-${i}">0</b><span>${esc(c[1])}</span></div>`).join('');
   cards.forEach((c, i) => countUp($('#cu-' + i), c[0]));
 }
 
+/* ================= books ================= */
 async function loadBooks() {
   const books = (await api('/api/v1/books')).slice().reverse();
   $('#tb-books tbody').innerHTML = books.slice(0, 30).map(b => `
     <tr><td><b>${esc(b.title)}</b></td><td class="dim">${esc(b.author || '—')}</td>
     <td class="mono dim" style="text-align:right">${b.chapter_count}</td><td class="mono" style="text-align:right">${b.scene_count}</td>
-    <td style="text-align:right"><button class="ghost" onclick="gotoBook('${b.id}')">看场景</button></td></tr>`).join('');
+    <td style="text-align:right"><button class="ghost" onclick="gotoBook('${b.id}')">${t('sc.scene')} →</button></td></tr>`).join('');
 }
-function gotoBook(id) {
-  nav('sc');
-  (async () => { if (!$('#sc-book').options.length) await initSceneTab();
-    if (id) $('#sc-book').value = id; loadScenes(); })();
-}
+function gotoBook(id) { nav('sc'); (async () => { if (!$('#sc-book').options.length) await initSceneTab(); if (id) $('#sc-book').value = id; loadScenes(); })(); }
 async function ingest() {
   const f = $('#ing-file').files[0];
-  if (!f) return toast('先选一个文件', true);
+  if (!f) return toast(t('ph.bookTitle'), true);
   const fd = new FormData(); fd.append('file', f);
   if ($('#ing-title').value) fd.append('title', $('#ing-title').value);
-  $('#ing-msg').textContent = '解析中…';
+  $('#ing-msg').textContent = '…';
   try { const r = await fetch('/api/v1/corpus/ingest', { method: 'POST', body: fd });
     const j = await r.json();
     if (!r.ok) throw new Error(j.detail || r.status);
     $('#ing-msg').textContent = '';
-    toast(`✅ ${j.chapter_count} 章 / ${j.scene_count} 场景 / ${j.span_count} 段落` + (j.warnings.length ? '<br>⚠ ' + j.warnings.map(esc).join(';') : ''));
-    loadBooks(); } catch (e) { $('#ing-msg').textContent = '失败：' + e.message; }
+    toast(`✅ ${t('toast.ingestOk')}: ${j.chapter_count} / ${j.scene_count} / ${j.span_count}` + (j.warnings.length ? '<br>⚠ ' + j.warnings.map(esc).join(';') : ''));
+    loadBooks(); } catch (e) { $('#ing-msg').textContent = t('misc.fail') + e.message; }
 }
 
+/* ================= scene genome ================= */
 async function initSceneTab() {
   const books = (await api('/api/v1/books')).filter(b => b.scene_count > 0);
   $('#sc-book').innerHTML = books.map(b => `<option value="${b.id}">${esc(b.title)}（${b.scene_count}）</option>`).join('');
@@ -385,9 +550,9 @@ async function initSceneTab() {
 }
 async function loadScenes() {
   const scenes = await api(`/api/v1/books/${$('#sc-book').value}/scenes`);
-  $('#sc-list').innerHTML = '<h2>场景</h2><div style="margin-top:4px">' +
+  $('#sc-list').innerHTML = `<h2>${t('sc.scene')}</h2><div style="margin-top:4px">` +
     scenes.map(s => `<div class="scene-item" data-id="${s.id}" onclick="pickScene('${s.id}')">
-      <span>场景 ${s.index}</span>${s.analyzed ? '<span class="tag t-ok">已分析</span>' : '<span class="tag t-dim">未分析</span>'}</div>`).join('') + '</div>';
+      <span>${t('sc.scene')} ${s.index}</span>${s.analyzed ? `<span class="tag t-ok">${t('sc.analyzed')}</span>` : `<span class="tag t-dim">${t('sc.unanalyzed')}</span>`}</div>`).join('') + '</div>';
   const first = scenes.find(s => s.analyzed) || scenes[0];
   if (first) pickScene(first.id);
 }
@@ -405,66 +570,69 @@ async function loadGenome(id) {
   $('#sc-mid').innerHTML = `
     <div class="card pad" style="margin-bottom:12px">
       <div class="row" style="display:flex;justify-content:space-between">
-        <h2>摘要 · Reconciler</h2>${sc.analyzed ? '<span class="tag t-ok">11-PASS</span>' : '<span class="tag t-dim">未分析</span>'}</div>
-      <div style="margin-top:6px;font-size:13px">${esc(sc.summary) || '<span class="dim">（尚未运行 Reconciler）</span>'}</div>
+        <h2>${t('sc.summary')}</h2>${sc.analyzed ? `<span class="tag t-ok">${t('sc.passed')}</span>` : `<span class="tag t-dim">${t('sc.pending')}</span>`}</div>
+      <div style="margin-top:6px;font-size:13px">${esc(sc.summary) || `<span class="dim">${t('sc.noSummary')}</span>`}</div>
       <div class="dimmer mono" style="margin-top:8px">confidence ${sc.confidence} · pov ${esc(sc.pov || '—')} · index ${sc.index}</div></div>
     <div class="card pad">
-      <h2>事件时间线 <span class="tag t-cy" style="margin-left:6px">${evts.length}</span></h2>
-      <div class="dimmer" style="font-size:11.5px">只收「状态变化」，环境描写不算（§8）</div>
+      <h2>${t('sc.events')} <span class="tag t-cy" style="margin-left:6px">${evts.length}</span></h2>
+      <div class="dimmer" style="font-size:11.5px">${t('sc.hintEvents')}</div>
       <div class="tl">${evts.map(e =>
         `<div class="node"><span class="tag t-cy">${esc((e.types || []).join('/')) || '?'}</span>
          <span style="margin-left:8px">${esc(e.description)}</span>
-         <span class="mono dim" style="float:right">conf ${e.confidence}</span></div>`).join('') || '<span class="dim">无</span>'}</div></div>
+         <span class="mono dim" style="float:right">conf ${e.confidence}</span></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`}</div></div>
     <div class="card pad" style="margin-top:12px">
-      <h2>Claims <span class="tag t-acc" style="margin-left:6px">${clms.length}</span></h2>
-      <div class="dimmer" style="font-size:11.5px">按类型筛选 · 每条可沿 run_id 溯源到原始模型调用（§35）</div>
+      <h2>${t('sc.claims')} <span class="tag t-acc" style="margin-left:6px">${clms.length}</span></h2>
+      <div class="dimmer" style="font-size:11.5px">${t('sc.hintClaims')}</div>
       <div class="pillbar" id="clm-pills"></div><div id="clm-list"></div></div>`;
   renderClaims(null);
   const knowledge = clms.filter(c => (c.predicate || '').startsWith('knowledge:'));
   $('#sc-right').innerHTML = `
     <div class="card pad" style="margin-bottom:12px">
-      <h2>情绪 · Appraisal <span class="tag t-acc" style="margin-left:6px">${emos.length}</span></h2>
+      <h2>${t('sc.emotions')} <span class="tag t-acc" style="margin-left:6px">${emos.length}</span></h2>
       <div id="radar" style="height:215px;margin-top:4px"></div><div id="radar-fb"></div></div>
     <div class="card pad">
-      <h2>知识状态分化</h2>
-      <div class="dimmer" style="font-size:11.5px;margin-bottom:6px">同一事实 · 不同角色 · 不同状态（§10）</div>
+      <h2>${t('sc.knowledge')}</h2>
+      <div class="dimmer" style="font-size:11.5px;margin-bottom:6px">${t('sc.hintKnow')}</div>
       ${knowledge.length ? knowledge.map(k => {
         const m = (k.predicate || '').match(/^knowledge:(.+)$/); const status = m ? m[1] : '?';
         const st = { KNOWN: 't-ok', BELIEVED: 't-warn', SUSPECTED: 't-warn', FALSE_BELIEF: 't-bad', EXPOSED: 't-cy' }[status] || 't-dim';
         return `<div class="kcard"><span style="flex:1;min-width:0">${esc(k.subject)}</span><span class="mono dimmer">${esc(k.object)}</span><span class="tag ${st}">${esc(status)}</span></div>`;
-      }).join('') : '<span class="dim">该场景无知识更新</span>'}</div>`;
+      }).join('') : `<span class="dim">${t('sc.noKnow')}</span>`}</div>`;
   drawRadar(emos);
 }
 function renderClaims(filter) {
   const { clms } = window._cur || {}; if (!clms) return;
   const preds = [...new Set(clms.map(c => (c.predicate || '').split(':')[0]))];
-  $('#clm-pills').innerHTML = `<span class="pill ${filter === null ? 'on' : ''}" onclick="renderClaims(null)">全部 ${clms.length}</span>` +
+  $('#clm-pills').innerHTML = `<span class="pill ${filter === null ? 'on' : ''}" onclick="renderClaims(null)">${t('sc.all')} ${clms.length}</span>` +
     preds.map(p => { const n = clms.filter(c => (c.predicate || '').split(':')[0] === p).length;
       return `<span class="pill ${filter === p ? 'on' : ''}" onclick="renderClaims('${p}')">${esc(p)} ${n}</span>`; }).join('');
   const list = clms.filter(c => !filter || (c.predicate || '').split(':')[0] === filter);
   $('#clm-list').innerHTML = list.slice(0, 22).map(c =>
     `<div class="tl"><div class="node mono" style="padding:6px 11px">${esc(c.predicate)}<br>
-     <span class="dim">${esc(c.subject)} → ${esc(c.object)}</span> <span class="tag t-dim" style="float:right">${esc(c.status)}</span></div></div>`).join('') || '<span class="dim">无</span>';
+     <span class="dim">${esc(c.subject)} → ${esc(c.object)}</span> <span class="tag t-dim" style="float:right">${esc(c.status)}</span></div></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`;
 }
-function textBars(emos, elSel, fbSel) {
-  $(elSel).style.display = 'none';
-  $(fbSel).innerHTML = emos.map(e => `<div class="bars"><div class="row" style="display:flex;justify-content:space-between"><span>${esc(e.emotion)}</span><span class="mono dim">${e.intensity}</span></div><div class="b"><i style="width:${e.intensity * 100}%"></i></div></div>`).join('') || '<span class="dim">无</span>';
+function textBars(emos) {
+  $('#radar').style.display = 'none';
+  $('#radar-fb').innerHTML = emos.map(e => `<div class="bars"><div class="row" style="display:flex;justify-content:space-between"><span>${esc(e.emotion)}</span><span class="mono dim">${e.intensity}</span></div><div class="b"><i style="width:${e.intensity * 100}%"></i></div></div>`).join('') || `<span class="dim">${t('misc.none')}</span>`;
+  requestAnimationFrame(() => $$('#radar-fb .b i').forEach(b => b.style.width = b.style.width));
 }
 async function drawRadar(emos) {
   const el = $('#radar'); if (!el) return;
   const ready = await window._echartsReady;
-  if (!ready || !window.echarts) return textBars(emos, '#radar', '#radar-fb');
+  if (!ready || !window.echarts) return textBars(emos);
   const dims = [...new Set(emos.flatMap(e => Object.keys(e.appraisal || {})))];
-  if (!dims.length) return textBars(emos, '#radar', '#radar-fb');
+  if (!dims.length) return textBars(emos);
+  const dark = document.documentElement.dataset.theme === 'dark';
+  const line = dark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.08)';
+  const label = dark ? '#616774' : '#979DA8';
   el.style.display = 'block';
   echarts.dispose(el);
   echarts.init(el, null, { renderer: 'canvas' }).setOption({
     backgroundColor: 'transparent',
     radar: { indicator: dims.map(d => ({ name: d, max: 1 })),
-      splitArea: { areaStyle: { color: ['transparent', 'rgba(255,255,255,.025)'] } },
-      axisLine: { lineStyle: { color: 'rgba(255,255,255,.07)' } },
-      splitLine: { lineStyle: { color: 'rgba(255,255,255,.07)' } },
-      axisName: { color: '#616774', fontSize: 10 }, radius: '64%' },
+      splitArea: { areaStyle: { color: ['transparent', dark ? 'rgba(255,255,255,.025)' : 'rgba(0,0,0,.02)'] } },
+      axisLine: { lineStyle: { color: line } }, splitLine: { lineStyle: { color: line } },
+      axisName: { color: label, fontSize: 10 }, radius: '64%' },
     series: [{ type: 'radar', symbolSize: 2.5,
       data: emos.map((e, i) => ({ name: e.emotion, value: dims.map(d => e.appraisal[d] ?? 0),
         lineStyle: { color: i % 2 ? '#5AC8E8' : '#8B8CF9', width: 1.5 },
@@ -474,38 +642,39 @@ async function drawRadar(emos) {
 }
 async function analyze() {
   const id = $('#sc-scene').value; if (!id) return;
-  if (!confirm('将真实调用 LLM 11 次（约 5-9 分钟，消耗 API 额度）。继续？')) return;
-  $('#btn-analyze').disabled = true; $('#sc-msg').textContent = '分析中…';
+  if (!confirm(t('confirm.analyze'))) return;
+  $('#btn-analyze').disabled = true; $('#sc-msg').textContent = t('msg.analyzing');
   try { const r = await api(`/api/v1/scenes/${id}/analyze?force=true`);
     const errs = (r.passes || []).filter(p => p.error).length;
-    toast(`✅ ${r.passes.length} Pass 完成，失败 ${errs}`); loadGenome(id);
-  } catch (e) { toast('失败：' + esc(e.message), true); }
+    toast(`✅ ${r.passes.length} ${t('toast.passDone')} ${errs}`); loadGenome(id);
+  } catch (e) { toast(t('misc.fail') + esc(e.message), true); }
   $('#btn-analyze').disabled = false; $('#sc-msg').textContent = '';
 }
 
+/* ================= knowledge ================= */
 const LADDER = ['OBSERVATION', 'CANDIDATE', 'SUPPORTED', 'REPLICATED', 'VALIDATED', 'PRODUCTION_PROVEN'];
 async function loadRules() {
   const rules = await api('/api/v1/rules');
   const maxIdx = rules.length ? Math.max(...rules.map(r => LADDER.indexOf(r.tier))) : -1;
-  $('#kn-stepper').innerHTML = LADDER.map((t, i) => {
+  $('#kn-stepper').innerHTML = LADDER.map((tt, i) => {
     const reached = i <= maxIdx;
-    return `<div class="step ${reached ? 'reached' : ''}"><div class="dot">${i + 1}</div><div class="lab">${t}</div>${i < LADDER.length - 1 ? '<div class="bar"></div>' : ''}</div>`;
+    return `<div class="step ${reached ? 'reached' : ''}"><div class="dot">${i + 1}</div><div class="lab">${tt}</div>${i < LADDER.length - 1 ? '<div class="bar"></div>' : ''}</div>`;
   }).join('');
   $('#tb-rules tbody').innerHTML = rules.slice(0, 25).map(r => `
     <tr><td><b>${esc(r.name)}</b> <span class="mono dimmer">${r.id}</span></td><td>${tierTag(r.tier)}</td>
     <td style="text-align:right"><div class="row" style="display:inline-flex;gap:6px">
-      <button class="ghost" onclick="promote('${r.id}')">晋升</button>
+      <button class="ghost" onclick="promote('${r.id}')">${LANG === 'en' ? 'Promote' : LANG === 'ja' ? '昇格' : '晋升'}</button>
       <button class="ghost" onclick="gate('${r.id}')">§51</button>
-      <button class="ghost" onclick="fb('${r.id}')">反馈✓</button></div></td></tr>`).join('') ||
-    '<tr><td colspan="3" class="dim">暂无 VALIDATED+ 规则</td></tr>';
+      <button class="ghost" onclick="fb('${r.id}')">✓</button></div></td></tr>`).join('') ||
+    `<tr><td colspan="3" class="dim">${t('kn.noRules')}</td></tr>`;
 }
 async function addRule() {
-  await post('/api/v1/rules', { name: $('#kr-name').value || '未命名', statement: $('#kr-stmt').value || '（空）' });
-  toast('✅ 规则已创建（OBSERVATION）'); loadRules();
+  await post('/api/v1/rules', { name: $('#kr-name').value || '—', statement: $('#kr-stmt').value || '—' });
+  toast('✅ ' + t('toast.ruleOk')); loadRules();
 }
 async function promote(id) {
   try { const r = await api(`/api/v1/rules/${id}/promote`, { method: 'POST' });
-    r.promoted ? toast(`✅ 晋升 → ${r.to}`) : toast('⛔ 门禁拒绝：<br>' + (r.missing || [r.reason]).map(esc).join('<br>'), !r.promoted);
+    r.promoted ? toast(`✅ → ${r.to}`) : toast('⛔<br>' + (r.missing || [r.reason]).map(esc).join('<br>'), !r.promoted);
     loadRules(); } catch (e) { toast(esc(e.message), true); }
 }
 async function gate(id) {
@@ -516,21 +685,22 @@ async function gate(id) {
 }
 function closeDrawer() { $('#drawer').classList.remove('open'); }
 async function fb(id) {
-  const r = await post('/api/v1/novelforge/production-feedback', { rule_id: id, accepted: true, chapter_ref: 'CH-验收', notes: 'dashboard' });
-  toast('生产反馈已记录 → ' + (r.to || r.outcome)); loadRules();
+  const r = await post('/api/v1/novelforge/production-feedback', { rule_id: id, accepted: true, chapter_ref: 'CH', notes: 'dashboard' });
+  toast((r.to || r.outcome)); loadRules();
 }
 
+/* ================= research ================= */
 async function loadHypotheses() {
   const hy = await api('/api/v1/hypotheses');
   $('#re-list').innerHTML = `<div class="card" style="overflow:hidden"><table>
-    <thead><tr><th>假设</th><th>状态</th><th></th></tr></thead><tbody>
+    <thead><tr><th>${t('ph.hyp')}</th><th>${t('th.tier')}</th><th></th></tr></thead><tbody>
     ${hy.slice(0, 20).map(h => `<tr><td>${esc(h.statement)}<br><span class="mono dimmer">${h.id}</span></td><td>${tierTag(h.status)}</td>
-      <td style="text-align:right"><button class="ghost" onclick="designExp('${h.id}')">设计并运行实验</button></td></tr>`).join('') ||
-      '<tr><td colspan="3" class="dim">暂无假设</td></tr>'}</tbody></table></div><div id="re-exp" style="margin-top:12px"></div>`;
+      <td style="text-align:right"><button class="ghost" onclick="designExp('${h.id}')">${LANG === 'en' ? 'Design & run' : LANG === 'ja' ? '設計して実行' : '设计并运行实验'}</button></td></tr>`).join('') ||
+      `<tr><td colspan="3" class="dim">${t('misc.none')}</td></tr>`}</tbody></table></div><div id="re-exp" style="margin-top:12px"></div>`;
 }
 async function addHypothesis() {
-  await post('/api/v1/hypotheses', { statement: $('#hy-stmt').value || '（空假设）', falsification_condition: $('#hy-fals').value || 'treatment not stably better than control' });
-  toast('✅ 假设已登记'); loadHypotheses();
+  await post('/api/v1/hypotheses', { statement: $('#hy-stmt').value || '—', falsification_condition: $('#hy-fals').value || 'treatment not stably better than control' });
+  toast('✅ ' + t('toast.hypOk')); loadHypotheses();
 }
 async function designExp(hid) {
   const exp = await post(`/api/v1/hypotheses/${hid}/design-experiment`, {
@@ -538,17 +708,18 @@ async function designExp(hid) {
     variants: [{ label: 'control', variant_type: 'control', changed: {} },
                { label: 'treatment_A', variant_type: 'treatment', changed: { stakes_change: { level: 'high' } } }] });
   const run = await api(`/api/v1/experiments/${exp.id}/run`, { method: 'POST' });
-  $('#re-exp').innerHTML = `<div class="card pad"><h2>实验 ${exp.id} · 裁决</h2>
+  $('#re-exp').innerHTML = `<div class="card pad"><h2>${exp.id}</h2>
     <div class="row" style="margin:8px 0">
       <span class="tag ${run.decision === 'inconclusive' ? 't-warn' : run.decision === 'supported' ? 't-ok' : 't-bad'}">${esc(run.decision)}</span>
       <span class="tag t-dim">${esc(run.hypothesis_status)}</span>
-      <span class="dim">pairs ${run.pairs} · treatment ${run.treatment_wins} 胜</span></div>
+      <span class="dim">${run.pairs} ${t('misc.pairs')}</span></div>
     <div class="dim" style="font-size:12px">${esc(run.reason)}</div></div>`;
 }
 
+/* ================= reader / arena ================= */
 async function loadReader() {
   const ps = await api('/api/v1/reader-profiles');
-  $('#rd-profile').innerHTML = ps.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || '<option value="">（无画像）</option>';
+  $('#rd-profile').innerHTML = ps.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('') || `<option value="">${t('opt.noProfile')}</option>`;
 }
 async function readerSim() {
   const body = {};
@@ -557,41 +728,47 @@ async function readerSim() {
   try { const r = await post('/api/v1/eval/reader-sim', body);
     $('#rd-out').innerHTML = Object.entries(r.metrics).map(([k, v]) =>
       `<div class="row" style="display:flex;align-items:center;gap:10px;margin:4px 0"><span class="dim" style="width:190px;font-size:11.5px">${esc(k)}</span>
-       <div class="bars" style="flex:1"><div class="b" style="margin:0"><i style="width:${v * 100}%"></i></div></div>
+       <div class="bars" style="flex:1"><div class="b" style="margin:0"><i data-w="${v * 100}"></i></div></div>
        <span class="mono dim" style="width:36px;text-align:right">${v}</span></div>`).join('');
+    requestAnimationFrame(() => $$('#rd-out .b i').forEach(b => b.style.width = b.dataset.w + '%'));
   } catch (e) { toast(esc(e.message), true); }
 }
 async function arenaRun() {
   try { const r = await post('/api/v1/arena/run', { candidates: [
-      { label: 'A', text: $('#ar-a').value || '候选A' }, { label: 'B', text: $('#ar-b').value || '候选B' }] });
+      { label: 'A', text: $('#ar-a').value || 'A' }, { label: 'B', text: $('#ar-b').value || 'B' }] });
     $('#ar-out').innerHTML = `<div class="row" style="margin-top:8px">
-      <span class="tag t-acc">胜者 ${esc(r.ranking ? r.ranking[0] : '?')}</span>
-      <span class="tag t-dim">${r.pairs} 对 · ${r.ties} 平</span></div>`;
+      <span class="tag t-acc">${t('misc.winner')}: ${esc(r.ranking ? r.ranking[0] : '?')}</span>
+      <span class="tag t-dim">${r.pairs} ${t('misc.pairs')} · ${r.ties} ${t('misc.ties')}</span></div>`;
   } catch (e) { toast(esc(e.message), true); }
 }
 
+/* ================= novelforge ================= */
 async function nfAdvice() {
-  try { const r = await post('/api/v1/novelforge/scene-advice', { scene_goal: $('#nf-goal').value || '让A怀疑B但不能确认' });
+  try { const r = await post('/api/v1/novelforge/scene-advice', { scene_goal: $('#nf-goal').value || '' });
     const flagged = (r.risk_flags || []).includes('no_validated_knowledge_yet');
     $('#nf-out').innerHTML = `<div class="card pad">
       <div class="row" style="margin-bottom:8px">
-        <span class="tag ${flagged ? 't-warn' : 't-ok'}">${flagged ? '⛔ P-10 门禁拦截：无 VALIDATED 知识' : '✅ 基于 VALIDATED 知识'}</span>
+        <span class="tag ${flagged ? 't-warn' : 't-ok'}">${flagged ? t('gate.blocked') : t('gate.ok')}</span>
         ${r.knowledge_tier ? `<span class="tag t-acc">tier ${esc(r.knowledge_tier)}</span>` : ''}</div>
+      ${flagged ? `<div class="dim" style="font-size:12px;margin-bottom:8px">${t('nf.blockedHint')}</div>` : ''}
       <pre class="mono dim" style="white-space:pre-wrap">${esc(JSON.stringify(r, null, 2))}</pre></div>`;
   } catch (e) { toast(esc(e.message), true); }
 }
 
+/* ================= system ================= */
 async function loadSys() {
   const h = await api('/health');
   $('#sy-health').innerHTML = `<pre class="mono dim">${esc(JSON.stringify(h, null, 2))}</pre>
-    <div class="dimmer" style="margin-top:6px">API 文档 /docs</div>`;
+    <div class="dimmer" style="margin-top:6px">API /docs</div>`;
 }
 async function exportObsidian() {
   try { const r = await api('/api/v1/export/obsidian', { method: 'POST' });
-    $('#sy-obs').textContent = `✅ ${r.files.length} 个文件 → ${r.directory}`; }
+    $('#sy-obs').textContent = `✅ ${r.files.length} ${t('toast.exported')} ${r.directory}`; }
   catch (e) { toast(esc(e.message), true); }
 }
 
+applyThemeIcon();
+applyI18n();
 loadOverview();
 </script>
 </body>
